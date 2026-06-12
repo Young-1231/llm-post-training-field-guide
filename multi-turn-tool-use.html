@@ -1,0 +1,2446 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>多轮 Tool Use · Agentic RL 深度专题 · 2026</title>
+<meta name="description" content="Agentic RL 中多轮工具调用的深度解析：POMDP 形式化、Token Masking、Credit Assignment、Search-R1/ReTool/SimpleTIR 等代表工作与开放问题。" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Serif+SC:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['\\(','\\)'], ['$','$']],
+    displayMath: [['$$','$$'], ['\\[','\\]']],
+    processEscapes: true,
+    processEnvironments: true,
+    tags: 'none'
+  },
+  options: {
+    skipHtmlTags: ['script','noscript','style','textarea','pre','code'],
+    ignoreHtmlClass: 'mermaid|tex2jax_ignore'
+  },
+  chtml: { displayAlign: 'center' },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" id="MathJax-script" async></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.6/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg-0:#0a0e1a; --bg-1:#0f1525; --bg-2:#151c2e; --bg-3:#1d2638;
+  --fg-0:#e6edf7; --fg-1:#b9c4d4; --fg-2:#8492a8; --fg-3:#5b6a82;
+  --acc-cyan:#4fd1c5; --acc-blue:#5b8def; --acc-purple:#a78bfa;
+  --acc-pink:#f48fb1; --acc-yellow:#ffd166; --acc-green:#7be39a;
+  --acc-orange:#ff9f6e; --acc-red:#ff6b8a;
+  --grad-1:linear-gradient(135deg,#5b8def 0%,#a78bfa 50%,#f48fb1 100%);
+  --grad-2:linear-gradient(135deg,#4fd1c5 0%,#5b8def 100%);
+  --grad-3:linear-gradient(135deg,#ffd166 0%,#ff9f6e 100%);
+  --grad-4:linear-gradient(135deg,#a78bfa 0%,#f48fb1 100%);
+  --grad-bg:radial-gradient(ellipse at top, rgba(91,141,239,.08), transparent 50%),
+            radial-gradient(ellipse at bottom right, rgba(167,139,250,.06), transparent 50%),
+            radial-gradient(ellipse at bottom left, rgba(79,209,197,.05), transparent 50%);
+  --border-soft:1px solid rgba(255,255,255,.07);
+  --shadow-soft:0 8px 32px rgba(0,0,0,.25);
+  --r-sm:6px; --r-md:10px; --r-lg:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-padding-top:80px}
+body{
+  font-family:'Inter','Noto Sans SC',-apple-system,sans-serif;
+  background:var(--bg-0);color:var(--fg-0);
+  line-height:1.75;font-size:16px;
+  -webkit-font-smoothing:antialiased;
+  background-image:var(--grad-bg);background-attachment:fixed;
+}
+::selection{background:rgba(91,141,239,.35);color:#fff}
+::-webkit-scrollbar{width:10px}
+::-webkit-scrollbar-track{background:var(--bg-0)}
+::-webkit-scrollbar-thumb{background:var(--bg-3);border-radius:5px}
+
+/* 顶部导航 */
+.topnav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  backdrop-filter:blur(20px) saturate(180%);
+  background:rgba(10,14,26,.72);border-bottom:var(--border-soft);
+}
+.topnav-inner{
+  max-width:1480px;margin:0 auto;padding:14px 28px;
+  display:flex;align-items:center;justify-content:space-between;gap:24px;
+}
+.brand{display:flex;align-items:center;gap:12px;font-weight:700;font-size:.95rem}
+.brand-mark{
+  width:32px;height:32px;border-radius:8px;
+  background:var(--grad-4);display:grid;place-items:center;
+  color:#fff;font-weight:800;font-size:13px;
+  box-shadow:0 4px 16px rgba(167,139,250,.4);
+}
+.topnav-links{display:flex;gap:6px;font-size:.85rem;flex-wrap:wrap}
+.topnav-links a{
+  color:var(--fg-1);padding:6px 10px;border-radius:6px;
+  text-decoration:none;transition:.2s;
+}
+.topnav-links a:hover{background:rgba(255,255,255,.06);color:var(--fg-0)}
+.topnav-links a.back{
+  background:rgba(79,209,197,.1);color:var(--acc-cyan);
+  border:1px solid rgba(79,209,197,.25);
+}
+.topnav-links a.back:hover{background:rgba(79,209,197,.18)}
+.badge-topic{
+  background:rgba(167,139,250,.12);color:var(--acc-purple);
+  padding:4px 10px;border-radius:12px;font-weight:600;font-size:.72rem;
+  border:1px solid rgba(167,139,250,.3);
+}
+
+/* Hero */
+.hero{
+  min-height:70vh;display:flex;align-items:center;
+  position:relative;overflow:hidden;
+  padding:96px 28px 64px;
+}
+.hero::before{
+  content:'';position:absolute;inset:0;
+  background:
+    radial-gradient(circle at 30% 35%, rgba(167,139,250,.18), transparent 45%),
+    radial-gradient(circle at 70% 65%, rgba(244,143,177,.12), transparent 45%);
+}
+.hero-content{position:relative;z-index:1;max-width:1320px;margin:0 auto;width:100%}
+.hero-tag{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:8px 16px;border-radius:24px;
+  background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.3);
+  font-size:.82rem;color:var(--acc-purple);font-weight:500;
+  margin-bottom:24px;
+}
+.hero-tag::before{
+  content:'';width:8px;height:8px;border-radius:50%;background:var(--acc-purple);
+  box-shadow:0 0 12px var(--acc-purple);animation:pulse 2s infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
+.hero h1{
+  font-family:'Noto Serif SC','Inter',serif;
+  font-size:clamp(2.2rem,4.8vw,4.2rem);
+  line-height:1.12;font-weight:700;letter-spacing:-.02em;
+  margin-bottom:24px;
+}
+.hero h1 .grad{
+  background:var(--grad-4);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hero p.lede{
+  font-size:clamp(1rem,1.3vw,1.2rem);
+  max-width:880px;color:var(--fg-1);
+  margin-bottom:32px;
+}
+.hero-meta{
+  display:flex;gap:14px;flex-wrap:wrap;font-size:.84rem;color:var(--fg-2);
+}
+.hero-meta span{
+  padding:6px 14px;background:rgba(255,255,255,.03);
+  border:var(--border-soft);border-radius:20px;
+}
+
+/* 主版式 */
+.layout{
+  max-width:1280px;margin:0 auto;
+  display:grid;grid-template-columns:260px minmax(0,1fr);
+  gap:48px;padding:0 28px;
+}
+@media (max-width:1100px){.layout{grid-template-columns:1fr}.sidebar{display:none}}
+
+.sidebar{
+  position:sticky;top:80px;height:calc(100vh - 96px);
+  overflow-y:auto;padding:24px 0;
+}
+.sidebar h4{
+  font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;
+  color:var(--fg-3);margin-bottom:14px;font-weight:700;
+}
+.sidebar ul{list-style:none}
+.sidebar ul li a{
+  display:block;padding:7px 14px;font-size:.85rem;
+  color:var(--fg-2);text-decoration:none;border-radius:6px;
+  border-left:2px solid transparent;transition:.18s;
+}
+.sidebar ul li a:hover{color:var(--fg-0);background:rgba(255,255,255,.04)}
+.sidebar ul li a.active{
+  color:var(--acc-purple);background:rgba(167,139,250,.08);
+  border-left-color:var(--acc-purple);
+}
+
+/* 内容主区 */
+.content{padding:48px 0 96px;max-width:920px}
+.section{margin-bottom:88px;padding-top:24px;scroll-margin-top:96px}
+.section-num{
+  display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.78rem;
+  color:var(--acc-purple);font-weight:600;letter-spacing:.1em;margin-bottom:10px;
+}
+.section h2{
+  font-family:'Noto Serif SC',serif;
+  font-size:clamp(1.85rem,3vw,2.6rem);
+  font-weight:700;line-height:1.15;letter-spacing:-.015em;
+  margin-bottom:14px;
+}
+.section h2 .grad{background:var(--grad-4);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.section-lede{font-size:1.04rem;color:var(--fg-1);max-width:760px;margin-bottom:36px}
+
+.content h3{
+  font-family:'Noto Serif SC',serif;
+  font-size:1.5rem;font-weight:600;margin:44px 0 18px;
+  padding-bottom:10px;border-bottom:1px dashed rgba(255,255,255,.1);
+}
+.content h4{
+  font-size:1.14rem;font-weight:600;color:var(--acc-purple);
+  margin:28px 0 12px;
+}
+.content h5{font-size:1rem;font-weight:600;color:var(--acc-yellow);margin:18px 0 8px}
+.content p{margin:14px 0;color:var(--fg-1);line-height:1.85}
+.content p strong, .content li strong{color:var(--fg-0);font-weight:600}
+.content em{color:var(--fg-0);font-style:italic}
+.content ul, .content ol{margin:14px 0 14px 22px;color:var(--fg-1)}
+.content li{margin:6px 0;line-height:1.75}
+.content li::marker{color:var(--acc-purple)}
+
+.content a{
+  color:var(--acc-cyan);text-decoration:none;
+  border-bottom:1px dotted rgba(79,209,197,.4);transition:.18s;
+}
+.content a:hover{color:var(--acc-yellow);border-bottom-color:var(--acc-yellow)}
+
+.content code:not(.hljs){
+  font-family:'JetBrains Mono',monospace;
+  background:rgba(255,255,255,.06);padding:2px 7px;border-radius:4px;
+  font-size:.88em;color:var(--acc-yellow);
+}
+
+.formula{
+  margin:20px 0;padding:18px 22px;
+  background:rgba(167,139,250,.06);
+  border-left:3px solid var(--acc-purple);
+  border-radius:var(--r-md);overflow-x:auto;
+}
+.formula.boxed{
+  border:1px solid rgba(167,139,250,.3);background:rgba(167,139,250,.04);
+}
+.formula-title{
+  font-family:'JetBrains Mono',monospace;font-size:.74rem;
+  color:var(--acc-purple);text-transform:uppercase;letter-spacing:.1em;
+  margin-bottom:8px;font-weight:600;
+}
+
+.callout{
+  margin:24px 0;padding:18px 22px;border-radius:var(--r-md);
+  border-left:4px solid var(--acc-blue);
+  background:rgba(91,141,239,.05);
+}
+.callout-title{font-weight:700;color:var(--acc-blue);margin-bottom:6px;font-size:.95rem}
+.callout.tip{border-left-color:var(--acc-green);background:rgba(123,227,154,.05)}
+.callout.tip .callout-title{color:var(--acc-green)}
+.callout.warn{border-left-color:var(--acc-orange);background:rgba(255,159,110,.05)}
+.callout.warn .callout-title{color:var(--acc-orange)}
+.callout.danger{border-left-color:var(--acc-red);background:rgba(255,107,138,.05)}
+.callout.danger .callout-title{color:var(--acc-red)}
+.callout.key{border-left-color:var(--acc-yellow);background:rgba(255,209,102,.05)}
+.callout.key .callout-title{color:var(--acc-yellow)}
+.callout.insight{border-left-color:var(--acc-purple);background:rgba(167,139,250,.05)}
+.callout.insight .callout-title{color:var(--acc-purple)}
+
+.tbl-wrap{margin:24px 0;overflow-x:auto;border-radius:var(--r-md);border:var(--border-soft)}
+.content table{
+  width:100%;border-collapse:collapse;font-size:.88rem;
+  background:rgba(255,255,255,.02);
+}
+.content thead{background:linear-gradient(180deg,rgba(167,139,250,.12),rgba(167,139,250,.06))}
+.content thead th{
+  padding:12px 16px;font-weight:600;color:var(--fg-0);text-align:left;
+  border-bottom:1px solid rgba(167,139,250,.3);font-size:.84rem;
+}
+.content tbody td{padding:11px 16px;color:var(--fg-1);border-bottom:1px solid rgba(255,255,255,.05)}
+.content tbody tr:hover{background:rgba(255,255,255,.03)}
+.content tbody tr:last-child td{border-bottom:none}
+
+.tag{
+  display:inline-block;padding:2px 8px;border-radius:4px;
+  font-size:.72rem;font-weight:600;font-family:'JetBrains Mono',monospace;
+  background:rgba(255,255,255,.06);color:var(--fg-1);margin:0 3px;
+}
+.tag-cyan{background:rgba(79,209,197,.15);color:var(--acc-cyan)}
+.tag-purple{background:rgba(167,139,250,.15);color:var(--acc-purple)}
+.tag-pink{background:rgba(244,143,177,.15);color:var(--acc-pink)}
+.tag-yellow{background:rgba(255,209,102,.15);color:var(--acc-yellow)}
+.tag-green{background:rgba(123,227,154,.15);color:var(--acc-green)}
+.tag-red{background:rgba(255,107,138,.15);color:var(--acc-red)}
+
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin:24px 0}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:24px 0}
+.card{
+  padding:20px;background:rgba(255,255,255,.03);
+  border:var(--border-soft);border-radius:var(--r-md);transition:.25s;
+}
+.card:hover{transform:translateY(-2px);border-color:rgba(167,139,250,.3);box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.card-title{font-weight:600;font-size:1rem;margin-bottom:8px;color:var(--fg-0)}
+.card-meta{font-size:.78rem;color:var(--fg-3);font-family:'JetBrains Mono',monospace;margin-bottom:8px}
+.card-body{font-size:.88rem;color:var(--fg-2);line-height:1.65}
+
+.mermaid-wrap{
+  margin:28px 0;padding:24px;
+  background:rgba(255,255,255,.02);
+  border:var(--border-soft);border-radius:var(--r-md);overflow-x:auto;
+}
+.mermaid{display:flex;justify-content:center}
+
+.svg-diagram{
+  margin:28px 0;padding:24px;
+  background:rgba(255,255,255,.02);
+  border:var(--border-soft);border-radius:var(--r-md);
+  display:flex;justify-content:center;
+}
+
+.algo-box{
+  margin:24px 0;background:#0d1117;
+  border-radius:var(--r-md);border:var(--border-soft);overflow:hidden;
+}
+.algo-header{
+  padding:12px 18px;background:rgba(167,139,250,.08);
+  border-bottom:var(--border-soft);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.algo-title{font-weight:600;font-size:.92rem;color:var(--fg-0)}
+.algo-tag{font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--acc-cyan)}
+.algo-body{padding:18px;font-family:'JetBrains Mono',monospace;font-size:.84rem;line-height:1.75;color:var(--fg-1)}
+.algo-body .kw{color:var(--acc-pink);font-weight:600}
+.algo-body .var{color:var(--acc-cyan)}
+.algo-body .num{color:var(--acc-yellow)}
+.algo-body .cmt{color:var(--fg-3);font-style:italic}
+.algo-body .str{color:var(--acc-green)}
+
+/* 2x2 matrix */
+.matrix-2x2{
+  display:grid;grid-template-columns:auto 1fr 1fr;
+  gap:1px;background:rgba(255,255,255,.08);
+  border-radius:var(--r-md);overflow:hidden;
+  margin:32px 0;
+}
+.matrix-2x2 > div{background:var(--bg-1);padding:16px 18px}
+.matrix-2x2 .corner{background:transparent}
+.matrix-2x2 .col-head{
+  background:rgba(167,139,250,.12);
+  font-weight:600;text-align:center;
+  color:var(--fg-0);font-size:.92rem;
+}
+.matrix-2x2 .row-head{
+  background:rgba(79,209,197,.08);
+  font-weight:600;
+  color:var(--fg-0);font-size:.92rem;
+  display:flex;align-items:center;
+}
+.matrix-2x2 .cell{font-size:.86rem;color:var(--fg-1);line-height:1.7;min-height:130px}
+.matrix-2x2 .cell .anchor{
+  display:inline-block;font-weight:700;color:var(--acc-yellow);
+  font-size:.92rem;margin-right:6px;
+}
+.matrix-2x2 .cell-hot{background:rgba(167,139,250,.06);border:1px solid rgba(167,139,250,.3)}
+
+/* refs */
+.refs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;margin:18px 0}
+.ref-item{
+  padding:14px 16px;background:rgba(255,255,255,.02);
+  border:var(--border-soft);border-radius:var(--r-sm);font-size:.85rem;
+}
+.ref-arxiv{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--acc-cyan);font-size:.78rem}
+.ref-title{color:var(--fg-0);margin:4px 0;font-weight:500}
+.ref-meta{color:var(--fg-3);font-size:.78rem}
+
+/* Compare side by side */
+.compare-wrap{
+  display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:28px 0;
+}
+@media (max-width:760px){.compare-wrap{grid-template-columns:1fr}}
+.compare-col{
+  padding:20px;background:rgba(255,255,255,.025);
+  border:var(--border-soft);border-radius:var(--r-md);
+}
+.compare-col.left{border-top:3px solid var(--acc-cyan)}
+.compare-col.right{border-top:3px solid var(--acc-purple)}
+.compare-title{font-weight:700;font-size:1.05rem;margin-bottom:14px}
+.compare-col.left .compare-title{color:var(--acc-cyan)}
+.compare-col.right .compare-title{color:var(--acc-purple)}
+.compare-col ul{margin-left:18px;font-size:.88rem}
+
+/* Footer */
+.footer{
+  border-top:var(--border-soft);
+  background:rgba(255,255,255,.015);
+  padding:48px 28px;margin-top:64px;
+}
+.footer-inner{
+  max-width:1280px;margin:0 auto;
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:24px;
+}
+.footer-text{color:var(--fg-3);font-size:.86rem}
+.footer-links{display:flex;gap:18px;font-size:.86rem}
+.footer-links a{color:var(--fg-2);text-decoration:none}
+.footer-links a:hover{color:var(--acc-cyan)}
+
+@media print{
+  .sidebar,.topnav,.footer{display:none}
+  body{background:#fff;color:#000}
+  .content{padding:0}
+}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav-inner">
+    <div class="brand">
+      <div class="brand-mark">MT</div>
+      <span>多轮 Tool Use · Agentic RL 深度专题</span>
+    </div>
+    <div class="topnav-links">
+      <a href="#sec-overview">概览</a>
+      <a href="#sec-formal">形式化</a>
+      <a href="#sec-tool">Tool 定义</a>
+      <a href="#sec-rollout">Rollout</a>
+      <a href="#sec-loss">损失函数</a>
+      <a href="#sec-credit">Credit Assignment</a>
+      <a href="#sec-algo">代表算法</a>
+      <a href="#sec-env">环境工程</a>
+      <a href="#sec-context">上下文管理</a>
+      <a href="#sec-issues">开放问题</a>
+      <a href="#sec-refs">参考文献</a>
+      <a class="back" href="llm-post-training-master.html">← 返回主综述</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="hero-content">
+    <div class="hero-tag">深度专题 · Multi-Turn Tool Use in Agentic RL · 2026.06</div>
+    <h1>多轮 Tool Use 的<span class="grad">数学、工程与开放问题</span></h1>
+    <p class="lede">
+      从 DeepSeek-R1 的 single-turn long CoT，到 Search-R1 / ReTool / DeepSWE / UI-TARS-2 的多轮工具调用——
+      <strong>多轮 + Tool</strong> 是 agentic RL 真正复杂、也真正具有商业价值的格子。
+      本文从 POMDP 形式化出发，把这个格子里的 token masking、credit assignment、rollout 编排、稳定性问题彻底讲清。
+    </p>
+    <div class="hero-meta">
+      <span>📐 完整数学公式</span>
+      <span>🧬 算法对比</span>
+      <span>🏗️ 工程实现细节</span>
+      <span>📚 80+ 参考文献</span>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <h4>目录</h4>
+    <ul id="toc">
+      <li><a href="#sec-overview">0 · 2×2 矩阵全景</a></li>
+      <li><a href="#sec-formal">1 · POMDP 形式化</a></li>
+      <li><a href="#sec-tool">2 · Tool 的定义</a></li>
+      <li><a href="#sec-rollout">3 · 多轮 Rollout 机制</a></li>
+      <li><a href="#sec-loss">4 · 损失函数 &amp; Token Masking</a></li>
+      <li><a href="#sec-credit">5 · Credit Assignment</a></li>
+      <li><a href="#sec-algo">6 · 代表算法解析</a></li>
+      <li><a href="#sec-stability">7 · 训练稳定性</a></li>
+      <li><a href="#sec-infra">8 · 训练基础设施</a></li>
+      <li><a href="#sec-env">9 · 环境工程与规模化</a></li>
+      <li><a href="#sec-context">10 · 长程上下文管理的 RL 化</a></li>
+      <li><a href="#sec-issues">11 · 开放问题</a></li>
+      <li><a href="#sec-refs">12 · 参考文献</a></li>
+    </ul>
+  </aside>
+
+  <main class="content">
+    <!-- ============================================================
+         0 · 2×2 矩阵全景
+         ============================================================ -->
+    <section id="sec-overview" class="section">
+      <div class="section-num">SECTION 0</div>
+      <h2><span class="grad">2×2 矩阵</span>：定位多轮 Tool Use</h2>
+      <p class="section-lede">
+        Agentic RL 的整个空间可以用两个正交轴切分：<strong>时间结构</strong>（single-turn vs multi-turn）与 <strong>动作空间</strong>（no-tool vs with-tool）。
+        理解这个矩阵，就理解了为什么"多轮 + 工具"格子里的工作占了 2025 年 80% 以上的 agentic RL 论文。
+      </p>
+
+      <div class="matrix-2x2">
+        <div class="corner"></div>
+        <div class="col-head">No Tool（无外部工具）</div>
+        <div class="col-head">With Tool（含外部工具）</div>
+
+        <div class="row-head">Single-turn<br/>(一次 generate)</div>
+        <div class="cell">
+          <span class="anchor">🅐</span>
+          <strong>Reasoning RL</strong><br/>
+          DeepSeek-R1 / R1-Zero · OpenAI o1 ·<br/>
+          SWE-RL（单轮 diff 生成，见 §6.4）<br/><br/>
+          <em>长 CoT 内嵌反思，无 environment 反馈</em>
+        </div>
+        <div class="cell">
+          <span class="anchor">🅑</span>
+          <strong>少见但真实存在</strong><br/>
+          <em>一次 generate 发出 tool call，结果不回灌模型（如单发 function calling 由外部系统消费）。
+          训练语境下这格工作极少（结果一旦回灌即变 multi-turn）</em>
+        </div>
+
+        <div class="row-head">Multi-turn<br/>(多次 generate<br/>+ 状态转移)</div>
+        <div class="cell">
+          <span class="anchor">🅒</span>
+          <strong>多轮无工具</strong><br/>
+          多轮对话 RLHF · Reflexion (verbal RL) · 多 agent 协作<br/><br/>
+          <em>状态转移来自用户或自己的 reflection，无外部副作用</em>
+        </div>
+        <div class="cell cell-hot">
+          <span class="anchor">🅓</span>
+          <strong>多轮 + 工具调用 ⭐ 本文重点</strong><br/>
+          Search-R1 · ReTool · DeepSWE · UI-TARS-2 ·<br/>
+          Tongyi DeepResearch · Kimi-Researcher<br/><br/>
+          <em>token 输出 + 工具调用 + 环境返回交错</em>
+        </div>
+      </div>
+
+      <h3>0.1 两条轴的本质</h3>
+      <div class="compare-wrap">
+        <div class="compare-col left">
+          <div class="compare-title">⏱️ Multi-turn（时间结构）</div>
+          <ul>
+            <li>关心轨迹被切成几个 step</li>
+            <li>每个 step 之间状态 \(s_t \to s_{t+1}\) 是否变化</li>
+            <li>状态转移可由用户、reflection、tool、environment 触发</li>
+            <li>形式上是 POMDP 中 horizon 维度</li>
+          </ul>
+        </div>
+        <div class="compare-col right">
+          <div class="compare-title">🧰 Tool Use（动作空间）</div>
+          <ul>
+            <li>关心动作集 \(\mathcal{A}\) 里有哪些"特殊动作"</li>
+            <li>特殊动作触发外部计算 / IO / 环境状态变化</li>
+            <li>工具结果回灌 context 继续生成时，每次 tool call 产生新一轮</li>
+            <li>multi-turn 也不一定要 tool（用户 / reflection 也能触发）</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout key">
+        <div class="callout-title">关键关系</div>
+        两条轴<strong>正交但有偏相关</strong>：在"工具结果回灌模型继续推理"的训练 setup 下，每次 tool call 都产生新一轮生成——这是🅓格成为主战场的原因。
+        但注意两个方向都有反例：单次 function calling 后不把结果回灌模型（结果直接交给外部系统消费）就是单轮工具使用（🅑格）；
+        而 multi-turn 也可以来自用户、reflection 或多 agent 协作而无外部 tool（🅒格）。
+      </div>
+
+      <h3>0.2 为什么🅓 格子里工作最多</h3>
+      <p>从工程价值看：</p>
+      <ul>
+        <li><strong>🅐 (单轨迹推理)</strong>：已经被 R1 范式饱和，剩余空间主要在算法稳定性（DAPO/GSPO/CISPO）</li>
+        <li><strong>🅑 (单轮 + 工具)</strong>：部署中真实存在（单发 function calling），但训练侧工作极少——工具结果一旦回灌 context，自然演化成 multi-turn</li>
+        <li><strong>🅒 (多轮无工具)</strong>：多轮对话 RLHF 已成熟；Reflexion 类 verbal RL 被 R1 的 long CoT 吸收</li>
+        <li><strong>🅓 (多轮 + 工具)</strong>：覆盖搜索 / 代码 / GUI / 数学工具 / 浏览器 / 文件系统几乎所有真实价值场景 → <strong>这是 2025-2026 的主战场</strong></li>
+      </ul>
+    </section>
+
+    <!-- ============================================================
+         1 · POMDP 形式化
+         ============================================================ -->
+    <section id="sec-formal" class="section">
+      <div class="section-num">SECTION 1</div>
+      <h2><span class="grad">POMDP</span> 形式化：从单步 MDP 到长程交互</h2>
+      <p class="section-lede">
+        要严格定义多轮 tool use agentic RL，必须从标准 RL 框架推开。本节给出形式化定义、与单轨迹 RL 的对照，并指出 LLM 场景下的特殊点。
+      </p>
+
+      <h3>1.1 从单轮 LLM-RL 说起</h3>
+      <p>传统 RLHF / DPO / R1 把 LLM 看作"<strong>退化的单步 MDP</strong>"：</p>
+      <div class="formula boxed">
+        <div class="formula-title">Degenerate Single-Step MDP</div>
+        $$
+        \mathcal{M}_{\text{LLM-RL}} = (\mathcal{X},\, \mathcal{Y},\, \pi_\theta,\, R)
+        $$
+        $$
+        \tau = (x, y),\quad y \sim \pi_\theta(\cdot \mid x),\quad R(\tau) \in \mathbb{R}
+        $$
+      </div>
+      <p>这里 <strong>"trajectory"等价于"一次完整 generate 的输出"</strong>。token 是动作但没有"状态转移"——下一个 token 之前的"状态"就是已经生成的前缀。本质上是 contextual bandit 而非 sequential decision。</p>
+
+      <h3>1.2 多轮 Agentic RL 的 POMDP</h3>
+      <p>当引入 tool 与环境后，框架升级为部分可观测马尔可夫决策过程（POMDP）：</p>
+      <div class="formula boxed">
+        <div class="formula-title">Agentic POMDP</div>
+        $$
+        \mathcal{M}_{\text{AgRL}} = (\mathcal{S},\,\mathcal{A},\,\mathcal{O},\,\mathcal{T},\,R,\,\gamma,\,\rho_0)
+        $$
+      </div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>符号</th><th>含义</th><th>LLM 场景下的实例</th></tr></thead>
+          <tbody>
+            <tr><td>\(\mathcal{S}\)</td><td>真实状态空间</td><td>世界真实状态（如 web 真实内容、文件系统当前快照、GUI 真实 DOM 树）</td></tr>
+            <tr><td>\(\mathcal{A}\)</td><td>动作空间</td><td>词表 token \(\cup\) 结构化工具调用</td></tr>
+            <tr><td>\(\mathcal{O}\)</td><td>观测空间</td><td>token 化的 context（包括工具返回）</td></tr>
+            <tr><td>\(\mathcal{T}(s'\mid s,a)\)</td><td>状态转移（含随机性）</td><td>搜索引擎不同时刻返回不同结果；代码执行环境的副作用</td></tr>
+            <tr><td>\(R(s,a)\) 或 \(R(\tau)\)</td><td>奖励</td><td>规则验证 / 任务完成 / 子目标</td></tr>
+            <tr><td>\(\gamma\)</td><td>折扣因子</td><td>LLM 通常 \(\gamma=1\)（无折扣）</td></tr>
+            <tr><td>\(\rho_0\)</td><td>初始状态分布</td><td>用户初始 query</td></tr>
+            <tr><td>\(H\)</td><td>时间跨度</td><td>10 – 1000+ turn（典型）</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>1.3 策略与目标函数</h3>
+      <p>策略 \(\pi_\theta\) 基于 <strong>观测历史</strong> 而非真实状态选择动作（这就是 POMDP 的"部分可观测"）：</p>
+      <div class="formula">
+        $$
+        a_t \sim \pi_\theta(\cdot \mid o_{\le t},\, a_{\lt t})
+        $$
+      </div>
+      <p>训练目标是最大化期望累积回报：</p>
+      <div class="formula boxed">
+        <div class="formula-title">Agentic RL Objective</div>
+        $$
+        J(\theta) = \mathbb{E}_{\tau \sim \pi_\theta}\!\left[\sum_{t=0}^{H} \gamma^t\, R(s_t, a_t)\right]
+        $$
+      </div>
+
+      <h3>1.4 "Turn"与"Token"两套时间尺度</h3>
+      <p>LLM agentic RL 有一个特殊点：<strong>存在两个时间尺度</strong>：</p>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">🔤 Token 尺度</div>
+          <div class="card-body">
+            最细粒度，每个 token 是一个动作。GAE / PPO clip 通常在这个尺度计算。一条轨迹可能有 10K-1M token。
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">🔁 Turn 尺度</div>
+          <div class="card-body">
+            一个 turn = 模型一次连续输出（直到触发工具或结束）。轨迹的 turn 数典型 10-100。优势可在 turn 边界聚合。
+          </div>
+        </div>
+      </div>
+
+      <p>这两个尺度的关系：</p>
+      <div class="formula">
+        $$
+        \text{Trajectory } \tau = \underbrace{[o_0, a_0^{(1)}, a_0^{(2)}, \dots, a_0^{(k_0)}]}_{\text{Turn 0 (模型输出)}}, \underbrace{o_1}_{\text{Turn 0 (env 返回)}}, \underbrace{a_1^{(1)}, \dots, a_1^{(k_1)}}_{\text{Turn 1}}, \dots
+        $$
+      </div>
+      <p>其中 \(a_t^{(j)}\) 是 turn \(t\) 内的第 \(j\) 个 token，\(o_{t+1}\) 是环境对 turn \(t\) 末尾工具调用的返回观测。</p>
+
+      <h3>1.5 与传统 RL 的关键差异</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>维度</th><th>传统 RL (Atari, Mujoco)</th><th>多轮 Agentic RL</th></tr></thead>
+          <tbody>
+            <tr><td>动作离散性</td><td>低维离散或连续</td><td>词表 30K-200K + 结构化触发</td></tr>
+            <tr><td>状态可重置</td><td>易重置（用 seed）</td><td>真实环境难重置（搜索结果漂移、网页变化）</td></tr>
+            <tr><td>奖励频率</td><td>每 step 都有</td><td>极稀疏，常常只在 trajectory 末尾</td></tr>
+            <tr><td>初始策略</td><td>随机</td><td>已是强 LLM（SFT 之后）</td></tr>
+            <tr><td>环境模型</td><td>已知或可学</td><td>不可学，只能采样</td></tr>
+            <tr><td>计算瓶颈</td><td>GPU 训练</td><td><strong>rollout 阶段</strong>（generate + tool call I/O）</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout insight">
+        <div class="callout-title">为什么 LLM agentic RL 是个新东西</div>
+        从 POMDP 视角看，LLM agentic RL 不是简单的"NLP + RL"——它是 <strong>大动作空间 × 长 horizon × 极稀疏奖励 × 不可重置环境 × 强基础策略</strong> 的组合。这五个特征中的每一个都让经典 RL 算法（PPO/SAC/TD3）原封不动用不了。
+      </div>
+    </section>
+
+    <!-- ============================================================
+         2 · Tool 的定义
+         ============================================================ -->
+    <section id="sec-tool" class="section">
+      <div class="section-num">SECTION 2</div>
+      <h2><span class="grad">Tool</span> 的形式化定义</h2>
+      <p class="section-lede">"Tool"不是一个 fuzzy 概念。在 agentic RL 框架下，它有严格的数学定义和实现协议。本节给出形式化定义、典型分类、以及实现层的关键 trick。</p>
+
+      <h3>2.1 形式化定义</h3>
+      <p>一个 <strong>tool</strong> 是动作空间 \(\mathcal{A}\) 中的一个三元组：</p>
+      <div class="formula boxed">
+        <div class="formula-title">Tool Definition</div>
+        $$
+        \text{Tool}_i = \langle \text{name}_i,\, \text{schema}_i,\, f_i \rangle
+        $$
+        $$
+        f_i : \text{Args} \to \mathcal{O}, \qquad \text{Args} \sim \text{schema}_i
+        $$
+      </div>
+      <p>其中：</p>
+      <ul>
+        <li><strong>name</strong>：唯一标识符（<code>search</code>, <code>python_exec</code>, <code>click_xy</code>...）</li>
+        <li><strong>schema</strong>：参数类型签名（JSON Schema / Pydantic / 自定义 DSL）</li>
+        <li><strong>\(f_i\)</strong>：执行函数。接收参数，<strong>有外部副作用</strong>，返回观测 \(o \in \mathcal{O}\)</li>
+      </ul>
+      <p>整个工具集合 \(\mathcal{T} = \{\text{Tool}_1, \dots, \text{Tool}_K\}\) 构成 agent 可用的"外部能力"。动作空间扩展为：</p>
+      <div class="formula">
+        $$
+        \mathcal{A} = \mathcal{V} \cup \bigcup_{i=1}^{K} \{(\text{name}_i, \text{args}) : \text{args} \sim \text{schema}_i\}
+        $$
+      </div>
+      <p>其中 \(\mathcal{V}\) 是词表。注意：<strong>tool call 本身是用 token 序列编码的</strong>——LLM 只能输出 token，它通过"输出结构化 token 序列"来"调用 tool"。</p>
+
+      <h3>2.2 实现协议：LLM 如何"触发"工具</h3>
+      <p>LLM 输出 token，环境/runtime 需要识别哪些 token 序列代表 tool call。主流协议有四种：</p>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>协议</th><th>触发 pattern</th><th>代表工作</th><th>优劣</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>特殊 XML 标签</strong></td>
+              <td><code>&lt;search&gt;query&lt;/search&gt;</code></td>
+              <td>Search-R1 · ReTool · WebDancer</td>
+              <td>简洁、grep 友好；但需要训练保证闭合</td>
+            </tr>
+            <tr>
+              <td><strong>JSON tool call</strong></td>
+              <td><code>{"name":"search","args":{...}}</code></td>
+              <td>OpenAI function calling · Anthropic tool use</td>
+              <td>结构严格；token 浪费多；解析失败率高</td>
+            </tr>
+            <tr>
+              <td><strong>ReAct 模板</strong></td>
+              <td><code>Action: search<br/>Action Input: ...</code></td>
+              <td>早期 ReAct · 部分 SWE-agent</td>
+              <td>易读；多行多模型友好；难严格约束</td>
+            </tr>
+            <tr>
+              <td><strong>代码即工具</strong></td>
+              <td><code>```python<br/>code<br/>```</code> 整段执行</td>
+              <td>ReTool · SimpleTIR · rStar-Math · TIR 类</td>
+              <td>表达力最强；沙箱安全是大坑</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>2.3 Tool 的分类（按功能）</h3>
+      <div class="mermaid-wrap">
+<div class="mermaid">
+mindmap
+  root((Tool 分类))
+    信息检索类
+      Search Engine
+        Google API
+        SerpAPI 类聚合
+        DuckDuckGo
+      Retriever
+        Dense - DPR / E5
+        Sparse - BM25
+      Knowledge Base
+        Wikipedia API
+        Internal Vector DB
+    计算执行类
+      Code Interpreter
+        Python sandbox
+        Jupyter kernel
+      Symbolic Solver
+        SymPy
+        WolframAlpha
+      Calculator
+    环境操作类
+      File System
+        cat grep sed
+        Read Write Edit
+      Shell
+        bash exec
+      Git
+        diff apply
+      Browser
+        click type scroll
+      GUI Action
+        screenshot and bbox click
+    记忆类
+      Memory Store
+        add and update
+        delete and retain
+      Retrieval from Memory
+    通信类
+      Agent-to-Agent
+        delegate task
+        ask judge
+</div>
+      </div>
+
+      <h3>2.4 五大典型 Tool 类型</h3>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">🔍 信息检索 (Information)</div>
+          <div class="card-meta">Search-R1 · R1-Searcher · DeepRetrieval</div>
+          <div class="card-body">
+            <strong>签名</strong>：<code>search(query: str) → List[Document]</code><br/>
+            <strong>核心问题</strong>：如何避免模型把检索结果当成"自己生成的"参与梯度（→ token mask）。
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">🐍 代码执行 (Computation)</div>
+          <div class="card-meta">ReTool · rStar-Math · SimpleTIR</div>
+          <div class="card-body">
+            <strong>签名</strong>：<code>python_exec(code: str) → str (stdout) | str (stderr)</code><br/>
+            <strong>核心问题</strong>：超时、内存、安全；执行失败后多轮 cascade。<br/>
+            <span style="font-size:.85em;color:#9aa4b8">注：rStar-Math 用 Python 执行验证推理步，但走 MCTS + SFT/PPM 自演化路线，并非 RL 训练。</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">🌐 浏览器操作 (Browse)</div>
+          <div class="card-meta">WebDancer · WebSailor · Tongyi DR</div>
+          <div class="card-body">
+            <strong>签名</strong>：<code>browse(url) / click(elem) / type(elem, text) / scroll(dx, dy)</code><br/>
+            <strong>核心问题</strong>：观测大（整页 HTML 或截图）、随机性强、副作用难恢复。
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">🛠️ SWE 操作 (Code Agent)</div>
+          <div class="card-meta">SWE-Gym · RLEF · DeepSWE</div>
+          <div class="card-body">
+            <strong>签名</strong>：<code>read_file / edit_file / run_tests / git_diff</code><br/>
+            <strong>核心问题</strong>：奖励来自测试 pass 与否，极稀疏。<br/>
+            <span style="font-size:.85em;color:#9aa4b8">注：SWE-RL 不属于此类——它是 Agentless 式单轮 diff 生成，训练中不调用任何交互工具（§6.4）。</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">💾 记忆 (Memory)</div>
+          <div class="card-meta">Memory-R1 · MemAgent</div>
+          <div class="card-body">
+            <strong>签名</strong>：<code>memory.add / update / delete / retain / query</code><br/>
+            <strong>核心问题</strong>：何时该写入、删除？这成为 policy 的一部分。
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">🤝 多 Agent 通信</div>
+          <div class="card-meta">MAGRPO · Multi-Agent Evolve</div>
+          <div class="card-body">
+            <strong>签名</strong>：<code>delegate(agent_id, task) → result</code><br/>
+            <strong>核心问题</strong>：联合 RL 的 credit assignment。
+          </div>
+        </div>
+      </div>
+
+      <h3>2.5 边界情况：什么不算 Tool</h3>
+      <div class="callout warn">
+        <div class="callout-title">"<code>&lt;think&gt;</code>"块算 Tool 吗？</div>
+        <strong>不算</strong>。<code>&lt;think&gt;</code> 是 inline reasoning，没有外部副作用，没有 environment 状态变化。它是 LLM 自己产生的、自己读取的、纯文本——属于动作空间 \(\mathcal{V}\) 的普通 token，不属于工具集合 \(\mathcal{T}\)。
+        <br/>反例：早期 ReAct 论文把 <code>Thought:</code> 与 <code>Action:</code> 列为并列，那是出于 prompt 工程考虑，并非形式化的工具划分。
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-title">Self-reflection / Critique 算 Tool 吗？</div>
+        <strong>看实现</strong>。如果只是模型自己输出 critique 文本继续生成，<strong>不算</strong>（属于 long CoT）。如果是把生成结果送进一个独立的"critic 模型"调用，<strong>算</strong>（成为 LLM-as-Judge tool）。
+        Verbal RL / TextGrad 中的 critique 通常算 tool（因为是独立的 LLM 调用）。
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-title">代码生成 vs 代码执行</div>
+        <strong>纯生成代码不是 tool</strong>。<strong>生成 + 沙箱执行 + 读取 stdout 才是</strong>。这是 ReTool / CodeAct 与传统 CoT-with-code 的本质区别。
+      </div>
+
+      <div class="callout key">
+        <div class="callout-title">一句话定义</div>
+        <strong>Tool ≡ 动作空间 \(\mathcal{A}\) 中通过结构化协议触发、产生外部副作用、并返回观测 \(o\) 写回 context 的子集</strong>。
+        <br/>"外部副作用 + 观测返回"是检验的两个必要条件。
+      </div>
+    </section>
+
+    <!-- ============================================================
+         3 · 多轮 Rollout 机制
+         ============================================================ -->
+    <section id="sec-rollout" class="section">
+      <div class="section-num">SECTION 3</div>
+      <h2>多轮 <span class="grad">Rollout</span> 机制</h2>
+      <p class="section-lede">
+        多轮 tool use 与 single-turn R1 在工程上最大的差异在 rollout 阶段——
+        不是简单的 <code>vLLM.generate(batch)</code>，而是 generate / tool call 交错的异步状态机。
+      </p>
+
+      <h3>3.1 单轮 vs 多轮：rollout 流程对比</h3>
+
+      <div class="compare-wrap">
+        <div class="compare-col left">
+          <div class="compare-title">🅐 单轮 (R1-style)</div>
+<pre style="background:transparent;color:var(--fg-1);font-size:.82rem;line-height:1.7;font-family:'JetBrains Mono',monospace;margin:0">
+def rollout_r1(prompts):
+    # 一次批量生成 完事
+    completions = vllm.generate(
+        prompts,
+        max_tokens=32768,
+        temperature=0.6,
+        n=8  # group size
+    )
+    rewards = [
+      rule_reward(p, c)
+      for p, c in zip(prompts, completions)
+    ]
+    return completions, rewards
+</pre>
+        </div>
+        <div class="compare-col right">
+          <div class="compare-title">🅓 多轮 + Tool (Search-R1-style)</div>
+<pre style="background:transparent;color:var(--fg-1);font-size:.82rem;line-height:1.7;font-family:'JetBrains Mono',monospace;margin:0">
+def rollout_search_r1(prompts):
+    contexts = [p for p in prompts]
+    done = [False] * len(prompts)
+    trajectories = [[] for _ in prompts]
+
+    while not all(done):
+        # 1) 生成到下一个 stop sequence
+        chunks = vllm.generate(
+            [c for c,d in zip(contexts,done) if not d],
+            stop=['&lt;/search&gt;', '&lt;/answer&gt;'],
+            max_tokens=2048
+        )
+        # 2) 解析：是否需要调 tool
+        for i, chunk in enumerate(chunks):
+            if chunk.endswith('&lt;/search&gt;'):
+                query = extract(chunk)
+                result = search_api(query)      # ← env call
+                obs = f'&lt;information&gt;{result}&lt;/information&gt;'
+                contexts[i] += chunk + obs
+                trajectories[i].append({
+                  'gen': chunk, 'obs': obs
+                })
+            elif chunk.endswith('&lt;/answer&gt;'):
+                contexts[i] += chunk
+                done[i] = True
+    return trajectories
+</pre>
+        </div>
+      </div>
+
+      <h3>3.2 完整 Rollout 状态机</h3>
+
+      <div class="mermaid-wrap">
+<div class="mermaid">
+flowchart TD
+  Enter["📥 接收 batch prompts"]:::enter --> InitCtx["初始化 contexts"]:::a
+  InitCtx --> Gen["🤖 vLLM.generate<br/>stop tokens: search-end · answer-end · max_tokens"]:::a
+  Gen --> Parse{"解析输出尾部"}:::dec
+  Parse -->|search-end 标签| Search["🔍 调 search API<br/>可能并发限流"]:::tool
+  Parse -->|answer-end 标签| Done["✅ 标记轨迹结束"]:::doneNode
+  Parse -->|超长或格式错| Fail["❌ 标记失败<br/>给负 reward"]:::fail
+  Search --> AppendObs["📝 拼接 information 块<br/>到 context"]:::a
+  AppendObs --> MaskMark["🎭 标记 retrieved tokens<br/>供 loss mask 使用"]:::mask
+  MaskMark --> CheckTurn{"turn 数小于 max_turns?"}:::dec
+  CheckTurn -->|是| Gen
+  CheckTurn -->|否| Fail
+  Done --> Reward["💯 计算 outcome reward"]:::reward
+  Fail --> Reward
+  Reward --> Output["📤 输出轨迹 + 奖励"]:::doneNode
+  classDef enter fill:#0f1525,stroke:#5b6a82,color:#e6edf7
+  classDef a fill:#1d2638,stroke:#5b8def,color:#fff
+  classDef dec fill:#1d2638,stroke:#a78bfa,color:#fff
+  classDef tool fill:#1d2638,stroke:#4fd1c5,color:#fff
+  classDef mask fill:#1d2638,stroke:#ffd166,color:#fff
+  classDef reward fill:#1d2638,stroke:#7be39a,color:#fff
+  classDef fail fill:#1d2638,stroke:#ff6b8a,color:#fff
+  classDef doneNode fill:#1d2638,stroke:#ffd166,color:#fff
+</div>
+      </div>
+
+      <h3>3.3 关键工程挑战</h3>
+
+      <h4>① 异质 turn 数</h4>
+      <p>不同 prompt 的 turn 数不同：有些 1 turn 就答完，有些要 30+ turn。结果：</p>
+      <ul>
+        <li><strong>批量 generate 越来越稀疏</strong>：一开始 batch_size=512，但到了第 20 turn 可能只剩 50 条还在跑</li>
+        <li><strong>GPU 利用率下降</strong>：vLLM 的 continuous batching 部分缓解，但仍有 tail latency 问题</li>
+        <li><strong>解法</strong>：动态填充新轨迹（pre-emptive scheduling），或者 truncated batching</li>
+      </ul>
+
+      <h4>② 工具 API 并发与限流</h4>
+      <ul>
+        <li>真实搜索引擎有 QPS / 配额限制（如 Google CSE 免费档 100 次/天；微软已于 2025.08 退役 Bing Search APIs，存量接入被迫迁移到 Azure 'Grounding with Bing Search' 或第三方聚合 API）</li>
+        <li>解法：<strong>本地 Wikipedia + BM25 / Dense retriever 替代</strong>（Search-R1 / R1-Searcher 都这么做）</li>
+        <li>训练阶段用本地检索，部署再切换真实 API</li>
+      </ul>
+
+      <h4>③ Token Mask 精确性</h4>
+      <p>需要逐 token 标记"是否来自环境"。Search-R1 的 mask 是：</p>
+      <div class="formula">
+        $$
+        m_t = \mathbb{1}\!\left[t \notin \bigcup_i \text{tokens}\!\left(\langle\text{info}\rangle_i \dots \langle/\text{info}\rangle_i\right)\right]
+        $$
+      </div>
+      <p>实现层面：rollout 阶段对每个 token 记录 <code>source ∈ {policy, env}</code>，loss 计算时只对 <code>policy</code> token 反向。</p>
+
+      <h4>④ 长 context 截断</h4>
+      <p>多轮累积下 context 容易爆 16K / 32K 限制。两种策略：</p>
+      <ul>
+        <li><strong>硬截断</strong>：超长直接抛弃（loss penalty + 早停）</li>
+        <li><strong>软压缩</strong>：用 retrieval+summary 把前面 turn 压缩成 memory（Memory-R1 / MemAgent 路线）</li>
+      </ul>
+      <p style="margin-top:6px">这只是推理期视角。2025H2 之后该问题被"训练化"——可学习折叠 / RL 自总结 / 可学习外挂管理器，见 <strong>§10 长程上下文管理的 RL 化</strong>。</p>
+
+      <h4>⑤ 环境状态不可重置</h4>
+      <ul>
+        <li>同一 query 不同时间搜索结果不同 → trajectory 不可严格复现</li>
+        <li>WebDancer / WebSailor 用<strong>本地快照</strong>（爬下来的 Wikipedia / 搜索结果离线）</li>
+        <li>SWE-Gym / DeepSWE 与 SWE-bench 评测体系用 <strong>Docker 镜像</strong> 每次 fresh start（SWE-RL 训练不跑交互环境，不需要这套机制）</li>
+        <li>系统化的工程框架（可复位性 × 状态隔离 × 冷启动三维度、microVM 快照 / fork）见 <strong>§9 环境工程与规模化</strong></li>
+      </ul>
+
+      <div class="callout warn">
+        <div class="callout-title">为什么 vLLM 单独不够</div>
+        vLLM 解决了"高吞吐生成"，但 multi-turn 还需要：
+        <ul style="margin-top:6px">
+          <li>state 管理（哪些轨迹在哪个 turn）</li>
+          <li>tool dispatcher（并发调用 + 限流 + 重试）</li>
+          <li>异步编排（generate 与 tool call 并发）</li>
+          <li>weight 同步（PPO 训练后 vLLM weight 要更新）</li>
+        </ul>
+        这就是 <code>verl</code> / <code>OpenRLHF</code> / <code>RAGEN</code> / <code>VerlTool</code> / <code>prime-rl</code> 这些框架解决的真正问题。
+      </div>
+    </section>
+
+    <!-- ============================================================
+         4 · 损失函数 & Token Masking
+         ============================================================ -->
+    <section id="sec-loss" class="section">
+      <div class="section-num">SECTION 4</div>
+      <h2>损失函数 &amp; <span class="grad">Token Masking</span></h2>
+      <p class="section-lede">
+        多轮 tool use 与 R1 的损失函数<strong>形式相同，但隐含一个关键操作</strong>：环境返回的 token 必须从梯度中被排除。
+        本节给出完整公式、masking 的数学动机、以及不同算法（Search-R1 / DAPO / GSPO）下的具体形式。
+      </p>
+
+      <h3>4.1 朴素 GRPO 在多轮的应用</h3>
+      <p>把 §1.3 的目标函数代入 GRPO 损失，朴素形式为：</p>
+      <div class="formula boxed">
+        <div class="formula-title">Naive GRPO with Tool Use（未 mask）</div>
+        $$
+        \mathcal{J}^{\text{naive}}(\theta) = \mathbb{E}_{q,\,\{\tau_i\}}\!\left[\frac{1}{G}\sum_{i=1}^{G}\frac{1}{|\tau_i|}\sum_{t=1}^{|\tau_i|}\min\!\bigl(r_{i,t}\hat{A}_{i},\,\text{clip}(r_{i,t},1\pm\varepsilon)\hat{A}_{i}\bigr) - \beta\,\mathbb{D}_{\text{KL}}\!\left[\pi_\theta\|\pi_{\text{ref}}\right]\right]
+        $$
+      </div>
+      <p>这个公式有一个<strong>致命问题</strong>：\(t\) 遍历整条 trajectory \(\tau_i\)，包括环境返回的 token。这会让模型学着"<strong>预测搜索引擎会返回什么</strong>"——但环境是外部不可控的，预测它毫无意义，且会让训练崩溃。</p>
+
+      <h3>4.2 Token Masking 的数学动机</h3>
+      <p>策略梯度的本质：</p>
+      <div class="formula">
+        $$
+        \nabla_\theta J = \mathbb{E}\!\left[\sum_t \nabla_\theta \log \pi_\theta(a_t \mid s_t)\,\hat{A}_t\right]
+        $$
+      </div>
+      <p>这个梯度只对 <strong>policy 自己产生的动作</strong> 才有意义。环境返回的 token \(o_{t+1}\) 是从 \(\mathcal{T}(s'\mid s,a)\) 采样的，<strong>policy 对它的概率没有定义</strong>（policy 不生成观测，只生成动作）。</p>
+
+      <p>把它强行写进 \(\log \pi_\theta\) 等于让 policy 去拟合环境的分布——这是错的：</p>
+      <ul>
+        <li>环境分布与 policy 无关，但梯度会强行把它推向"高概率"</li>
+        <li>引入 bias：得到的 advantage 估计不再无偏</li>
+        <li>实践中导致 policy 输出长得越来越像"搜索结果格式"</li>
+      </ul>
+
+      <h3>4.3 带 Token Mask 的正确损失</h3>
+      <p>引入 indicator \(m_{i,t} \in \{0, 1\}\)，标记 token \(t\) 是否来自 policy：</p>
+      <div class="formula">
+        $$
+        m_{i,t} = \begin{cases}1 & \text{token 来自 } \pi_\theta\\ 0 & \text{token 来自环境（如 retrieved content）}\end{cases}
+        $$
+      </div>
+
+      <div class="formula boxed">
+        <div class="formula-title">Search-R1 Loss (with token mask)</div>
+        $$
+        \mathcal{J}^{\text{Search-R1}}(\theta) = \mathbb{E}_{q,\{\tau_i\}}\!\left[\frac{1}{\sum_{i,t} m_{i,t}}\sum_{i,t} m_{i,t}\cdot \min\!\bigl(r_{i,t}\hat{A}_{i,t},\,\text{clip}(\cdot)\hat{A}_{i,t}\bigr)\right] - \beta\,\mathbb{D}_{\text{KL}}^{\text{masked}}
+        $$
+      </div>
+
+      <p>关键差异：</p>
+      <ul>
+        <li>分子只对 \(m_{i,t}=1\) 的 token 求和</li>
+        <li>分母也只数 policy token（保证梯度均值无偏）</li>
+        <li>KL 散度同样只对 policy token 计算</li>
+      </ul>
+
+      <h3>4.4 Token Mask 的可视化</h3>
+
+      <div class="svg-diagram">
+        <svg viewBox="0 0 760 320" width="100%" style="max-width:760px">
+          <defs>
+            <linearGradient id="gradPol" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#4fd1c5"/><stop offset="100%" stop-color="#5b8def"/>
+            </linearGradient>
+            <linearGradient id="gradEnv" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#f48fb1"/><stop offset="100%" stop-color="#a78bfa"/>
+            </linearGradient>
+          </defs>
+
+          <text x="380" y="30" text-anchor="middle" fill="#e6edf7" font-size="16" font-weight="700">Token Mask 示意（橙=Policy 贡献梯度，紫=Env 被 mask 掉）</text>
+
+          <!-- Trajectory tokens -->
+          <g transform="translate(40,70)">
+            <!-- Turn 1: Policy gen -->
+            <rect x="0" y="0" width="180" height="40" rx="6" fill="url(#gradPol)" opacity=".9"/>
+            <text x="90" y="18" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">Policy gen</text>
+            <text x="90" y="32" text-anchor="middle" fill="#fff" font-size="9" opacity=".85">&lt;think&gt;... &lt;search&gt;query&lt;/search&gt;</text>
+
+            <!-- Env return -->
+            <rect x="190" y="0" width="180" height="40" rx="6" fill="url(#gradEnv)" opacity=".9"/>
+            <text x="280" y="18" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">Env: &lt;information&gt;</text>
+            <text x="280" y="32" text-anchor="middle" fill="#fff" font-size="9" opacity=".85">搜索返回的文档内容...</text>
+
+            <!-- Turn 2: Policy gen -->
+            <rect x="380" y="0" width="160" height="40" rx="6" fill="url(#gradPol)" opacity=".9"/>
+            <text x="460" y="18" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">Policy gen</text>
+            <text x="460" y="32" text-anchor="middle" fill="#fff" font-size="9" opacity=".85">&lt;think&gt;... &lt;search&gt;</text>
+
+            <!-- Env return 2 -->
+            <rect x="550" y="0" width="120" height="40" rx="6" fill="url(#gradEnv)" opacity=".9"/>
+            <text x="610" y="18" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">Env</text>
+            <text x="610" y="32" text-anchor="middle" fill="#fff" font-size="9" opacity=".85">&lt;information&gt;...</text>
+
+          </g>
+
+          <!-- Mask m_t row -->
+          <g transform="translate(40,140)">
+            <text x="-15" y="20" text-anchor="end" fill="#b9c4d4" font-size="12" font-weight="600">m_t:</text>
+            <rect x="0" y="0" width="180" height="30" rx="4" fill="#4fd1c5" opacity=".15" stroke="#4fd1c5" stroke-width="1.5"/>
+            <text x="90" y="20" text-anchor="middle" fill="#4fd1c5" font-size="14" font-weight="700">m=1</text>
+
+            <rect x="190" y="0" width="180" height="30" rx="4" fill="#f48fb1" opacity=".1" stroke="#f48fb1" stroke-width="1.5" stroke-dasharray="4 2"/>
+            <text x="280" y="20" text-anchor="middle" fill="#f48fb1" font-size="14" font-weight="700">m=0 (mask)</text>
+
+            <rect x="380" y="0" width="160" height="30" rx="4" fill="#4fd1c5" opacity=".15" stroke="#4fd1c5" stroke-width="1.5"/>
+            <text x="460" y="20" text-anchor="middle" fill="#4fd1c5" font-size="14" font-weight="700">m=1</text>
+
+            <rect x="550" y="0" width="120" height="30" rx="4" fill="#f48fb1" opacity=".1" stroke="#f48fb1" stroke-width="1.5" stroke-dasharray="4 2"/>
+            <text x="610" y="20" text-anchor="middle" fill="#f48fb1" font-size="14" font-weight="700">m=0</text>
+          </g>
+
+          <!-- Gradient row -->
+          <g transform="translate(40,200)">
+            <text x="-15" y="20" text-anchor="end" fill="#b9c4d4" font-size="12" font-weight="600">∇θ logπ:</text>
+
+            <rect x="0" y="0" width="180" height="30" rx="4" fill="#ffd166" opacity=".18" stroke="#ffd166" stroke-width="1.5"/>
+            <text x="90" y="20" text-anchor="middle" fill="#ffd166" font-size="12" font-weight="600">✓ 反向传播</text>
+
+            <g transform="translate(190,0)">
+              <rect x="0" y="0" width="180" height="30" rx="4" fill="rgba(91,106,130,.15)" stroke="#5b6a82" stroke-width="1.5"/>
+              <text x="90" y="20" text-anchor="middle" fill="#5b6a82" font-size="12" font-weight="600">✗ 不计入梯度</text>
+              <line x1="10" y1="5" x2="170" y2="25" stroke="#5b6a82" stroke-width="1.5" opacity=".5"/>
+            </g>
+
+            <rect x="380" y="0" width="160" height="30" rx="4" fill="#ffd166" opacity=".18" stroke="#ffd166" stroke-width="1.5"/>
+            <text x="460" y="20" text-anchor="middle" fill="#ffd166" font-size="12" font-weight="600">✓ 反向传播</text>
+
+            <g transform="translate(550,0)">
+              <rect x="0" y="0" width="120" height="30" rx="4" fill="rgba(91,106,130,.15)" stroke="#5b6a82" stroke-width="1.5"/>
+              <text x="60" y="20" text-anchor="middle" fill="#5b6a82" font-size="11" font-weight="600">✗ 不计</text>
+              <line x1="10" y1="5" x2="110" y2="25" stroke="#5b6a82" stroke-width="1.5" opacity=".5"/>
+            </g>
+          </g>
+
+          <!-- Annotation -->
+          <text x="380" y="290" text-anchor="middle" fill="#8492a8" font-size="12">
+            ✨ 只有 policy 生成的 token 参与策略梯度；环境返回的 token 仅作为 condition，不被"学习"
+          </text>
+        </svg>
+      </div>
+
+      <h3>4.5 不同算法下 mask 的具体实现</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>算法</th><th>Mask 粒度</th><th>归一化分母</th><th>关键点</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Search-R1</strong></td><td>token 级（按 <code>&lt;information&gt;</code> 标签）</td><td>policy token 总数</td><td>tag 内 token 全 mask</td></tr>
+            <tr><td><strong>ReTool</strong></td><td>token 级（按 <code>&lt;observation&gt;</code> 块）</td><td>policy token 总数</td><td>含代码执行 stdout</td></tr>
+            <tr><td><strong>SWE-RL</strong></td><td>无需 mask（Agentless 式单轮生成，轨迹中没有 env token）</td><td>completion token 总数</td><td>反例：单轮 setup 不产生 masking 问题</td></tr>
+            <tr><td><strong>DAPO 多轮版</strong></td><td>token 级 + token-level loss</td><td>所有 policy token 求和（不除 \(|o_i|\)）</td><td>+ Clip-Higher / Dynamic Sampling</td></tr>
+            <tr><td><strong>GTPO</strong></td><td>turn 级 advantage shaping</td><td>turn 级 baseline</td><td>turn 内 token 共享 advantage</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>4.6 一个常见陷阱：KL 项的 mask</h3>
+      <div class="callout danger">
+        <div class="callout-title">易错点</div>
+        KL 散度 \(\mathbb{D}_{\text{KL}}[\pi_\theta\|\pi_{\text{ref}}]\) 也<strong>必须只在 policy token 上计算</strong>。理由：
+        <ol style="margin-top:8px">
+          <li>\(\pi_\theta(o_{t+1} \mid \dots)\) 中 \(o_{t+1}\) 是 env token，模型对它的概率无意义</li>
+          <li>把 env token 算进 KL 会让 reference policy 也"学着"预测环境，但 reference 是冻结的——结果是 KL 项数值远大于实际偏离</li>
+        </ol>
+        Search-R1 / ReTool 的实现都显式过滤了 KL 项。早期一些实验代码漏掉这一步导致训练崩溃。
+      </div>
+
+      <h3>4.7 GSPO 在多轮场景的优势</h3>
+      <p>GSPO 把 importance ratio 提升到 sequence 级。<strong>以下是 GSPO 的多轮 mask 适配变体——原版 GSPO 只在 single-turn 上定义 sequence-level importance ratio，这里把 mask 整合进来。</strong></p>
+      <div class="formula">
+        $$
+        s_i(\theta) = \exp\!\left(\frac{1}{|y_i^{\text{policy}}|}\sum_{t : m_{i,t}=1}\log\frac{\pi_\theta(o_{i,t}|\cdot)}{\pi_{\theta_{\text{old}}}(o_{i,t}|\cdot)}\right)
+        $$
+      </div>
+      <p>注意分母只数 policy token \(|y_i^{\text{policy}}|\)，而不是整条 trajectory 长度。这让多轮场景下 IS 的方差大大降低——因为 trajectory 的 env 部分长度不稳定，把它们算进归一化会引入噪声。</p>
+    </section>
+
+    <!-- ============================================================
+         5 · Credit Assignment
+         ============================================================ -->
+    <section id="sec-credit" class="section">
+      <div class="section-num">SECTION 5</div>
+      <h2>Credit Assignment：<span class="grad">奖励信号如何穿越长轨迹</span></h2>
+      <p class="section-lede">
+        这是多轮 tool use agentic RL 最难、最未解决的问题——典型轨迹 50+ turn，奖励通常只在末尾，
+        如何把这个稀疏信号"反向传播"到中间的每个决策？本节先用 2026 年的综述谱系建立坐标系，再系统梳理 token-level / step-level / turn-level / outcome 四个尺度的优势计算，
+        深挖 SWEET-RL（privileged-info critic）与 GiGPO（两级组内优势）两条代表路线，最后给出"turn 级优势 vs flat-token + mask"范式之争的现状与算法选型依据。
+      </p>
+
+      <h3>5.1 问题的本质：稀疏奖励 + 长 horizon</h3>
+      <div class="formula">
+        $$
+        \tau = \underbrace{(s_0, a_0, r_0=0)}_{\text{turn 1}}, \underbrace{(s_1, a_1, r_1=0)}_{\text{turn 2}}, \dots, \underbrace{(s_H, a_H, r_H=R^*)}_{\text{终局奖励}}
+        $$
+      </div>
+      <p>典型设置：\(H \sim 50\)，只有 \(r_H \neq 0\)。问题是：第 5 turn 的某个搜索决策对最终成功有多大贡献？经典 RL 的答案是 <strong>value function / TD bootstrap</strong>，但在 LLM 多轮场景下不够。</p>
+
+      <h3>5.2 谱系坐标系：粒度 × 方法论</h3>
+      <p>
+        credit assignment 的文献在 2025-2026 爆发式增长，单看论文名很难建立坐标。综述
+        <a href="https://arxiv.org/abs/2604.09459">From Reasoning to Agentic: Credit Assignment in Reinforcement Learning for LLMs</a>（arXiv:2604.09459, 2026.04）系统整理了 47 个方法，
+        给出目前最好的索引骨架（配套 <a href="https://github.com/xxzcc/Awesome-Credit-Assignment-in-LLM-RL">Awesome-Credit-Assignment-in-LLM-RL</a> 仓库持续更新）。它把每个方法放进两个正交维度：
+      </p>
+      <ul>
+        <li><strong>分配粒度（granularity）</strong>：token → segment → step / turn → multi-agent，决定"信用切多细"。episode 级（outcome-only）信用在该综述中不是独立类目，而是所有方法共同改进的 <strong>baseline</strong>——粗到"整条轨迹共享一个 advantage"；</li>
+        <li><strong>方法论（methodology）</strong>：Monte Carlo（组内比较 / 子树平均）、Temporal Difference（critic + bootstrap）、model-based（训练专门的 reward / advantage 模型）、博弈论 / 信息论分解，决定"信用怎么估"。</li>
+      </ul>
+      <p>
+        该综述还强调一个分水岭：<strong>reasoning RL</strong>（单轮 CoT，500–30K token，无环境转移）与 <strong>agentic RL</strong>（多轮交互，100+ turn、100K–1M token 上下文，环境随机转移）
+        是两个难度量级的 credit assignment 问题——前者只需在一条自回归序列内部切分信用，后者还要让信号穿越环境的随机性。本节出现的所有方法都可以放进这张坐标系：
+      </p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>粒度</th><th>代表方法（本文）</th><th>方法论</th><th>额外成本</th></tr></thead>
+          <tbody>
+            <tr><td><strong>token</strong></td><td>PPO + GAE、PRIME</td><td>TD / implicit reward</td><td>value head 或 reference model</td></tr>
+            <tr><td><strong>step</strong></td><td>PRM / Math-Shepherd；GiGPO 步级（§5.5）</td><td>model-based；MC 组内比较</td><td>PRM 训练；GiGPO 近乎为零</td></tr>
+            <tr><td><strong>turn</strong></td><td>SWEET-RL（§5.4）、GTPO、Turn-PPO、AT²PO、Tree-GRPO（§5.7）</td><td>model-based critic / TD / MC 树估计</td><td>各异（critic 训练 ↔ 分支 rollout）</td></tr>
+            <tr><td><strong>episode</strong></td><td>outcome-only GRPO / RLOO</td><td>MC 组内比较</td><td>零</td></tr>
+            <tr><td><strong>multi-agent</strong></td><td>orchestrator / sub-agent 分解（本文未展开）</td><td>结构化退化为单策略</td><td>—</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout insight">
+        <div class="callout-title">读图法则</div>
+        粒度越细，理论上方差越小、但估计本身越难也越贵。实务上的移动方向不是"一步到 token 级"，而是：
+        <strong>episode 级组内比较（免 critic）打底 → 环境允许时白拿 step 级（GiGPO）→ 有特权信息时上 turn 级 critic（SWEET-RL）→ 真不够再考虑 token 级</strong>。
+        方法论维度决定成本：MC 组内比较只花 rollout 钱，TD / model-based 要训练并维护额外模型。
+      </div>
+
+      <h3>5.3 四个尺度的优势</h3>
+
+      <div class="mermaid-wrap">
+<div class="mermaid">
+flowchart LR
+  Out["🎯 Outcome reward<br/>仅终局 scalar"]:::out
+  Out --> Turn["🔁 Turn-level<br/>A_h: 每 turn 一标量<br/>SWEET-RL · GTPO · Turn-PPO · Tree-GRPO"]:::turn
+  Turn --> Step["🪜 Step-level<br/>A_step: 每推理步一个<br/>PRM · Math-Shepherd · GiGPO"]:::step
+  Step --> Token["🔤 Token-level<br/>A_t: 每 token 一个<br/>PPO + GAE"]:::token
+  classDef out fill:#1d2638,stroke:#ffd166,color:#fff
+  classDef turn fill:#1d2638,stroke:#a78bfa,color:#fff
+  classDef step fill:#1d2638,stroke:#5b8def,color:#fff
+  classDef token fill:#1d2638,stroke:#4fd1c5,color:#fff
+</div>
+      </div>
+
+      <h4>① Outcome-only（R1 默认）</h4>
+      <div class="formula">
+        $$
+        \hat{A}_{i,t} = \hat{A}_i = \frac{R_i - \text{mean}(\{R_j\}_{j=1}^G)}{\text{std}(\{R_j\}_{j=1}^G)},\quad \forall t \in [0,H]
+        $$
+      </div>
+      <p>同一轨迹内所有 policy token 共享 \(\hat{A}_i\)。简单、稳健，但 horizon 大时信号被严重稀释——一条 50 turn 的失败轨迹，每个 turn 都被同等惩罚，模型学不到"是哪一步出错"。</p>
+
+      <h4>② Turn-level（SWEET-RL / GTPO / Turn-PPO / Tree-GRPO 路线）</h4>
+      <p>把 turn \(h\) 的 advantage 定义为：</p>
+      <div class="formula">
+        $$
+        \hat{A}_h^{\text{turn}} = R(\tau) - V_\phi(s_h)\quad\text{或}\quad \hat{A}_h^{\text{turn}} = \sum_{h'=h}^{H}\gamma^{h'-h}\,\delta_{h'}
+        $$
+      </div>
+      <p>这一尺度在 2025-2026 形成了清晰的方法谱系：<strong>SWEET-RL</strong>（§5.4）训练带特权信息的 turn 级 critic；
+      <strong>Turn-PPO</strong>（§5.6）把 PPO 的 advantage 估计搬到 turn 级 MDP 上；
+      <strong>GTPO</strong>（Group Turn Policy Optimization, <a href="https://arxiv.org/abs/2511.14846">arXiv:2511.14846</a>）做 turn 级 reward assignment + 以归一化折扣回报作 advantage（turn 内 token 共享），并用代码自监督信号做 reward 致密化。
+      注意它与另一个同名 <strong>GTPO</strong>（<a href="https://arxiv.org/abs/2508.03772">arXiv:2508.03772</a>，Group-relative Trajectory-based PO——做 token 级梯度冲突保护与熵控制的 GRPO 稳定化，单轮场景）<strong>撞名</strong>，引用时务必看编号。本文所有 GTPO 均指前者。
+      <strong>Tree-GRPO</strong>（§5.7）则用树结构在 turn 边界天然构造 turn 级信号。</p>
+
+      <h4>③ Step-level (PRM / PRIME 路线)</h4>
+      <p>把"step"定义为推理段落（一个 thought block 或一段独立推理）：</p>
+      <div class="formula">
+        $$
+        \hat{A}_{i,s} = R_{\text{PRM}}(s) - \text{baseline}(s)
+        $$
+      </div>
+      <p>需要训练独立的 PRM（Process Reward Model）。<strong>PRIME</strong>（arXiv:2502.01456）通过 implicit reward 巧妙绕开了显式 PRM：</p>
+      <div class="formula">
+        $$
+        r_t^{\text{implicit}} = \beta\log\frac{\pi_\phi(y_t \mid y_{\lt t})}{\pi_{\text{ref}}(y_t \mid y_{\lt t})}
+        $$
+      </div>
+
+      <h4>④ Multi-scale 组合（设计空间，尚无公认配方）</h4>
+      <div class="formula boxed">
+        <div class="formula-title">Multi-Scale Advantage</div>
+        $$
+        \hat{A}_t^{\text{multi}} = \alpha_1\hat{A}_t^{\text{token}} + \alpha_2 \hat{A}_t^{\text{step}} + \alpha_3 \hat{A}_t^{\text{turn}} + \alpha_4 \hat{A}^{\text{outcome}}
+        $$
+      </div>
+      <p>这是一个统一的设计框架而非具体算法：四尺度全组合目前<strong>没有公开发表的标准配置</strong>，权重 \(\alpha_i\) 在现有工作中为 hand-tuned 或随训练阶段动态调整。已发表工作多为单尺度或<strong>两尺度组合</strong>——GTPO 的 turn + outcome、Tree-GRPO 的树内 + 树间，以及目前唯一给出公开默认权重的 <strong>GiGPO</strong>（episode + step，\(\hat A = \hat A^E + \omega\hat A^S\)，默认 \(\omega=1\) 不调参，§5.5）。直觉上越粗粒度的信号噪声越小、可给更大权重。</p>
+
+      <h3>5.4 SWEET-RL：训练时信息不对称的 turn 级 critic</h3>
+      <p>
+        <strong>SWEET-RL</strong>（RL with <strong>S</strong>tep-<strong>W</strong>is<strong>E</strong> <strong>E</strong>valuation from <strong>T</strong>raining-time information，
+        Zhou et al., Meta AI &amp; UC Berkeley, <a href="https://arxiv.org/abs/2503.15478">arXiv:2503.15478</a>, 2025.03）是 turn 级 credit assignment 的代表作，
+        核心思想一句话：<strong>critic 不必和 policy 看同样的信息</strong>。"评估某一 turn 走得好不好"远比"走好这一 turn"容易——只要评估者能开卷。
+      </p>
+
+      <h4>机制：三步</h4>
+      <p><strong>第一步，信息不对称（privileged information）。</strong>critic 额外拿到 policy 永远看不到的训练时信息 \(c\)：在其配套基准 <strong>ColBench</strong>
+      （后端编程 + 前端设计，与 LLM 模拟的人类协作者多轮交互）中，\(c\) 分别是参考代码与参考网页——即 ground-truth 解。对照标准答案判断"第 \(t\) 轮这步问得好不好"，比从轨迹本身反推容易得多。
+      这一思想与机器人 RL 中的 asymmetric actor-critic 同源：critic 只在训练时存在，部署时丢弃，所以"作弊"完全合法。</p>
+
+      <p><strong>第二步，critic 直接参数化为 advantage 而非 value。</strong>不训练额外的 value head，而是复用 LLM 语言头、以平均 log 概率比（DPO 式 implicit reward）作为 turn 级 advantage：</p>
+      <div class="formula">
+        $$
+        A_\theta(o_t, a_t, c) = \frac{1}{L}\sum_{l=1}^{L}\log\frac{\pi_\theta(a_t^l \mid a_t^{\lt l}, o_t, c)}{\pi_{\text{ref}}(a_t^l \mid a_t^{\lt l}, o_t, c)}
+        $$
+      </div>
+      <p>长度归一化 \(1/L\) 用于稳定训练。</p>
+
+      <p><strong>第三步，用轨迹级 Bradley-Terry 偏好目标训练 critic。</strong>按最终 reward 高低把成对轨迹标成 \(\tau^+/\tau^-\)：</p>
+      <div class="formula">
+        $$
+        \mathcal{L}(\theta) = -\log\sigma\Big(\textstyle\sum_t \beta\, A_\theta(o_t^+, a_t^+, c) \;-\; \sum_t \beta\, A_\theta(o_t^-, a_t^-, c)\Big)
+        $$
+      </div>
+      <p>监督信号只在轨迹级，但优化目标会自动把它"分摊"到每个 turn 的 \(A_\theta\) 上——credit assignment 是被 critic <em>学</em>出来的，而非靠 TD bootstrap 递推出来的。</p>
+
+      <h4>policy 端：逐 turn 的 DPO</h4>
+      <p>拿到 turn 级 advantage 后，policy 优化不走 PPO：对每个 turn 从当前 policy 采样若干候选 action，用学好的 \(A_\theta\) 排序得到 chosen / rejected，逐 turn 做 DPO。
+      整条 pipeline 没有 token 级 importance ratio，自然绕开了多轮 IS 的方差放大问题（对照 §4.7）。</p>
+
+      <div class="callout key">
+        <div class="callout-title">结果与适用判断</div>
+        <ul style="margin-top:6px">
+          <li>ColBench 上对既有 SOTA 多轮 RL / DPO 基线（multi-turn DPO、rejection FT、value-head critic、LLM-as-a-judge）<strong>绝对提升 6%</strong>（success / win rate）；让 Llama-3.1-8B 在协作内容创作上<strong>追平或超过 GPT-4o</strong>。</li>
+          <li><strong>何时值得用</strong>：凡是有参考解 / 隐藏测试 / 标准答案可作训练时特权信息的任务（SWE 的 hidden test、搜索 QA 的 gold answer），都可以让 critic"开卷"而 policy"闭卷"。</li>
+          <li><strong>代价</strong>：需要训练并维护一个专门的 critic（数据是成对轨迹），比 critic-free 的组内比较贵得多——这正是 GiGPO（§5.5）要消掉的成本。</li>
+        </ul>
+      </div>
+
+      <h3>5.5 GiGPO：critic-free 的两级组内优势</h3>
+      <p>
+        <strong>GiGPO</strong>（Group-in-Group Policy Optimization, Feng et al., <a href="https://arxiv.org/abs/2505.10978">arXiv:2505.10978</a>, NeurIPS 2025）回答相反的问题：
+        <strong>一个 critic 都不训，能不能拿到 step 级信号？</strong>答案是把 GRPO 的"组内比较"用两次——一次在 episode 级，一次在 step 级。
+      </p>
+
+      <h4>episode 级（宏观）优势</h4>
+      <p>与 GRPO 相同：同一初始状态 rollout \(N\) 条轨迹成组，</p>
+      <div class="formula">
+        $$
+        \hat A^{E}(\tau_i) = \frac{R(\tau_i) - \text{mean}\big(\{R(\tau_j)\}_{j=1}^{N}\big)}{F_{\text{norm}}}
+        $$
+      </div>
+      <p>\(F_{\text{norm}}\) 取组内 std，或固定为 1——后者等价于无偏的 leave-one-out 估计，且避免过易 / 过难任务被 std 归一化过度加权的 difficulty bias（与 Dr.GRPO 的批评一致）。</p>
+
+      <h4>step 级（微观）优势：anchor state grouping</h4>
+      <p>关键观察：同组 \(N\) 条轨迹经常<strong>路过相同的环境状态</strong>（ALFWorld 的同一房间描述、WebShop 的同一页面）。事后把所有轨迹中环境状态相同的 step 归进一个 anchor 组，组内每个成员计算折扣 return-to-go，再做组内归一化：</p>
+      <div class="formula">
+        $$
+        R_t^{(i)} = \sum_{k=t}^{T}\gamma^{\,k-t}\, r_k^{(i)},
+        \qquad
+        \hat A^{S}\!\big(a_t^{(i)}\big) = \frac{R_t^{(i)} - \text{mean}\big(\{R_t^{(j)}\}\big)}{F_{\text{norm}}}
+        $$
+      </div>
+      <p>同一状态下不同 action 的下游回报之差，就是这个 action 的微观优势——相当于用 rollout 里免费出现的"自然对照实验"替代 critic 的反事实估计。</p>
+
+      <h4>合成与伪代码</h4>
+      <div class="formula boxed">
+        <div class="formula-title">GiGPO 总优势</div>
+        $$
+        \hat A\big(a_t^{(i)}\big) = \hat A^{E}(\tau_i) + \omega\,\hat A^{S}\big(a_t^{(i)}\big),
+        \qquad \omega = 1 \text{（默认，不调参）},\;\; \gamma = 0.95
+        $$
+      </div>
+      <div class="mermaid-wrap" style="padding:18px 22px">
+<pre style="background:transparent;color:var(--fg-1);font-size:.82rem;line-height:1.7;font-family:'JetBrains Mono',monospace;margin:0">
+# 同一 task 采 N 条轨迹（与 GRPO 完全相同的 rollout 预算）
+A_E[i] = (R[i] - mean(R)) / F_norm          # episode 级组内优势
+
+anchors = defaultdict(list)                  # 事后构造 step 组
+for i, tau in enumerate(group):
+    for t, (state, action) in enumerate(tau):
+        anchors[hash(state)].append((i, t, return_to_go(tau, t, gamma)))
+
+for state, members in anchors.items():
+    if len(members) &gt; 1:                     # 状态在组内重复才有微观信号
+        A_S[members] = normalize([m.rtg for m in members])
+
+A = A_E + w * A_S                            # 广播到该 step 的 policy token
+</pre>
+      </div>
+
+      <div class="callout key">
+        <div class="callout-title">成本与效果</div>
+        完全 critic-free：无额外 rollout、无额外模型，GPU 显存与 GRPO 相同，时间开销可忽略。
+        在 Qwen2.5-1.5B/7B-Instruct 上，ALFWorld 比 GRPO 高 <strong>&gt;12%</strong>、WebShop 高 <strong>&gt;9%</strong>。
+      </div>
+      <div class="callout warn">
+        <div class="callout-title">适用边界</div>
+        anchor state grouping 依赖"状态在组内重复"。论文明确指出极端情形：组内无任何状态重复时 \(\hat A^S \equiv 0\)，GiGPO <strong>严格退化为 GRPO</strong>（不会更差，但也没拿到 step 信号）；
+        状态有噪声 / 微小差异时精确匹配会漏检，robust state matching（相似度分组）被列为 future work。
+        实务判断：环境状态<strong>离散、可哈希、会重复</strong>（具身 / 电商 / 游戏类）时 GiGPO 几乎是免费午餐；开放网页、真实 SWE 这类状态空间巨大的环境则要靠 Tree-GRPO 式的<strong>主动分支</strong>（§5.7）来"制造"共享前缀，而非指望状态自然撞车。
+      </div>
+
+      <h3>5.6 范式之争：turn 级优势 vs flat-token + mask</h3>
+      <p>
+        §4 的主流范式把多轮轨迹拍平成一条 token 序列、mask 掉 env token、把单个轨迹级 advantage 广播给所有 policy token——本质上是<strong>把多轮当作"很长的单轮"</strong>。
+        2025 底-2026 初，一批工作开始系统性批评这种 flat-token + mask 范式与任务的 turn 结构存在根本错位：
+      </p>
+      <ul>
+        <li><strong>优化粒度 ≠ 决策粒度。</strong>agent 的自然决策单元是 turn（一次完整的 思考 → 工具调用），而 flat 范式在 token 级做 clipping / IS——同一个 turn 内部分 token 被 clip、部分保留，更新方向不对应任何一个完整决策。
+        <strong>AT²PO</strong>（Agentic Turn-based Policy Optimization via Tree Search, <a href="https://arxiv.org/abs/2601.04767">arXiv:2601.04767</a>, 2026.01）把 turn 级学习目标（ATPO）作为可独立插拔的组件提出，
+        论证其相对 token 级 / sequence 级目标更稳，配合熵引导的树扩展做 turn 级探索与 turn-wise credit assignment，7 个 benchmark 平均最高 <strong>+1.84 pp</strong>。</li>
+        <li><strong>token 级 MDP 在长 horizon 失真。</strong><strong>Turn-PPO</strong>（<a href="https://arxiv.org/abs/2512.17008">arXiv:2512.17008</a>, EACL 2026 Findings）在 WebShop / Sokoban 上的发现：
+        GRPO 直接搬到多轮长程任务上有明显短板，PPO 更稳；进一步把 PPO 的 advantage 估计从 token 级 MDP 换到 <strong>turn 级 MDP</strong>（每个 turn 一个决策节点）还能再改善。
+        这与 <a href="rl-pitfalls-survey.html">rl-pitfalls-survey</a> §13 的"importance sampling 必须做 turn-level"结论相互印证。</li>
+        <li><strong>GTPO</strong>（§5.3 ②）同属这一脉：turn 级 reward assignment、turn 内 token 共享 advantage。</li>
+      </ul>
+
+      <h4>Practitioner's Guide：有偏 vs 无偏算法在稠密 turn 奖励下分化</h4>
+      <p>
+        <a href="https://arxiv.org/abs/2510.01132">A Practitioner's Guide to Multi-turn Agentic Reinforcement Learning</a>（Wang &amp; Ammanabrolu, arXiv:2510.01132, 2025.10）
+        在 TextWorld / ALFWorld / SWE-Gym 上用 Qwen2.5-1.5B/7B-Instruct 与 Qwen3-8B 做了少见的受控对比，给这场争论提供了目前最有操作价值的数据点（TextWorld tw-simple 任务族，success rate）：
+      </p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>算法</th><th>梯度估计</th><th>稀疏 outcome<br/>（10.22 步 / reward）</th><th>Dense 1<br/>（2.89 步 / reward）</th><th>Dense 2<br/>（1.17 步 / reward）</th><th>解读</th></tr></thead>
+          <tbody>
+            <tr><td><strong>PPO</strong></td><td>有偏（bootstrap critic）</td><td>41%</td><td>29%</td><td><strong>58%</strong></td><td>对密度高度敏感且<strong>非单调</strong>：中等密度反而掉点，最密时才兑现最高上限</td></tr>
+            <tr><td><strong>RLOO</strong></td><td>无偏（leave-one-out baseline）</td><td>35%</td><td>55%</td><td>55%</td><td>dense 收益显著（+20 pp）且对具体密度档位<strong>不敏感</strong></td></tr>
+            <tr><td><strong>GRPO</strong></td><td>有偏（组内 std 归一化）</td><td colspan="3">仅用于 SWE-Gym（重环境、无 dense reward 时省算力）</td><td>论文直言其组基线"并不天然适用于多轮训练"</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>三条可操作结论：</p>
+      <ol>
+        <li>稠密逐 turn 奖励确实能大幅加速训练（RLOO 从 35% → 55%），但<strong>收益强依赖算法选择</strong>：有偏的 PPO 对奖励密度高度敏感且非单调——中等密度（29%）反而低于稀疏（41%），只有足够密（58%）才兑现收益；无偏的 RLOO 在两档 dense 下都稳定拿到 55%，对密度档位鲁棒。</li>
+        <li>操作上：要上 turn 级稠密奖励时，<strong>无偏 RLOO 是更稳的搭配</strong>；PPO 仅在 reward 足够密、critic 调得好时上限更高。只有稀疏 outcome 时 PPO 反而略优（41% vs 35%）。一句话：<strong>奖励密度必须与优化算法对齐，不能独立调参</strong>。</li>
+        <li>同一篇还证明固定算力下 <strong>SFT : RL 配比存在内点最优</strong>（其设置下 SFT 单位成本按 RL episode 的 10× 计，最优解是两者混合——全 SFT 或全 RL 都次优）——credit assignment 的难度本身，就是"纯 RL 不划算"的原因之一。</li>
+      </ol>
+
+      <h4>何时用什么：决策表</h4>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>你的处境</th><th>推荐起点</th><th>理由</th></tr></thead>
+          <tbody>
+            <tr><td>只有 outcome reward、预算有限</td><td>episode 级 GRPO / RLOO（flat + mask）</td><td>最稳最省；horizon ≤ 50 turn 通常够用</td></tr>
+            <tr><td>环境状态离散可哈希、组内会重复</td><td><strong>GiGPO</strong>（§5.5）</td><td>免费 step 信号，最差严格退化为 GRPO</td></tr>
+            <tr><td>有参考解 / 隐藏测试可作特权信息</td><td><strong>SWEET-RL</strong> 式 privileged critic（§5.4）</td><td>critic"开卷"大幅降低 turn 评估难度，付 critic 训练成本</td></tr>
+            <tr><td>有稠密 turn 奖励</td><td><strong>RLOO</strong>（稳）；reward 足够密且调得动 critic 时 turn 级 PPO（<strong>Turn-PPO</strong>）上限更高</td><td>无偏估计对密度档位鲁棒；PPO 对密度敏感且非单调（2510.01132）</td></tr>
+            <tr><td>rollout 预算可分支、turn 边界清晰</td><td><strong>Tree-GRPO / AT²PO</strong>（§5.7）</td><td>主动制造共享前缀，turn 级优势免 critic</td></tr>
+            <tr><td>100+ turn 超长程</td><td>turn 级方法 + context 管理</td><td>flat 范式信号稀释最严重的区间</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout insight">
+        <div class="callout-title">现实校准</div>
+        这场争论<strong>尚未收束</strong>：2025-2026 的头部技术报告仍以 outcome 级 reward（加 rubric）为主，未大规模采用 turn 级稠密信号——turn 级方法的已验证收益（如 AT²PO 的 +1.84 pp）相对其工程复杂度尚未形成压倒性优势，且每个 turn 级 reward 都是新的被 hack 面。
+        把 turn 级 credit assignment 当作<strong>长 horizon 下的增量改进</strong>，而非默认必选项；horizon 越长、outcome 信号越稀释，切换的收益越大。
+      </div>
+
+      <h3>5.7 Tree-Based Credit Assignment</h3>
+      <p><strong>Tree-GRPO</strong>（arXiv:2509.21240）的洞察：与其独立 rollout \(G\) 条轨迹，不如<strong>共享前缀 + 分支</strong>：</p>
+
+      <div class="svg-diagram">
+        <svg viewBox="0 0 700 280" width="100%" style="max-width:680px">
+          <text x="350" y="24" text-anchor="middle" fill="#e6edf7" font-size="15" font-weight="700">Tree-GRPO: 共享前缀的分支 rollout</text>
+
+          <!-- Root -->
+          <circle cx="350" cy="60" r="20" fill="#1d2638" stroke="#ffd166" stroke-width="2"/>
+          <text x="350" y="65" text-anchor="middle" fill="#ffd166" font-size="13" font-weight="700">q</text>
+
+          <!-- Level 1: shared first turn -->
+          <circle cx="350" cy="120" r="16" fill="#1d2638" stroke="#4fd1c5" stroke-width="2"/>
+          <text x="350" y="125" text-anchor="middle" fill="#4fd1c5" font-size="11">t₁</text>
+
+          <!-- Level 2: branch into 3 turn 2 options -->
+          <circle cx="200" cy="190" r="14" fill="#1d2638" stroke="#a78bfa" stroke-width="2"/>
+          <text x="200" y="195" text-anchor="middle" fill="#a78bfa" font-size="10">t₂ᵃ</text>
+
+          <circle cx="350" cy="190" r="14" fill="#1d2638" stroke="#a78bfa" stroke-width="2"/>
+          <text x="350" y="195" text-anchor="middle" fill="#a78bfa" font-size="10">t₂ᵇ</text>
+
+          <circle cx="500" cy="190" r="14" fill="#1d2638" stroke="#a78bfa" stroke-width="2"/>
+          <text x="500" y="195" text-anchor="middle" fill="#a78bfa" font-size="10">t₂ᶜ</text>
+
+          <!-- Level 3: outcomes -->
+          <rect x="120" y="240" width="50" height="22" rx="4" fill="rgba(123,227,154,.2)" stroke="#7be39a"/>
+          <text x="145" y="256" text-anchor="middle" fill="#7be39a" font-size="11">R=1</text>
+
+          <rect x="180" y="240" width="50" height="22" rx="4" fill="rgba(255,107,138,.2)" stroke="#ff6b8a"/>
+          <text x="205" y="256" text-anchor="middle" fill="#ff6b8a" font-size="11">R=0</text>
+
+          <rect x="290" y="240" width="50" height="22" rx="4" fill="rgba(123,227,154,.2)" stroke="#7be39a"/>
+          <text x="315" y="256" text-anchor="middle" fill="#7be39a" font-size="11">R=1</text>
+
+          <rect x="350" y="240" width="50" height="22" rx="4" fill="rgba(123,227,154,.2)" stroke="#7be39a"/>
+          <text x="375" y="256" text-anchor="middle" fill="#7be39a" font-size="11">R=1</text>
+
+          <rect x="470" y="240" width="50" height="22" rx="4" fill="rgba(255,107,138,.2)" stroke="#ff6b8a"/>
+          <text x="495" y="256" text-anchor="middle" fill="#ff6b8a" font-size="11">R=0</text>
+
+          <rect x="530" y="240" width="50" height="22" rx="4" fill="rgba(255,107,138,.2)" stroke="#ff6b8a"/>
+          <text x="555" y="256" text-anchor="middle" fill="#ff6b8a" font-size="11">R=0</text>
+
+          <!-- edges -->
+          <line x1="350" y1="80" x2="350" y2="104" stroke="#5b6a82"/>
+          <line x1="340" y1="134" x2="208" y2="178" stroke="#5b6a82"/>
+          <line x1="350" y1="136" x2="350" y2="174" stroke="#5b6a82"/>
+          <line x1="360" y1="134" x2="492" y2="178" stroke="#5b6a82"/>
+
+          <line x1="192" y1="204" x2="148" y2="240" stroke="#5b6a82"/>
+          <line x1="207" y1="204" x2="205" y2="240" stroke="#5b6a82"/>
+          <line x1="345" y1="204" x2="316" y2="240" stroke="#5b6a82"/>
+          <line x1="355" y1="204" x2="378" y2="240" stroke="#5b6a82"/>
+          <line x1="494" y1="204" x2="495" y2="240" stroke="#5b6a82"/>
+          <line x1="506" y1="204" x2="558" y2="240" stroke="#5b6a82"/>
+
+          <!-- annotation -->
+          <text x="350" y="284" text-anchor="middle" fill="#8492a8" font-size="11">
+            t₁ 节点的 advantage 用其下所有叶子的平均 reward 估计 → 密集化 turn-level reward
+          </text>
+        </svg>
+      </div>
+
+      <p>Tree-GRPO 的核心公式：节点 \(v\) 的 advantage 用其子树平均回报估计：</p>
+      <div class="formula">
+        $$
+        \hat{V}(v) = \frac{1}{|\text{leaves}(v)|}\sum_{\ell \in \text{leaves}(v)} R(\ell)
+        $$
+        $$
+        \hat{A}(v) = \hat{V}(v) - \hat{V}(\text{parent}(v))
+        $$
+      </div>
+      <p><strong>好处</strong>：(1) 前缀共享省计算；(2) 每个内部节点都有一个有效 advantage；(3) 自然密集化稀疏 reward。</p>
+
+      <h3>5.8 Reward Shaping vs Credit Assignment</h3>
+      <div class="callout insight">
+        <div class="callout-title">两个概念不要混淆</div>
+        <ul style="margin-top:6px">
+          <li><strong>Reward shaping</strong>：人为加入额外的中间奖励（如 format reward / length reward / sub-goal reward）。改变了 reward 函数本身。</li>
+          <li><strong>Credit assignment</strong>：reward 函数不变（依然只有 outcome），改变的是<strong>把 reward 反向传播到中间动作的算法</strong>（TD / GAE / Tree advantage 等）。</li>
+        </ul>
+        实践中两者经常组合使用。SWE-RL 同时用了 format shaping（格式错给 −1）和 outcome-only credit——不过注意它是单轮 setup，credit assignment 退化为平凡情形（整条 completion 共享一个标量）。
+      </div>
+
+      <p style="font-size:.85rem;color:var(--fg-2,#8492a8);margin-top:28px">
+        本节参考来源：
+        <a href="https://arxiv.org/abs/2604.09459">arXiv:2604.09459</a>（credit assignment 综述）·
+        <a href="https://arxiv.org/abs/2503.15478">arXiv:2503.15478</a>（SWEET-RL）·
+        <a href="https://arxiv.org/abs/2505.10978">arXiv:2505.10978</a>（GiGPO）·
+        <a href="https://arxiv.org/abs/2512.17008">arXiv:2512.17008</a>（Turn-PPO）·
+        <a href="https://arxiv.org/abs/2601.04767">arXiv:2601.04767</a>（AT²PO）·
+        <a href="https://arxiv.org/abs/2510.01132">arXiv:2510.01132</a>（Practitioner's Guide）·
+        <a href="https://arxiv.org/abs/2509.21240">arXiv:2509.21240</a>（Tree-GRPO）·
+        <a href="https://arxiv.org/abs/2511.14846">arXiv:2511.14846</a>（GTPO）·
+        <a href="https://arxiv.org/abs/2502.01456">arXiv:2502.01456</a>（PRIME）
+      </p>
+    </section>
+
+    <!-- ============================================================
+         6 · 代表算法解析
+         ============================================================ -->
+    <section id="sec-algo" class="section">
+      <div class="section-num">SECTION 6</div>
+      <h2>代表<span class="grad">算法</span>解析</h2>
+      <p class="section-lede">
+        本节精读 4 个最具代表性的多轮 tool use 工作（Search-R1 / ReTool / SimpleTIR / Tongyi DeepResearch），
+        外加 1 个<strong>常被误归类为 agentic 多轮训练的对照案例</strong>（SWE-RL）。每个都给出训练目标、关键 trick、与基线的差异。
+      </p>
+
+      <h3>6.1 Search-R1 (UIUC, 2025.03)</h3>
+      <p><strong>论文</strong>：<a href="https://arxiv.org/abs/2503.09516">arXiv:2503.09516</a>。开创了"搜索作为一阶 RL 动作"的范式。</p>
+
+      <h4>训练 setup</h4>
+      <ul>
+        <li><strong>Base</strong>：Qwen2.5-3B / 7B（Base 与 Instruct；论文 v1 版另含 LLaMA3.2-3B）</li>
+        <li><strong>数据</strong>：训练集只用 <strong>NQ + HotpotQA 的合并训练集</strong>；NQ / TriviaQA / PopQA / HotpotQA / 2WikiMultiHopQA / Musique / Bamboogle 共 7 个 QA benchmark 是<strong>评测集</strong></li>
+        <li><strong>检索器</strong>：训练时用本地 E5 + 2018 Wikipedia dump（top-3 passage，避开商用搜索 API 限流）</li>
+        <li><strong>RL 算法</strong>：PPO 与 GRPO 都做了——论文以 <strong>PPO 为默认</strong>；GRPO 收敛更快但训练一段步数后可能失稳，PPO 更稳但更慢</li>
+        <li><strong>奖励</strong>：<code>R = is_correct(answer)</code>，纯规则匹配，无 PRM</li>
+      </ul>
+
+      <h4>Prompt 模板</h4>
+      <div class="algo-box">
+        <div class="algo-header"><div class="algo-title">Search-R1 Prompt</div><div class="algo-tag">arXiv:2503.09516</div></div>
+        <div class="algo-body">
+<span class="cmt"># System prompt</span>
+You are a helpful assistant. Answer the question by reasoning step by step.
+You can use <span class="kw">&lt;search&gt;query&lt;/search&gt;</span> to retrieve information.
+Wrap your reasoning in <span class="kw">&lt;think&gt;...&lt;/think&gt;</span> and final answer in <span class="kw">&lt;answer&gt;...&lt;/answer&gt;</span>.
+
+<span class="cmt"># User</span>
+{question}
+
+<span class="cmt"># Assistant (training target)</span>
+<span class="kw">&lt;think&gt;</span> ... <span class="kw">&lt;/think&gt;</span>
+<span class="kw">&lt;search&gt;</span> query 1 <span class="kw">&lt;/search&gt;</span>
+<span class="kw">&lt;information&gt;</span> ... retrieved doc ... <span class="kw">&lt;/information&gt;</span>   <span class="cmt"># ← mask</span>
+<span class="kw">&lt;think&gt;</span> ... <span class="kw">&lt;/think&gt;</span>
+<span class="kw">&lt;search&gt;</span> query 2 <span class="kw">&lt;/search&gt;</span>
+<span class="kw">&lt;information&gt;</span> ... <span class="kw">&lt;/information&gt;</span>                        <span class="cmt"># ← mask</span>
+<span class="kw">&lt;answer&gt;</span> final answer <span class="kw">&lt;/answer&gt;</span>
+        </div>
+      </div>
+
+      <h4>关键创新</h4>
+      <ul>
+        <li><strong>Token mask</strong>：<code>&lt;information&gt;</code> 内容不参与策略梯度</li>
+        <li><strong>Reward 极简</strong>：只判答案对错，不评估搜索质量</li>
+        <li><strong>Search 触发的涌现</strong>：模型自发学会"多次搜索 / 改进 query"</li>
+      </ul>
+
+      <h4>结果</h4>
+      <p>在 7 个 QA benchmark 上较 RAG 基线平均相对提升：Qwen2.5-7B <strong>41%</strong>、Qwen2.5-3B <strong>20%</strong>（最新修订版数字；v1 摘要为 26% / 21%，外加 LLaMA3.2-3B 的 10%）。绝对值上，Qwen2.5-7B-Base 的 Search-R1 在 NQ 达 <strong>0.480</strong> EM。</p>
+
+      <h3>6.2 ReTool (2025.04)</h3>
+      <p><strong>论文</strong>：<a href="https://arxiv.org/abs/2504.11536">arXiv:2504.11536</a>。把代码执行作为一阶工具，挑战 AIME 等数学竞赛。</p>
+
+      <h4>关键设计</h4>
+      <ul>
+        <li><strong>工具</strong>：Python 代码沙箱（stdout 作为 observation）</li>
+        <li><strong>触发</strong>：<code>```python ... ```</code> 代码块自动执行</li>
+        <li><strong>Mask</strong>：执行结果 <code>&lt;output&gt;...&lt;/output&gt;</code> 被 mask</li>
+        <li><strong>奖励</strong>：答案数值匹配（AIME 题目）</li>
+      </ul>
+
+      <h4>结果</h4>
+      <p>ReTool-32B 在 AIME 2024 达 <strong>67.0%</strong>（超过 o1-preview，具体差距取决于评测设定与 o1-preview 版本），AIME 2025 49.3%，扩展设置 72.5%。</p>
+
+      <div class="callout key">
+        <div class="callout-title">为什么 ReTool 重要</div>
+        ReTool 证明了"<strong>纯文本 long CoT 不是数学推理的天花板</strong>"——把代码执行接入推理循环后，性能上限显著提升。这也是 SimpleTIR、Tool-Star 等后续工作的方法论起点。
+      </div>
+
+      <h3>6.3 SimpleTIR (ICLR 2026)</h3>
+      <p><strong>论文</strong>：<a href="https://arxiv.org/abs/2509.02479">arXiv:2509.02479</a>。专门治多轮 Tool-Integrated Reasoning (TIR) 的训练崩溃。</p>
+
+      <h4>问题诊断</h4>
+      <p>朴素 GRPO 直接训多轮 TIR 会崩溃。SimpleTIR 找到根因：<strong>void turn</strong>——既无代码块也无最终答案的"无效输出"。这种 turn 会：</p>
+      <ul>
+        <li>累积错误（无信号收敛到啥都不输出）</li>
+        <li>梯度爆炸（被惩罚 → 模型生成更多 void → 死循环）</li>
+      </ul>
+
+      <h4>修复</h4>
+      <div class="formula boxed">
+        <div class="formula-title">SimpleTIR Void-Turn Filtering</div>
+        $$
+        m_{i,t}^{\text{SimpleTIR}} = m_{i,t}^{\text{Search-R1}} \cdot \mathbb{1}[\tau_i \text{ contains no void turn}]
+        $$
+      </div>
+      <p>即<strong>任何含 void turn 的整条轨迹直接从 loss 中剔除</strong>（不只是 mask 那个 turn）。简单粗暴但极有效。</p>
+
+      <h4>结果</h4>
+      <p>Qwen2.5-7B 在 AIME24 从 22.1 提升到 <strong>50.5</strong>。该工作还提供了多轮 TIR 训练稳定性的系统分析。</p>
+
+      <h3>6.4 SWE-RL (Meta, NeurIPS 2025)——常被误读的对照案例</h3>
+      <p><strong>论文</strong>：<a href="https://arxiv.org/abs/2502.18449">arXiv:2502.18449</a>。首个把 RL 推理训练规模化到真实软件工程数据的工作（GRPO）。</p>
+
+      <div class="callout warn">
+        <div class="callout-title">先纠正一个普遍误读</div>
+        SWE-RL <strong>不是多轮 agentic RL</strong>。它是 <strong>Agentless 式 single-turn 训练</strong>：给定 issue + 相关代码上下文，模型一次性推理并生成
+        <code>SEARCH/REPLACE</code> 格式的编辑，奖励直接比较生成 patch 与 oracle patch 的文本相似度——训练全程<strong>不调用任何交互工具、不跑测试、不接触可执行环境</strong>。
+        按本文 2×2 矩阵，它落在 🅐 行（单轮、无工具），而非 🅓 格。把它当成"多轮 + 工具"的代表是社区常见的张冠李戴。
+      </div>
+
+      <h4>训练 setup</h4>
+      <ul>
+        <li><strong>数据</strong>：PR / issue 完整生命周期（GitHub 开源仓库的 software evolution 数据）</li>
+        <li><strong>交互形式</strong>：无工具、无环境交互——issue + 代码上下文一次性输入，单轮生成 <code>SEARCH/REPLACE</code> 编辑</li>
+        <li><strong>Reward</strong>：rule-based diff 相似度（格式错误给 −1）</li>
+      </ul>
+
+      <div class="formula">
+        $$
+        R(\hat{d}, d^*) = \begin{cases} -1, & \text{format invalid} \\[2pt] \text{seq\_ratio}(\hat{d}, d^*), & \text{otherwise} \end{cases}
+        $$
+      </div>
+      <p>其中 \(\hat{d}\) 是模型生成的 diff，\(d^*\) 是 ground-truth diff，\(\text{seq\_ratio}\) 是 Python <code>difflib.SequenceMatcher</code> 的相似度（0–1）。
+      这个奖励公式本身就说明了它的单轮本质：<strong>奖励只依赖最终 patch 文本，不需要执行反馈参与训练</strong>。评测时套用 Agentless Mini 脚手架（定位 + 修复的 pipeline）跑 SWE-bench Verified。</p>
+
+      <h4>结果与意外发现</h4>
+      <ul>
+        <li>Llama3-SWE-RL-70B 在 SWE-bench Verified 上 <strong>41.0%</strong>（&lt;100B 模型最高，评测用 Agentless Mini 脚手架）</li>
+        <li><strong>OOD 涌现</strong>：训完 SWE 任务后，<strong>函数编码 / 库使用 / 代码推理 / 数学 / 通用语言理解 5 个领域全部提升</strong>（SFT 基线则在这些领域退化）</li>
+        <li>说明 SWE 数据本身蕴含通用推理结构；它对本文的价值在 <strong>reward 设计</strong>——不依赖可执行环境的稠密相似度奖励，是 agentic 环境工程之外的另一条路</li>
+      </ul>
+
+      <h3>6.5 Tongyi DeepResearch (阿里, 2025.10)</h3>
+      <p><strong>论文</strong>：<a href="https://arxiv.org/abs/2510.24701">arXiv:2510.24701</a>。30.5B MoE（3.3B 激活），开源 deep research agent 旗舰。</p>
+
+      <h4>完整 Pipeline</h4>
+      <div class="mermaid-wrap">
+<div class="mermaid">
+flowchart LR
+  Web["🌐 Web Crawl<br/>真实任务"]:::data --> CPT["Agentic CPT<br/>持续预训练"]:::stage
+  CPT --> SFT["Cold-Start SFT<br/>少量长 CoT 轨迹"]:::stage
+  SFT --> RL["on-policy GRPO<br/>+ 选择性负样本过滤"]:::stage
+  RL --> Tools["可用工具: search · browse<br/>visit_page · code_exec"]:::tool
+  RL --> Model["💎 Tongyi DR<br/>30.5B-MoE · 3.3B-act"]:::out
+  classDef data fill:#0f1525,stroke:#5b6a82
+  classDef stage fill:#1d2638,stroke:#a78bfa,color:#fff
+  classDef tool fill:#1d2638,stroke:#4fd1c5,color:#fff
+  classDef out fill:#1d2638,stroke:#ffd166,color:#fff
+</div>
+      </div>
+
+      <h4>关键结果（多数基准领先，但并非全面超越）</h4>
+      <p>技术报告 Table 1 的对照数字（开源 30B-A3B 模型能打到这个水平本身已是亮点，但要读对相对位置）：</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Benchmark</th><th>Tongyi DR</th><th>OpenAI o3</th><th>OpenAI Deep Research</th><th>DeepSeek-V3.1</th></tr></thead>
+          <tbody>
+            <tr><td>HLE</td><td><strong>32.9</strong></td><td>24.9</td><td>26.6</td><td>29.8</td></tr>
+            <tr><td>BrowseComp</td><td>43.4</td><td>49.7</td><td><strong>51.5</strong></td><td>30.0</td></tr>
+            <tr><td>BrowseComp-ZH</td><td>46.7</td><td><strong>58.1</strong></td><td>42.9</td><td>49.2</td></tr>
+            <tr><td>GAIA</td><td><strong>70.9</strong></td><td>—</td><td>67.4</td><td>63.1</td></tr>
+            <tr><td>xbench-DeepSearch</td><td><strong>75.0</strong></td><td>67.0</td><td>—</td><td>71.0</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout insight">
+        <div class="callout-title">读表注意</div>
+        Tongyi DR 在 HLE / GAIA / xbench-DeepSearch 上领先，但 <strong>BrowseComp 仍落后 OpenAI Deep Research（43.4 vs 51.5）与 o3（49.7）、BrowseComp-ZH 落后 o3（58.1）和 DeepSeek-V3.1（49.2）</strong>——"全面超越闭源"是社区传播中的夸大表述，长程英文/中文浏览类任务上闭源系统仍有明显优势。
+      </div>
+
+      <h3>6.6 算法演化树</h3>
+      <div class="mermaid-wrap">
+<div class="mermaid">
+flowchart TB
+  R1["DeepSeek-R1 · 2025.01<br/>GRPO + outcome reward<br/>single-turn"]:::root
+  R1 --> SR1["Search-R1 · 2025.03<br/>+ tool tag + token mask"]:::a
+  R1 --> RT["ReTool · 2025.04<br/>+ code execution"]:::a
+  R1 --> SWE["SWE-RL · 2025.02<br/>单轮 Agentless + diff 相似度 reward"]:::a
+  R1 --> DAPO["DAPO · 2025.03<br/>算法稳定性 4 件套"]:::algo
+  SR1 --> Web["WebDancer · WebSailor<br/>Tongyi DR · 2025.05-10<br/>+ 长 horizon + 浏览器"]:::b
+  SR1 --> ST["SimpleTIR · 2025.09<br/>+ void-turn filter"]:::b
+  RT --> ST
+  RT --> TS["Tool-Star · 2025.05<br/>+ multi-tool collab"]:::b
+  DAPO --> All["所有上述工作"]:::base
+  SWE --> DSWE["DeepSWE · 2025.07"]:::b
+  classDef root fill:#1d2638,stroke:#ffd166,color:#fff,stroke-width:2px
+  classDef a fill:#1d2638,stroke:#a78bfa,color:#fff
+  classDef b fill:#1d2638,stroke:#4fd1c5,color:#fff
+  classDef algo fill:#1d2638,stroke:#f48fb1,color:#fff
+  classDef base fill:#0f1525,stroke:#5b6a82,color:#b9c4d4,stroke-dasharray:4
+</div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         7 · 训练稳定性
+         ============================================================ -->
+    <section id="sec-stability" class="section">
+      <div class="section-num">SECTION 7</div>
+      <h2>训练<span class="grad">稳定性</span>：多轮场景特有问题</h2>
+      <p class="section-lede">
+        多轮 tool use RL 比 single-turn 推理 RL 稳定性差得多。本节梳理 6 类典型崩溃模式与对策。
+      </p>
+
+      <h3>7.1 Reasoning Collapse（推理崩溃）</h3>
+      <div class="callout danger">
+        <div class="callout-title">表现</div>
+        训练中期，模型推理能力突然下降——它学会了"<strong>少思考、多猜</strong>"以减少错误风险。在多轮场景下尤其严重，因为每次思考都可能产生新错误。
+      </div>
+      <p><strong>对策</strong>：DAPO Clip-Higher（\(\varepsilon_{\text{high}}=0.28\) 而非 0.2），保护低概率"探索性 token"；entropy bonus；temperature schedule。</p>
+
+      <h3>7.2 Tool Hacking（工具滥用）</h3>
+      <div class="callout warn">
+        <div class="callout-title">表现</div>
+        模型学会用"<strong>看起来在调工具</strong>"的方式骗取部分奖励。典型：(a) 重复发同样的 search query；(b) 写空 code block；(c) 故意返回错误以触发"修正奖励"。
+      </div>
+      <p><strong>对策</strong>：</p>
+      <ul>
+        <li>OTC 类成本惩罚：\(R = R_{\text{task}} - \lambda \cdot \#\text{tool\_calls}\)</li>
+        <li>去重检查：相同 query 多次调用只奖励一次</li>
+        <li>format reward：调用必须语法正确才计分</li>
+      </ul>
+
+      <h3>7.3 Cascading Tool Failure（连锁失败）</h3>
+      <div class="callout danger">
+        <div class="callout-title">表现</div>
+        某个 tool call 失败（search 返回空 / code 报错）后，<strong>后续所有 turn 也跟着失败</strong>——模型不会从工具错误中恢复。
+      </div>
+      <p><strong>对策</strong>：</p>
+      <ul>
+        <li>Recovery sample：在 SFT 阶段加入"工具失败后正确恢复"的轨迹</li>
+        <li>Agent-R 类 reflection：失败后强制插入 <code>&lt;reflection&gt;</code> 块</li>
+        <li>SimpleTIR void-turn 过滤</li>
+      </ul>
+
+      <h3>7.4 Length Explosion（长度爆炸）</h3>
+      <p>训练后期 trajectory 越来越长但准确率不升。多轮场景下问题更严重——每个 turn 都可能产生冗余。</p>
+      <p><strong>对策</strong>：DAPO Overlong Reward Shaping + 修掉 loss 归一化里的 length bias（Dr. GRPO 去掉 \(1/|o_i|\) 项、DAPO token-level loss）+ 硬截断。注意 SimPO 的长度归一是 <em>offline 偏好优化</em>目标里的设计，与 on-policy RL 的长度爆炸不是同一问题。</p>
+
+      <h3>7.5 KL Explosion（KL 爆炸）</h3>
+      <div class="callout warn">
+        <div class="callout-title">表现</div>
+        Policy KL 散度持续上升不收敛，最终输出无意义文本。多轮场景下 KL 比 single-turn 高 5-10×（因为有更长的 trajectory 累积偏离）。
+      </div>
+      <p><strong>对策</strong>：</p>
+      <ul>
+        <li><strong>Per-turn KL 而非 per-token</strong>：在 turn 边界聚合 KL 更稳</li>
+        <li>Adaptive KL coefficient：\(\beta\) 随训练动态调整</li>
+        <li>EMA reference policy（TR-DPO 思路）</li>
+      </ul>
+
+      <h3>7.6 Entropy Collapse（熵塌缩）</h3>
+      <p>Policy 过早收敛到 greedy，丧失探索。多轮场景下更易触发，因为每个 turn 的熵下降叠加。</p>
+      <p>理论（<a href="https://arxiv.org/abs/2505.22617">arXiv:2505.22617</a>）：</p>
+      <div class="formula">
+        $$
+        \Delta H \propto -\text{Cov}_t(\log\pi(a_t), A_t)
+        $$
+      </div>
+      <p><strong>对策</strong>：DAPO Clip-Higher / Clip-Cov / KL-Cov / 主动 entropy bonus / Pass@k Training（保多样性）。</p>
+
+      <h3>7.7 综合监控指标</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>指标</th><th>健康区间</th><th>多轮场景警报</th></tr></thead>
+          <tbody>
+            <tr><td>Mean trajectory length (turn)</td><td>稳定增长 → 平台</td><td>持续暴增 → length hacking</td></tr>
+            <tr><td>Tool calls per trajectory</td><td>0.5 – 3（经验值，任务相关；§3.2 协议下每 turn 至多 1 次调用，量纲必须按整条轨迹算）</td><td>&gt; 10 → tool hacking</td></tr>
+            <tr><td>Per-turn KL</td><td>0 – 5</td><td>&gt; 20 → 即将崩溃</td></tr>
+            <tr><td>Entropy</td><td>缓慢下降</td><td>骤降 → entropy collapse</td></tr>
+            <tr><td>Void turn rate</td><td>&lt; 5%</td><td>&gt; 20% → 严重失稳</td></tr>
+            <tr><td>Outcome reward mean</td><td>缓慢上升</td><td>不升甚至下降 → 卡死</td></tr>
+            <tr><td>Format pass rate</td><td>&gt; 95%</td><td>&lt; 80% → tag 配对学不会</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         8 · 训练基础设施
+         ============================================================ -->
+    <section id="sec-infra" class="section">
+      <div class="section-num">SECTION 8</div>
+      <h2>训练<span class="grad">基础设施</span>：为什么需要专用框架</h2>
+      <p class="section-lede">
+        Single-turn R1 复现 200 行 verl 代码即可，但多轮 tool use 需要专用的 agent rollout 基础设施。本节梳理主流框架的差异。
+      </p>
+
+      <h3>8.1 关键 capabilities 对比</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>框架</th><th>多轮编排</th><th>Tool 集成</th><th>Token Mask</th><th>异步 rollout</th><th>主要使用者</th></tr></thead>
+          <tbody>
+            <tr><td><strong>veRL</strong></td><td>✓</td><td>插件式</td><td>✓</td><td>✓</td><td>R1 / DAPO / 字节系</td></tr>
+            <tr><td><strong>OpenRLHF</strong></td><td>部分</td><td>需自写</td><td>需自写</td><td>✓</td><td>RLHF / 中小规模</td></tr>
+            <tr><td><strong>VerlTool</strong></td><td>✓✓</td><td>✓✓ 核心特性</td><td>✓</td><td>✓</td><td>纯 agent RL 研究</td></tr>
+            <tr><td><strong>RAGEN</strong></td><td>✓✓ StarPO</td><td>✓</td><td>✓</td><td>✓</td><td>多轮 agent 研究</td></tr>
+            <tr><td><strong>prime-rl</strong></td><td>✓</td><td>✓</td><td>✓</td><td>✓✓ 分布式</td><td>PrimeIntellect</td></tr>
+            <tr><td><strong>ART</strong></td><td>✓</td><td>✓</td><td>✓</td><td>serverless</td><td>快速原型</td></tr>
+            <tr><td><strong>AReaL</strong></td><td>部分</td><td>需扩展</td><td>✓</td><td>✓✓ 完全异步</td><td>蚂蚁 / 高吞吐</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>8.2 一个典型 agent rollout 调度器架构</h3>
+      <div class="mermaid-wrap">
+<div class="mermaid">
+flowchart LR
+  subgraph Trainer["训练进程 GPU 0-7"]
+    Optim["AdamW + GRPO Loss"]:::comp
+    PolicyTrain["Policy · training"]:::comp
+    Ref["Reference · frozen"]:::comp
+  end
+  subgraph Rollout["Rollout 进程 GPU 8-15"]
+    VLLM["vLLM · SGLang<br/>generate"]:::infer
+    Scheduler["Async Scheduler<br/>state machine"]:::sched
+    Mask["Token source tracker"]:::sched
+  end
+  subgraph Tools["工具集群"]
+    Search["🔍 BM25 · E5 Wikipedia"]:::tool
+    Code["🐍 Python sandbox · Docker"]:::tool
+    Web["🌐 Headless Chrome"]:::tool
+    Mem["💾 Memory store"]:::tool
+  end
+  Optim --> PolicyTrain
+  PolicyTrain -.weight sync.-> VLLM
+  Scheduler --> VLLM
+  Scheduler --> Tools
+  VLLM --> Scheduler
+  Tools --> Scheduler
+  Scheduler --> Mask
+  Mask --> Optim
+  classDef comp fill:#1d2638,stroke:#a78bfa,color:#fff
+  classDef infer fill:#1d2638,stroke:#5b8def,color:#fff
+  classDef sched fill:#1d2638,stroke:#ffd166,color:#fff
+  classDef tool fill:#1d2638,stroke:#4fd1c5,color:#fff
+</div>
+      </div>
+
+      <h3>8.3 关键工程挑战</h3>
+      <ul>
+        <li><strong>Weight sync</strong>：训练完一个 step 后，vLLM 的权重要与训练侧同步（NCCL all_reduce / disk checkpoint / shared memory），延迟敏感</li>
+        <li><strong>Tool dispatcher</strong>：要管理 search/code/browser 等多种工具的并发、限流、超时、重试</li>
+        <li><strong>State management</strong>：跟踪每条轨迹的当前 turn、context、token source label</li>
+        <li><strong>Dynamic batching</strong>：随着轨迹完成 batch 缩小，需要动态填充新轨迹保持 GPU 利用率</li>
+      </ul>
+    </section>
+
+    <!-- ============================================================
+         9 · 环境工程与规模化
+         ============================================================ -->
+    <section id="sec-env" class="section">
+      <div class="section-num">SECTION 9</div>
+      <h2><span class="grad">环境工程</span>与规模化：环境即数据</h2>
+      <p class="section-lede">
+        §8 讲的是训练框架，本节讲一个 2025-2026 年间被推到台前的更上游问题：<strong>RL 环境本身的工程与供给</strong>。
+        当算法收敛到 GRPO 系变体、框架收敛到 verl / prime-rl 系之后，各家真正的差距越来越多地来自"谁有更多、更真实、更快的环境"。
+        Prime Intellect 发布 Environments Hub 时的判断已成行业共识："<em>RL environments are the key bottleneck to the next wave of AI progress</em>"。
+      </p>
+
+      <h3>9.1 三个工程维度：可复位性 × 状态隔离 × 冷启动</h3>
+      <p>
+        §3.3 把环境问题归为"API 限流"与"状态不可重置"两个现象，工程上更系统的组织方式是三个正交维度——它们共同决定了 RL 吞吐的上限：
+      </p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>维度</th><th>定义</th><th>不达标的后果</th><th>代表机制</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>可复位性<br/>Resettability</strong></td>
+              <td>同一任务可恢复到逐字节一致的初始状态</td>
+              <td>GRPO 组内比较混入环境噪声；失败轨迹无法复现 debug</td>
+              <td>Docker fresh container（SWE-Gym / DeepSWE）；文件系统级快照 + fork（Cursor 内部平台 Anyrun 的 Firecracker microVM）；离线数据快照（WebSailor 系本地 Wikipedia）</td>
+            </tr>
+            <tr>
+              <td><strong>状态隔离<br/>State isolation</strong></td>
+              <td>并行 rollout 之间互不可见、互不污染</td>
+              <td>一条轨迹写脏共享状态 → 整批 reward 被污染且无法归因</td>
+              <td>每 rollout 独占 microVM / 容器；PROVE 的 session 级 MCP server 状态隔离（20 个有状态 server、343 个工具的 live 执行）</td>
+            </tr>
+            <tr>
+              <td><strong>冷启动时间<br/>Cold start</strong></td>
+              <td>从"调度一个新任务"到"agent 可执行第一个动作"的延迟</td>
+              <td>直接吃掉吞吐：启动 60s × 每 step 数万 rollout，环境时间反超 GPU 时间</td>
+              <td>镜像预热 + 快照恢复代替全新构建；microVM 亚秒级启动；mid-trajectory checkpoint fork 复用已执行前缀</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout key">
+        <div class="callout-title">为什么 GRPO 把可复位性从 nice-to-have 变成硬约束</div>
+        组内优势 \(\hat A_i = \big(R_i - \operatorname{mean}_j R_j\big)/\operatorname{std}_j(R_j)\) 隐含假设：同组 \(G\) 条轨迹的 reward 差异<strong>完全来自策略采样</strong>。
+        若初始状态漂移（上一条轨迹残留的脏文件、搜索索引更新、共享数据库被写），优势估计就混入了环境方差——
+        症状是"同 prompt 组内 reward 方差异常大"，且加大 \(G\) 无法消除（它不是策略方差）。
+        快照 / fork 机制还有第二重价值：在 turn 边界 fork 环境状态，是 Tree-GRPO / AT²PO 式分支 rollout（§5.7）的工程前提。
+      </div>
+
+      <h3>9.2 规模化案例：从 2 万到百万级并行环境</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>团队 / 系统</th><th>规模</th><th>关键机制</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>Qwen3-Coder</strong>（2025.07）</td>
+              <td>20,000 个独立环境并行</td>
+              <td>依托阿里云基础设施跑 long-horizon agent RL（多轮工具交互），SWE-bench Verified 开源 SOTA（无 test-time scaling）；首次把"环境并发数"立为 agentic RL 的一级基础设施指标</td>
+            </tr>
+            <tr>
+              <td><strong>Cursor Composer</strong>（2025.10）</td>
+              <td>"hundreds of thousands of concurrent sandboxed coding environments"</td>
+              <td>每条 rollout 独占一台 Firecracker microVM（内部平台 Anyrun），文件系统级快照与 fork 支持 mid-trajectory checkpointing；为突发训练负载重写 VM 调度器；"seamless unification of RL environments with production environments"——训练即部署。据 philschmid 拆解，其"生产流量 → 训练 → 评估 → 部署"一圈约 5 小时，一天可上线多个 checkpoint</td>
+            </tr>
+            <tr>
+              <td><strong>Qwen3.5</strong>（2026.02）</td>
+              <td>million-scale agent scaffolds &amp; environments</td>
+              <td>完全解耦（disaggregated）的训推架构，端到端 3–5× 加速；环境哲学："increasing the difficulty and generalizability of RL environments, rather than optimizing for specific metrics"——把环境难度课程而非榜单指标当作 RL scaling 的对象</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        三个时间点连起来是一条清晰的指数曲线：2 万（2025.07）→ 数十万（2025.10）→ 百万级（2026.02）。
+        并发数本身不是目的——它决定了固定 wall-clock 下能消耗的<strong>任务多样性</strong>，而任务多样性是 agent 泛化的第一资源。
+      </p>
+
+      <h3>9.3 SWE 环境三条扩量路线</h3>
+      <p>
+        SWE-Gym（arXiv:2412.21139, ICML 2025）证明了"环境即数据"：2,438 个带可执行 runtime 与单测的真实 Python 任务，
+        在其上训练带来 SWE-bench Verified 最高 +19 个绝对点的 resolve rate。但人工策展止步于千级规模，自动化扩量分化出三条路线：
+      </p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>路线</th><th>代表</th><th>规模</th><th>任务来源</th><th>验证信号</th><th>核心风险</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>① commit 反翻译</strong></td>
+              <td>R2E-Gym<br/><span style="color:#9aa4b8">arXiv:2504.07164 · COLM 2025</span></td>
+              <td>8.1K 任务 / 13 repo</td>
+              <td>SWE-Gen 管线：从真实 commit 反向合成 issue 描述与测试，摆脱对人写 issue/单测的依赖</td>
+              <td>合成测试 + execution-free 打分的 <strong>hybrid verifier</strong>（test-time ranking 可再白拿分）</td>
+              <td>反翻译出的 issue 与真实用户报告分布有偏</td>
+            </tr>
+            <tr>
+              <td><strong>② bug 合成</strong></td>
+              <td>SWE-smith<br/><span style="color:#9aa4b8">arXiv:2504.21798</span></td>
+              <td>50K 实例 / 128 repo</td>
+              <td>对任意 Python codebase 构好执行环境后，自动合成"使现有测试挂掉"的 bug，每库可造数百至上千实例</td>
+              <td>代码库原生测试套件</td>
+              <td>合成 bug 模式与真实缺陷分布不同；多样性靠注入策略</td>
+            </tr>
+            <tr>
+              <td><strong>③ 构建 agent 自验证</strong></td>
+              <td>SWE-Universe<br/><span style="color:#9aa4b8">arXiv:2602.02361 · Qwen</span></td>
+              <td><strong>807,693</strong> 环境（多语言）</td>
+              <td>真实 GitHub PR；由专训的 builder agent 自动构建环境</td>
+              <td>迭代自验证 + <strong>训练环内 hacking 检测</strong></td>
+              <td>builder agent 误判率与环境质量长尾</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>选型决策依据：</p>
+      <ul>
+        <li><strong>快速拿到带高质量验证器的现成训练集</strong> → 路线①：R2E-Gym 8.1K 任务开箱即用，hybrid verifier 还能做 test-time ranking</li>
+        <li><strong>在特定代码域内大量造题</strong>（如企业私有库）→ 路线②成本最低：SWE-smith 对任何 Python codebase 一键合成</li>
+        <li><strong>工业级数十万环境喂 mid-training + RL</strong> → 路线③，但必须配训练环内 hack 检测——奖励高分轨迹中"改测试 / 硬编码"的比例是一级监控指标（参见 §7.2）</li>
+        <li>数字锚点：SWE-agent-LM-32B（SWE-smith 训练）SWE-bench Verified 40.2%；R2E-Gym 配方 51%；SWE-Universe 喂出的 Qwen3-Max-Thinking 75.3%。注意三者底座与算力不同，<strong>不是受控对比</strong>，但"规模 × 真实性"同时上去后的收益趋势是清晰的</li>
+      </ul>
+
+      <h3>9.4 开源生态：Environments Hub 与 INTELLECT-3</h3>
+      <p>
+        闭源阵营把环境当资产锁起来，开源阵营的对冲方案是<strong>众包</strong>。
+        Prime Intellect 的 Environments Hub（2025.08）以 <code>verifiers</code> 库为标准接口——环境是可安装、带版本的 Python 模块，
+        训练与评测复用同一实现；到 INTELLECT-3 技术报告时点，Hub 上已有 500+ 社区环境（定理证明、自主科研、领域任务等）。
+      </p>
+      <p>
+        <strong>INTELLECT-3</strong>（arXiv:2512.16144）是这套生态的端到端验证：在 GLM-4.5-Air-Base 上做两阶段 SFT（通用推理 + agentic）→ 大规模 RL，
+        训练全程跑在 prime-rl 全异步 off-policy 栈上（continuous batching、in-flight 权重更新、IcePop 式 masked token-level IS 处理训推失配），
+        RL 环境取自 Hub 的六大类（math / code / science / logic / deep research / SWE）。
+        结果：106B-A12B 规模拿到 AIME 2025 88.0、LiveCodeBench v6 69.3、GPQA-Diamond 74.4——同规模 SOTA，且<strong>模型、框架、配方、环境全部开源</strong>。
+        它证明"众包环境 + 开源异步 RL 栈"足以支撑前沿水平的 agentic 后训练，是对"环境护城河化"最直接的反命题。
+      </p>
+
+      <h3>9.5 「环境即护城河」与从业者技能栈迁移</h3>
+      <div class="callout insight">
+        <div class="callout-title">为什么说环境是 2026 年的真护城河</div>
+        <ul style="margin-top:6px">
+          <li><strong>数据可以爬、权重可以蒸馏，环境很难偷</strong>：一个带真实工具、真实状态转移、真实用户分布的环境是活的系统，不是静态 artifact</li>
+          <li><strong>训练即部署闭环放大差距</strong>：Cursor 把 RL 环境与生产环境统一，用真实用户流量持续产生任务分布——这种环境只有产品方拥有</li>
+          <li><strong>公共基准失信推高内部评测价值</strong>：SWE-bench Verified 的记忆污染质疑（arXiv:2512.10218）之后，各家更信自有环境上的内部评测，环境同时垄断了"训练数据"与"可信度量"两种稀缺品</li>
+          <li>开源侧的回应即 §9.4：把环境变成社区公共品。两种力量的拉锯是 2026 年 agentic RL 生态的主线剧情</li>
+        </ul>
+      </div>
+      <p>
+        对从业者的直接含义：2023-2024 年 post-training 团队的核心技能是数据清洗与配比，2025-2026 年重心已迁移到<strong>环境工程</strong>——
+        写 verifier、管 microVM 编排与快照、设计任务难度课程（Qwen3.5 的 difficulty &amp; generalizability 哲学）、做训练环内 hack 检测。
+        "environment engineer"正在成为与 data engineer 并列的独立角色。
+      </p>
+
+      <div class="callout tip">
+        <div class="callout-title">本节参考来源</div>
+        <ul style="margin-top:6px">
+          <li><a href="https://qwenlm.github.io/blog/qwen3-coder/">Qwen3-Coder: Agentic Coding in the World</a>（Qwen 博客, 2025.07）· <a href="https://www.alibabacloud.com/blog/qwen3-5-towards-native-multimodal-agents_602894">Qwen3.5: Towards Native Multimodal Agents</a>（2026.02）</li>
+          <li><a href="https://cursor.com/blog/composer">Cursor: Composer — Building a fast frontier model with RL</a>（2025.10）· <a href="https://www.philschmid.de/kimi-composer-context">philschmid: How Kimi, Cursor, and Chroma Train Agentic Models with RL</a>（2026.03）</li>
+          <li><a href="https://arxiv.org/abs/2412.21139">SWE-Gym (arXiv:2412.21139)</a> · <a href="https://arxiv.org/abs/2504.07164">R2E-Gym (arXiv:2504.07164)</a> · <a href="https://arxiv.org/abs/2504.21798">SWE-smith (arXiv:2504.21798)</a> · <a href="https://arxiv.org/abs/2602.02361">SWE-Universe (arXiv:2602.02361)</a></li>
+          <li><a href="https://www.primeintellect.ai/blog/environments">Environments Hub: A Community Hub To Scale RL To Open AGI</a>（2025.08）· <a href="https://arxiv.org/abs/2512.16144">INTELLECT-3: Technical Report (arXiv:2512.16144)</a> · <a href="https://arxiv.org/abs/2606.03892">PROVE: Synthesize and Reward (arXiv:2606.03892)</a></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         10 · 长程上下文管理的 RL 化
+         ============================================================ -->
+    <section id="sec-context" class="section">
+      <div class="section-num">SECTION 10</div>
+      <h2>长程<span class="grad">上下文管理</span>的 RL 化</h2>
+      <p class="section-lede">
+        §3.3 ④ 把长 context 当作 rollout 期的工程麻烦（截断 / 压缩），那是 2025 上半年的视角。
+        Kimi K2 Thinking 要在 256K 窗口内稳定执行 200–300 次连续工具调用——horizon 拉到这个量级后，"窗口够不够大"已不是正确的问题。
+        2025H2 起业界共识转为：<strong>上下文溢出是一级故障，context 管理必须当成训练问题</strong>——让模型学会管理自己的工作记忆，而不是靠推理期 trick 兜底。
+      </p>
+
+      <h3>10.1 谱系总览：四档方案</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>档位</th><th>方案</th><th>机制</th><th>需要训练？</th><th>代表</th></tr></thead>
+          <tbody>
+            <tr><td><strong>① 可学习折叠</strong></td><td>context 操作进动作空间</td><td>branch / fold 等特殊动作，端到端优化"什么占据工作记忆"</td><td>是（SFT 或 RL）</td><td>Context-Folding + FoldGRPO；AgentFold</td></tr>
+            <tr><td><strong>② RL 自总结</strong></td><td>总结作为 rollout 链路的一环</td><td>多段生成由模型自产摘要串联，outcome reward 穿透整条链</td><td>是（与策略联训）</td><td>Cursor Composer</td></tr>
+            <tr><td><strong>③ 外挂摘要 / 管理器</strong></td><td>不动 agent 权重</td><td>专用摘要模型周期压缩，或外部可学习 context 管理器</td><td>摘要器 / 管理器可单独训</td><td>ReSum + ReSum-GRPO；AdaCoM</td></tr>
+            <tr><td><strong>④ 硬截断</strong></td><td>超长即弃</td><td>截断 + 失败惩罚 / 早停</td><td>否</td><td>早期 Search-R1 系（§3.3 ④）</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        ①→④ 是当前的经验效果排序（Context-Folding 论文中折叠 agent 显著优于 summarization-based 基线），训练成本排序与之相同——
+        效果与投入在这条谱系上基本是单调交换。
+      </p>
+
+      <h3>10.2 Context-Folding + FoldGRPO：把"折叠"放进动作空间</h3>
+      <p>
+        <strong>Context-Folding</strong>（arXiv:2510.11967）给 agent 增加两个特殊工具：
+        <code>branch(description, prompt)</code> 为子任务开一条独立工作上下文的分支；
+        <code>return(message)</code> 结束分支——把分支内全部中间步骤<strong>折叠</strong>掉，主线程只保留 outcome 摘要。
+        活跃上下文 \(|c_t|\) 不再随 turn 单调增长，而是"主线 + 已折叠子任务摘要"的紧凑形态。
+      </p>
+      <p>
+        让模型<strong>学会</strong>何时分支、何时折叠的是 <strong>FoldGRPO</strong>：在 GRPO 轨迹级优势之上叠加 token 级过程信号 \(Q_{i,t}\)：
+      </p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>过程信号</th><th>触发条件</th><th>取值</th><th>设计意图</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Unfolded token penalty</strong></td><td>活跃上下文超过工作上限的 50%</td><td>主线程全部 token \(Q_{i,t}=-1\)</td><td>逼迫 token 密集的操作进分支、及时折叠</td></tr>
+            <tr><td><strong>Out-of-scope penalty</strong></td><td>LLM judge（GPT-5-nano）判定分支行为偏离 <code>branch</code> 声明的子任务</td><td>\(Q_{i,t}=-0.2\)</td><td>防止分支变成"什么都干"的逃逸舱</td></tr>
+            <tr><td><strong>Failure penalty</strong></td><td>工具调用失败</td><td>该 turn 全部 token \(Q_{i,t}=-1\)</td><td>常规工具卫生</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        结果（基座 Seed-OSS-36B-Instruct）：BrowseComp-Plus pass@1 62.0%、SWE-bench Verified 58.0%，
+        活跃上下文比长上下文 ReAct 基线<strong>小 10×</strong>，并显著优于外挂摘要式管理。
+        值得注意的视角转换：这本质上是 §5 的 credit assignment 机制在 context 维度的复用——用过程奖励直接 shaping"什么值得占据工作记忆"。
+      </p>
+
+      <h3>10.3 AgentFold：多尺度折叠，SFT 就能学会</h3>
+      <p>
+        <strong>AgentFold</strong>（arXiv:2510.24699, Tongyi）把折叠做成多尺度决策：每步可选"保留细节的轻量 granular condensation"，
+        也可选"把一整段多步子任务收拢成一条结论的 deep consolidation"——context 被当作"主动雕刻的认知工作空间"而非 append-only 日志（灵感来自人类的 retrospective consolidation）。
+        关键证据：AgentFold-30B-A3B <strong>纯 SFT</strong>（无 RL、无 continual pretraining）即在 BrowseComp 拿 36.2%、BrowseComp-ZH 47.3%，
+        超过 DeepSeek-V3.1-671B-A37B 与 o4-mini。
+      </p>
+      <div class="callout key">
+        <div class="callout-title">实务结论：折叠行为先 SFT、后 RL</div>
+        AgentFold 说明折叠的<strong>数据格式与行为模式本身</strong>就值一大截分——RL 不是第一步。
+        推荐路径：先用带折叠结构的轨迹 SFT 教会 branch / fold 行为，再视任务上 FoldGRPO 式过程奖励精修。
+        直接在不会折叠的模型上做折叠 RL，探索阶段几乎采不到有效折叠行为。
+      </div>
+
+      <h3>10.4 RL 自总结与可学习外挂管理器</h3>
+      <ul>
+        <li>
+          <strong>RL 自总结（Cursor Composer）</strong>：一条 rollout 由多段生成组成、段间用模型自产摘要串联，
+          最终 outcome reward 作用于链上<strong>全部</strong> token——"保住关键信息的摘要被强化，丢上下文的摘要被打压"，
+          无需为摘要单独设计 reward，credit assignment 由 outcome 隐式完成。工程上与 §9 的快照机制天然配合（摘要点即环境检查点）。
+          这是已有成熟 RL 管线时<strong>改动最小</strong>的可学习方案。
+        </li>
+        <li>
+          <strong>外挂摘要 + 策略适应（ReSum, arXiv:2509.13313, Tongyi）</strong>：周期性调用专用摘要模型 ReSumTool-30B 压缩交互历史，
+          再用 ReSum-GRPO 让策略学会"从摘要状态继续推理"。对 ReAct 平均 +4.5%，ReSum-GRPO 后再 +8.2%；
+          WebSailor-30B + ReSumTool-30B 在 BrowseComp-en 达 16.0% pass@1（同期 Claude-4-Sonnet 12.2%）。
+        </li>
+        <li>
+          <strong>可学习外部管理器（AdaCoM, arXiv:2605.30785）</strong>：当 agent 权重不可动（闭源模型、多 agent 共享底座）时，
+          训练一个外部 LLM 控制器，用灵活的 context 修改动作 + 端到端 RL 管理<strong>冻结</strong> agent 的上下文。
+          其"Fidelity-Reliability 权衡"值得记住：强 agent 受益于保高保真上下文，弱 agent 反而需要激进压缩才稳定；
+          学到的管理策略在能力相近的 agent 间迁移最好。
+        </li>
+      </ul>
+
+      <h3>10.5 Interleaved thinking 的部署铁律：不可丢弃历史 think 块</h3>
+      <p>
+        Interleaved thinking 指"在显式推理与工具调用间交替，并把推理<strong>跨步携带</strong>"（MiniMax 定义）。
+        对这类模型（MiniMax M2 系等），多轮 agent 对话中<strong>绝不能丢弃历史 <code>&lt;think&gt;</code> 块</strong>。MiniMax 官方实测（丢弃历史 reasoning vs 完整保留）：
+      </p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Benchmark</th><th>保留 think</th><th>丢弃 think</th></tr></thead>
+          <tbody>
+            <tr><td>SWE-bench Verified</td><td>69.4</td><td>67.2</td></tr>
+            <tr><td>τ²-Bench</td><td>87</td><td><strong>64</strong></td></tr>
+            <tr><td>BrowseComp</td><td>44.0</td><td><strong>31.4</strong></td></tr>
+            <tr><td>GAIA</td><td>75.7</td><td>67.9</td></tr>
+            <tr><td>xBench</td><td>72.0</td><td>66.0</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        机理就是本文反复出现的 train-test mismatch（§3.3、§4），只是这次错在<strong>部署侧</strong>：模型在 RL 中是带着完整 reasoning 历史 rollout 的，
+        推理期把 think 剥掉等于人为制造分布偏移——MiniMax 总结为"cumulative understanding breaks down, state drift increases, self-correction weakens, and planning degrades"。
+        这个坑的高发原因是 OpenAI Chat Completions API 默认<strong>不支持回传 reasoning content</strong>：
+        解法是改用带 <code>reasoning_details</code> 回传的接口，或 Anthropic 兼容协议（把含 thinking 块的完整输出 append 进 <code>messages</code>）。
+        注意规则的准确表述不是"永远保留 think"，而是<strong>部署时的 think 处理必须与训练时一致</strong>——Qwen3 系默认 chat template 在多轮中剥离历史 think，照模板部署同样正确。
+      </p>
+
+      <h3>10.6 未决争议：折叠 / 压缩 vs 检索原始信息</h3>
+      <p>
+        反方证据：<em>Goal-Directed Search Outperforms Goal-Agnostic Memory Compression in Long-Context Memory Tasks</em>（arXiv:2511.21726）
+        训练 RL agent（SUMER）直接在<strong>原始未压缩</strong>信息上做目标导向检索，在 LoCoMo 记忆基准上比此前方法提升 43%。
+        论点：压缩天然有损，任务无关的预压缩无法适配多样的未来查询——"留住原始数据、按需检索"优于"提前压缩"。
+      </p>
+      <p>
+        与折叠路线的关系并非全面对立：folding 是 goal-directed 的（模型自己决定折叠什么、何时折叠），这波批评的火力主要打 ③ 档的任务无关外挂摘要。
+        但它点出了折叠的真实软肋——<strong>折掉的信息不可恢复</strong>。"fold + 完整历史落盘 + 给模型检索工具兜底"的组合 2026 年年中尚无定论性研究，是值得做的开放方向。
+      </p>
+      <div class="callout key">
+        <div class="callout-title">何时用什么：决策清单</div>
+        <ul style="margin-top:6px">
+          <li><strong>horizon ≤ 数十 turn 且 context 预算充足</strong> → 什么都不用，完整历史最稳（§10.5 铁律照常适用）</li>
+          <li><strong>自训模型、horizon 数百 turn</strong>（deep research / SWE）→ ①：先 SFT 教折叠行为，再 FoldGRPO 过程奖励精修；已有成熟 RL 管线时 ② 自总结改动最小</li>
+          <li><strong>agent 权重不可动</strong> → ③：ReSum 式外挂摘要（再用 ReSum-GRPO 让策略适应），或 AdaCoM 式可学习外部管理器</li>
+          <li><strong>跨 episode 记忆型任务</strong>（长期对话问答）→ 优先保留原始历史 + 检索（arXiv:2511.21726），慎用任务无关压缩</li>
+          <li><strong>任何情况</strong>：interleaved thinking 模型按训练时的 think 保留策略部署；④ 硬截断只作为兜底保险而非方案</li>
+        </ul>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-title">本节参考来源</div>
+        <ul style="margin-top:6px">
+          <li><a href="https://arxiv.org/abs/2510.11967">Scaling Long-Horizon LLM Agent via Context-Folding (arXiv:2510.11967)</a> · <a href="https://arxiv.org/abs/2510.24699">AgentFold (arXiv:2510.24699)</a></li>
+          <li><a href="https://arxiv.org/abs/2509.13313">ReSum (arXiv:2509.13313)</a> · <a href="https://arxiv.org/abs/2605.30785">Learning Agent-Compatible Context Management / AdaCoM (arXiv:2605.30785)</a> · <a href="https://arxiv.org/abs/2511.21726">Goal-Directed Search vs Memory Compression (arXiv:2511.21726)</a></li>
+          <li><a href="https://www.minimax.io/news/why-is-interleaved-thinking-important-for-m2">MiniMax: Why Is Interleaved Thinking Important for M2</a> · <a href="https://www.philschmid.de/kimi-composer-context">philschmid: How Kimi, Cursor, and Chroma Train Agentic Models with RL</a> · <a href="https://huggingface.co/moonshotai/Kimi-K2-Thinking">Kimi-K2-Thinking model card</a></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         11 · 开放问题
+         ============================================================ -->
+    <section id="sec-issues" class="section">
+      <div class="section-num">SECTION 11</div>
+      <h2>开放<span class="grad">问题</span>与未来方向</h2>
+      <p class="section-lede">
+        多轮 tool use 是 2026 年 agentic RL 最活跃也最未解决的子领域。这里列出 10 个值得追踪的问题。
+      </p>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">① 长 horizon credit assignment</div>
+          <div class="card-body">100+ turn 下 outcome-only 信号被严重稀释。SWEET-RL / GiGPO / Tree-GRPO 等 turn / step 级方法提供了初步答案（§5），但理论保证还很弱；47 方法谱系见综述 arXiv:2604.09459。</div>
+        </div>
+        <div class="card">
+          <div class="card-title">② 不可重置环境</div>
+          <div class="card-body">真实搜索、真实网页、真实 git 仓库无法 reset → trajectory 不可复现。如何在 RL 训练框架中刻画这种非平稳性？（快照 / fork 的工程缓解见 §9.1，但"活"环境的非平稳性本身仍无理论刻画）</div>
+        </div>
+        <div class="card">
+          <div class="card-title">③ Pass@k preservation</div>
+          <div class="card-body"><a href="https://arxiv.org/abs/2504.13837">Limit of RLVR</a> 指出 RL 在 pass@1 提升的同时损失 pass@k。多轮场景下这个问题更严重，因为每个 turn 都在缩窄探索空间。</div>
+        </div>
+        <div class="card">
+          <div class="card-title">④ Tool failure recovery</div>
+          <div class="card-body">模型很少能从工具错误中优雅恢复。Agent-R 的 MCTS 引导是一条路，但成本太高。能否设计廉价的 recovery 奖励？</div>
+        </div>
+        <div class="card">
+          <div class="card-title">⑤ 异步训练-推理一致性</div>
+          <div class="card-body">vLLM 推理与 Megatron 训练使用不同 kernel → 同一权重下 logprob 微小差异，重要性采样的方差被放大。CISPO 的 stop-grad 部分缓解。</div>
+        </div>
+        <div class="card">
+          <div class="card-title">⑥ 工具组合的组合爆炸</div>
+          <div class="card-body">单工具 RL 已较成熟，但 5+ 个工具同时可用时，模型如何选择？Tool-Star、ToolRL 是起点，还远未解决。</div>
+        </div>
+        <div class="card">
+          <div class="card-title">⑦ Memory as RL</div>
+          <div class="card-body">把 memory 操作当成 tool 来 RL 训练（Memory-R1 / MemAgent）是个新方向。但 memory 内容是<strong>未来策略的隐式状态</strong>，credit assignment 跨越 episode 极难。episode 内的同谱系问题（可学习折叠 / 自总结）见 §10。</div>
+        </div>
+        <div class="card">
+          <div class="card-title">⑧ Self-play with Tools</div>
+          <div class="card-body">Multi-Agent Evolve（proposer/solver/judge）+ tool use 是否能 zero-data 自演化？Agent0 的初步尝试但只到 single-tool。</div>
+        </div>
+        <div class="card">
+          <div class="card-title">⑨ Inference-aware training</div>
+          <div class="card-body">训练时已知部署时的 tool 集合 / 调用预算 → 学习自适应工具调用策略。L1 / BudgetThinker 在单轮上做了，多轮尚未。</div>
+        </div>
+        <div class="card">
+          <div class="card-title">⑩ Reward 设计的科学化</div>
+          <div class="card-body">当前 reward shaping 多靠经验：format reward 系数多少、length penalty 何时启动、tool cost 怎么权衡——缺乏系统的理论框架。</div>
+        </div>
+      </div>
+
+      <h3>11.1 给研究者的"切题"建议</h3>
+      <div class="callout key">
+        <div class="callout-title">2026 年最值得做的方向（个人观点）</div>
+        <ol style="margin-top:8px">
+          <li><strong>Turn-level credit assignment 的理论化</strong>：把 Tree-GRPO / GiGPO / Turn-PPO 用 PAC-Bayes 或 variance-reduction 框架统一（arXiv:2604.09459 的两维谱系是起点）</li>
+          <li><strong>多工具协作的 RL 范式</strong>：Tool-Star 是起点，但 5+ 工具时的探索-利用平衡是真正难题</li>
+          <li><strong>Memory-as-RL 与 long-horizon agent 的结合</strong>：MemAgent 8K → 3.5M context 已经证明可行，但是 RL 上的优化还很初步</li>
+          <li><strong>Pass@k preserving 的多轮版本</strong>：把 Pass@k Training 推广到多轮，保持工具调用策略的多样性</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         12 · 参考文献
+         ============================================================ -->
+    <section id="sec-refs" class="section">
+      <div class="section-num">SECTION 12</div>
+      <h2>参考<span class="grad">文献</span></h2>
+      <p class="section-lede">本专题引用的全部论文，按主题分类。</p>
+
+      <h3>核心综述</h3>
+      <div class="refs-grid">
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2509.02547</div><div class="ref-title">The Landscape of Agentic Reinforcement Learning for LLMs</div><div class="ref-meta">Zhang et al., 2025 · TMLR 2026</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2510.16724</div><div class="ref-title">A Comprehensive Survey on RL-based Agentic Search</div><div class="ref-meta">Lin et al., 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2509.06733</div><div class="ref-title">RL Foundations for Deep Research Systems</div><div class="ref-meta">2025</div></div>
+      </div>
+
+      <h3>多轮 + Tool Use 代表工作</h3>
+      <div class="refs-grid">
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2503.09516</div><div class="ref-title">Search-R1: Training LLMs to Reason and Leverage Search</div><div class="ref-meta">Jin et al., 2025 · UIUC</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2503.05592</div><div class="ref-title">R1-Searcher: Search-Augmented Reasoning via RL</div><div class="ref-meta">Song et al., 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2503.00223</div><div class="ref-title">DeepRetrieval: Hacking Search Engines with RL</div><div class="ref-meta">Jiang et al., 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2503.19470</div><div class="ref-title">ReSearch: Learning to Reason with Search via RL</div><div class="ref-meta">Chen et al., 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2504.11536</div><div class="ref-title">ReTool: Reinforcement Learning for Strategic Tool Use</div><div class="ref-meta">2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2509.02479</div><div class="ref-title">SimpleTIR: End-to-End RL for Multi-Turn TIR</div><div class="ref-meta">2025 · ICLR 2026</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2502.18449</div><div class="ref-title">SWE-RL: RL on Open Software Evolution</div><div class="ref-meta">Meta, 2025 · NeurIPS</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2412.21139</div><div class="ref-title">SWE-Gym: Open Environment for SWE Agents</div><div class="ref-meta">Pan et al., 2025 · ICML</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2410.02089</div><div class="ref-title">RLEF: RL from Execution Feedback</div><div class="ref-meta">Meta, 2024 · ICML 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2505.22648</div><div class="ref-title">WebDancer: Native Agentic Search Reasoning</div><div class="ref-meta">Tongyi Lab, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2507.02592</div><div class="ref-title">WebSailor: Navigating Super-Human Reasoning</div><div class="ref-meta">Tongyi Lab, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2510.24701</div><div class="ref-title">Tongyi DeepResearch</div><div class="ref-meta">阿里, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2505.16410</div><div class="ref-title">Tool-Star: Empowering LLMs with Multi-Tool</div><div class="ref-meta">2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2504.14870</div><div class="ref-title">OTC: Optimal Tool Calls</div><div class="ref-meta">2025</div></div>
+      </div>
+
+      <h3>算法 / 损失函数</h3>
+      <div class="refs-grid">
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2501.12948</div><div class="ref-title">DeepSeek-R1</div><div class="ref-meta">DeepSeek, 2025 · Nature</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2402.03300</div><div class="ref-title">DeepSeekMath (GRPO)</div><div class="ref-meta">DeepSeek, 2024</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2503.14476</div><div class="ref-title">DAPO: Open-Source LLM RL at Scale</div><div class="ref-meta">ByteDance + 清华, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2503.20783</div><div class="ref-title">Dr. GRPO / R1-Zero-Like Training Critique</div><div class="ref-meta">Sea AI Lab, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2504.05118</div><div class="ref-title">VAPO: Value-based Augmented PPO</div><div class="ref-meta">ByteDance, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2507.18071</div><div class="ref-title">GSPO: Group Sequence Policy Optimization</div><div class="ref-meta">Qwen, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2506.13585</div><div class="ref-title">MiniMax-M1 / CISPO</div><div class="ref-meta">MiniMax, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2502.01456</div><div class="ref-title">PRIME: Implicit Process Rewards</div><div class="ref-meta">清华, 2025</div></div>
+      </div>
+
+      <h3>Credit Assignment / 多轮扩展</h3>
+      <div class="refs-grid">
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2604.09459</div><div class="ref-title">From Reasoning to Agentic: Credit Assignment in RL for LLMs（综述，47 方法谱系 + Awesome 仓库）</div><div class="ref-meta">Zhang, 2026</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2503.15478</div><div class="ref-title">SWEET-RL: Training Multi-Turn LLM Agents on Collaborative Reasoning Tasks</div><div class="ref-meta">Zhou et al., Meta AI · UC Berkeley, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2505.10978</div><div class="ref-title">GiGPO: Group-in-Group Policy Optimization for LLM Agent Training</div><div class="ref-meta">Feng et al., 2025 · NeurIPS 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2512.17008</div><div class="ref-title">Turn-PPO: Turn-Level Advantage Estimation with PPO for Multi-Turn RL</div><div class="ref-meta">Li et al., 2025 · EACL 2026 Findings</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2601.04767</div><div class="ref-title">AT²PO: Agentic Turn-based Policy Optimization via Tree Search</div><div class="ref-meta">2026</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2510.01132</div><div class="ref-title">A Practitioner's Guide to Multi-turn Agentic Reinforcement Learning</div><div class="ref-meta">Wang &amp; Ammanabrolu, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2509.21240</div><div class="ref-title">Tree-GRPO: Tree Search for LLM Agent Reinforcement Learning</div><div class="ref-meta">Ji et al., 2025 · ICLR 2026</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2511.14846</div><div class="ref-title">GTPO: Empowering Multi-Turn Tool-Integrated Agentic Reasoning with Group Turn Policy Optimization <span style="font-size:0.8em;color:#9aa4b8">（注意与 arXiv:2508.03772 的同名 GTPO——GRPO 梯度/熵稳定化——区分）</span></div><div class="ref-meta">UIUC · AWS AI Labs 等, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2509.22576</div><div class="ref-title">EPO: Entropy-regularized PO</div><div class="ref-meta">2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2312.08935</div><div class="ref-title">Math-Shepherd: Process Reward Auto-Gen</div><div class="ref-meta">Wang et al., 2023</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2305.20050</div><div class="ref-title">Let's Verify Step by Step (PRM800K)</div><div class="ref-meta">OpenAI, 2023</div></div>
+      </div>
+
+      <h3>稳定性 / Pass@k</h3>
+      <div class="refs-grid">
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2505.22617</div><div class="ref-title">Entropy Mechanism of RL for Reasoning</div><div class="ref-meta">2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2504.13837</div><div class="ref-title">Limit of RLVR</div><div class="ref-meta">2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2508.10751</div><div class="ref-title">Pass@k Training</div><div class="ref-meta">2025</div></div>
+      </div>
+
+      <h3>记忆 / 自演化</h3>
+      <div class="refs-grid">
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2507.02259</div><div class="ref-title">MemAgent: Multi-Conv RL Memory Agent</div><div class="ref-meta">2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2508.19828</div><div class="ref-title">Memory-R1: RL-based Memory Operations</div><div class="ref-meta">2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2511.16043</div><div class="ref-title">Agent0: Zero-Data Self-Evolution</div><div class="ref-meta">2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2510.16079</div><div class="ref-title">EvolveR: Closed-Loop Experience Lifecycle</div><div class="ref-meta">2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2501.11425</div><div class="ref-title">Agent-R: Self-Training via MCTS Reflection</div><div class="ref-meta">ByteDance Seed, 2025</div></div>
+      </div>
+
+      <h3>环境工程 / 规模化（§9）</h3>
+      <div class="refs-grid">
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2504.07164</div><div class="ref-title">R2E-Gym: Procedural Environments and Hybrid Verifiers for Scaling Open-Weights SWE Agents</div><div class="ref-meta">Jain et al., 2025 · COLM 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2504.21798</div><div class="ref-title">SWE-smith: Scaling Data for Software Engineering Agents</div><div class="ref-meta">Yang et al., 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2602.02361</div><div class="ref-title">SWE-Universe: Scale Real-World Verifiable Environments to Millions</div><div class="ref-meta">Chen et al., Qwen, 2026</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2512.16144</div><div class="ref-title">INTELLECT-3: Technical Report</div><div class="ref-meta">Prime Intellect, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2606.03892</div><div class="ref-title">Synthesize and Reward (PROVE): RL for Multi-Step Tool Use in Live Environments</div><div class="ref-meta">2026</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2512.10218</div><div class="ref-title">Does SWE-Bench-Verified Test Agent Ability or Model Memory?</div><div class="ref-meta">Prathifkumar et al., 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">blog · qwenlm.github.io</div><div class="ref-title">Qwen3-Coder: Agentic Coding in the World（20,000 并行环境）</div><div class="ref-meta">Qwen, 2025.07</div></div>
+        <div class="ref-item"><div class="ref-arxiv">blog · cursor.com</div><div class="ref-title">Composer: Building a fast frontier model with RL</div><div class="ref-meta">Cursor, 2025.10</div></div>
+        <div class="ref-item"><div class="ref-arxiv">blog · primeintellect.ai</div><div class="ref-title">Environments Hub: A Community Hub To Scale RL To Open AGI</div><div class="ref-meta">Prime Intellect, 2025.08</div></div>
+        <div class="ref-item"><div class="ref-arxiv">blog · alibabacloud.com</div><div class="ref-title">Qwen3.5: Towards Native Multimodal Agents（million-scale 环境）</div><div class="ref-meta">Qwen, 2026.02</div></div>
+      </div>
+
+      <h3>长程上下文管理（§10）</h3>
+      <div class="refs-grid">
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2510.11967</div><div class="ref-title">Scaling Long-Horizon LLM Agent via Context-Folding（FoldGRPO）</div><div class="ref-meta">Sun et al., 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2510.24699</div><div class="ref-title">AgentFold: Long-Horizon Web Agents with Proactive Context Management</div><div class="ref-meta">Ye et al., Tongyi, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2509.13313</div><div class="ref-title">ReSum: Unlocking Long-Horizon Search Intelligence via Context Summarization</div><div class="ref-meta">Tongyi Lab, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2605.30785</div><div class="ref-title">Learning Agent-Compatible Context Management for Long-Horizon Tasks（AdaCoM）</div><div class="ref-meta">Yi et al., 2026</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2511.21726</div><div class="ref-title">Goal-Directed Search Outperforms Goal-Agnostic Memory Compression in Long-Context Memory Tasks（SUMER）</div><div class="ref-meta">Zheng et al., 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">blog · minimax.io</div><div class="ref-title">Why Is Interleaved Thinking Important for M2（think 块保留实测）</div><div class="ref-meta">MiniMax, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">blog · philschmid.de</div><div class="ref-title">How Kimi, Cursor, and Chroma Train Agentic Models with RL</div><div class="ref-meta">Schmid, 2026.03</div></div>
+      </div>
+
+      <h3>基础设施 / 框架</h3>
+      <div class="refs-grid">
+        <div class="ref-item"><div class="ref-arxiv">github · volcengine/verl</div><div class="ref-title">veRL · HybridFlow</div><div class="ref-meta">ByteDance · EuroSys 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2509.01055</div><div class="ref-title">VerlTool: Agentic RL with Tools</div><div class="ref-meta">2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv">github · mll-lab-nu/RAGEN</div><div class="ref-title">RAGEN · StarPO</div><div class="ref-meta">Multi-turn agent RL</div></div>
+        <div class="ref-item"><div class="ref-arxiv">github · PrimeIntellect-ai/prime-rl</div><div class="ref-title">prime-rl · Agentic RL at scale</div><div class="ref-meta">PrimeIntellect</div></div>
+        <div class="ref-item"><div class="ref-arxiv">github · OpenPipe/ART</div><div class="ref-title">ART · Serverless agent RL</div><div class="ref-meta">OpenPipe</div></div>
+        <div class="ref-item"><div class="ref-arxiv">arXiv:2505.24298</div><div class="ref-title">AReaL: Fully Async RL Training</div><div class="ref-meta">蚂蚁/清华, 2025</div></div>
+      </div>
+
+      <h3>相关页面</h3>
+      <div class="refs-grid">
+        <div class="ref-item">
+          <div class="ref-arxiv">本系列文档</div>
+          <div class="ref-title"><a href="llm-post-training-master.html">LLM Post-Training Master Atlas</a></div>
+          <div class="ref-meta">主综述：从 RLHF 到 Agentic RL 的全景</div>
+        </div>
+        <div class="ref-item">
+          <div class="ref-arxiv">本系列文档</div>
+          <div class="ref-title"><a href="rl-frameworks-survey.html">RL 训练框架综述</a></div>
+          <div class="ref-meta">veRL / OpenRLHF / AReaL 等 15+ 框架对比</div>
+        </div>
+        <div class="ref-item">
+          <div class="ref-arxiv">本系列文档</div>
+          <div class="ref-title"><a href="rl-pitfalls-survey.html">RL 实战 Pitfalls</a></div>
+          <div class="ref-meta">Reward Hacking / KL Collapse / Length Bias 等</div>
+        </div>
+        <div class="ref-item">
+          <div class="ref-arxiv">本系列文档</div>
+          <div class="ref-title"><a href="zh-llm-post-training-resources.html">中文资源精华</a></div>
+          <div class="ref-meta">知乎 / B 站 / 苏剑林 / 课程清单</div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-text">
+      © 2026 · 多轮 Tool Use 深度专题 · 配套 <a href="llm-post-training-master.html" style="color:var(--acc-cyan)">LLM Post-Training Master Atlas</a>
+    </div>
+    <div class="footer-links">
+      <a href="llm-post-training-master.html">主综述</a>
+      <a href="rl-frameworks-survey.html">训练框架</a>
+      <a href="rl-pitfalls-survey.html">实战 Pitfalls</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+mermaid.initialize({
+  startOnLoad:true,theme:'base',
+  themeVariables:{
+    background:'transparent',primaryColor:'#1d2638',
+    primaryTextColor:'#e6edf7',primaryBorderColor:'#a78bfa',
+    lineColor:'#5b8def',secondaryColor:'#4fd1c5',tertiaryColor:'#151c2e',
+    fontFamily:'Inter, Noto Sans SC, sans-serif'
+  },
+  flowchart:{curve:'basis',htmlLabels:true}
+});
+const tocLinks = document.querySelectorAll('#toc a');
+const observer = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      const id = e.target.id;
+      tocLinks.forEach(a=>{
+        a.classList.toggle('active', a.getAttribute('href')==='#'+id);
+      });
+    }
+  });
+},{rootMargin:'-30% 0px -60% 0px',threshold:0});
+document.querySelectorAll('section.section').forEach(s=>observer.observe(s));
+</script>
+</body>
+</html>

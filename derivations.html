@@ -1,0 +1,2158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>核心方法原理推导 · LLM Post-Training · 2026</title>
+<meta name="description" content="从 Policy Gradient 到 PPO / GAE / DPO / RLOO / GRPO / GSPO 再到 SFT×RL 梯度统一视角的深入浅出推导，含可视化与几何直觉。" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Serif+SC:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['\\(','\\)'], ['$','$']],
+    displayMath: [['$$','$$'], ['\\[','\\]']],
+    processEscapes: true,
+    processEnvironments: true,
+    tags: 'none'
+  },
+  options: {
+    skipHtmlTags: ['script','noscript','style','textarea','pre','code'],
+    ignoreHtmlClass: 'mermaid|tex2jax_ignore'
+  },
+  chtml: { displayAlign: 'center' },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" id="MathJax-script" async></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.6/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://www.desmos.com/api/v1.12/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<style>
+:root {
+  --bg-0:#0a0e1a; --bg-1:#0f1525; --bg-2:#151c2e; --bg-3:#1d2638;
+  --fg-0:#e6edf7; --fg-1:#b9c4d4; --fg-2:#8492a8; --fg-3:#5b6a82;
+  --acc-cyan:#4fd1c5; --acc-blue:#5b8def; --acc-purple:#a78bfa;
+  --acc-pink:#f48fb1; --acc-yellow:#ffd166; --acc-green:#7be39a;
+  --acc-orange:#ff9f6e; --acc-red:#ff6b8a;
+  --grad-derive:linear-gradient(135deg,#ffd166 0%,#ff9f6e 50%,#f48fb1 100%);
+  --grad-bg:radial-gradient(ellipse at top, rgba(255,209,102,.06), transparent 50%),
+            radial-gradient(ellipse at bottom right, rgba(244,143,177,.05), transparent 50%);
+  --border-soft:1px solid rgba(255,255,255,.07);
+  --r-md:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-padding-top:80px}
+body{
+  font-family:'Inter','Noto Sans SC',sans-serif;
+  background:var(--bg-0);color:var(--fg-0);
+  line-height:1.78;font-size:16px;
+  -webkit-font-smoothing:antialiased;
+  background-image:var(--grad-bg);background-attachment:fixed;
+}
+::selection{background:rgba(255,209,102,.3);color:#fff}
+::-webkit-scrollbar{width:10px}
+::-webkit-scrollbar-track{background:var(--bg-0)}
+::-webkit-scrollbar-thumb{background:var(--bg-3);border-radius:5px}
+
+/* 顶部导航 */
+.topnav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  backdrop-filter:blur(20px) saturate(180%);
+  background:rgba(10,14,26,.72);border-bottom:var(--border-soft);
+}
+.topnav-inner{
+  max-width:1480px;margin:0 auto;padding:14px 28px;
+  display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;
+}
+.brand{display:flex;align-items:center;gap:12px;font-weight:700;font-size:.95rem}
+.brand-mark{
+  width:32px;height:32px;border-radius:8px;
+  background:var(--grad-derive);display:grid;place-items:center;
+  color:#000;font-weight:800;font-size:13px;
+  box-shadow:0 4px 16px rgba(255,209,102,.4);
+}
+.topnav-links{display:flex;gap:6px;font-size:.85rem;flex-wrap:wrap}
+.topnav-links a{color:var(--fg-1);padding:6px 10px;border-radius:6px;text-decoration:none;transition:.2s}
+.topnav-links a:hover{background:rgba(255,255,255,.06);color:var(--fg-0)}
+.topnav-links a.back{
+  background:rgba(79,209,197,.1);color:var(--acc-cyan);
+  border:1px solid rgba(79,209,197,.25);
+}
+
+/* Hero */
+.hero{
+  min-height:60vh;display:flex;align-items:center;
+  position:relative;overflow:hidden;
+  padding:96px 28px 48px;
+}
+.hero::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle at 30% 35%, rgba(255,209,102,.14), transparent 45%),
+             radial-gradient(circle at 70% 65%, rgba(244,143,177,.10), transparent 45%);
+}
+.hero-content{position:relative;z-index:1;max-width:1180px;margin:0 auto;width:100%}
+.hero-tag{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:8px 16px;border-radius:24px;
+  background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.3);
+  font-size:.82rem;color:var(--acc-yellow);font-weight:500;margin-bottom:24px;
+}
+.hero-tag::before{
+  content:'';width:8px;height:8px;border-radius:50%;background:var(--acc-yellow);
+  box-shadow:0 0 12px var(--acc-yellow);animation:pulse 2s infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
+.hero h1{
+  font-family:'Noto Serif SC','Inter',serif;
+  font-size:clamp(2rem,4.4vw,3.8rem);
+  line-height:1.15;font-weight:700;letter-spacing:-.02em;
+  margin-bottom:22px;
+}
+.hero h1 .grad{
+  background:var(--grad-derive);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hero p.lede{
+  font-size:clamp(1rem,1.3vw,1.18rem);
+  max-width:780px;color:var(--fg-1);margin-bottom:24px;
+}
+.hero-promise{
+  display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--fg-2);
+}
+.hero-promise span{
+  padding:7px 14px;background:rgba(255,255,255,.03);
+  border:var(--border-soft);border-radius:20px;
+}
+
+/* 主版式 */
+.layout{
+  max-width:1180px;margin:0 auto;
+  display:grid;grid-template-columns:240px minmax(0,1fr);
+  gap:48px;padding:0 28px;
+}
+@media (max-width:1000px){.layout{grid-template-columns:1fr}.sidebar{display:none}}
+
+.sidebar{
+  position:sticky;top:80px;height:calc(100vh - 96px);
+  overflow-y:auto;padding:24px 0;
+}
+.sidebar h4{
+  font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;
+  color:var(--fg-3);margin-bottom:14px;font-weight:700;
+}
+.sidebar ul{list-style:none}
+.sidebar ul li a{
+  display:block;padding:7px 14px;font-size:.85rem;
+  color:var(--fg-2);text-decoration:none;border-radius:6px;
+  border-left:2px solid transparent;transition:.18s;
+}
+.sidebar ul li a:hover{color:var(--fg-0);background:rgba(255,255,255,.04)}
+.sidebar ul li a.active{
+  color:var(--acc-yellow);background:rgba(255,209,102,.08);
+  border-left-color:var(--acc-yellow);
+}
+
+/* Content */
+.content{padding:48px 0 96px;max-width:880px}
+.section{margin-bottom:72px;padding-top:24px;scroll-margin-top:96px}
+.section-num{
+  display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.78rem;
+  color:var(--acc-yellow);font-weight:600;letter-spacing:.1em;margin-bottom:10px;
+}
+.section h2{
+  font-family:'Noto Serif SC',serif;
+  font-size:clamp(1.65rem,2.8vw,2.2rem);
+  font-weight:700;line-height:1.2;letter-spacing:-.01em;margin-bottom:14px;
+}
+.section h2 .grad{background:var(--grad-derive);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.section-lede{font-size:1rem;color:var(--fg-1);max-width:720px;margin-bottom:24px}
+
+.content h3{
+  font-family:'Noto Serif SC',serif;
+  font-size:1.35rem;font-weight:600;margin:36px 0 14px;
+  padding-bottom:10px;border-bottom:1px dashed rgba(255,255,255,.1);
+}
+.content h4{
+  font-size:1.08rem;font-weight:600;color:var(--acc-yellow);
+  margin:24px 0 10px;
+}
+.content p{margin:12px 0;color:var(--fg-1);line-height:1.85}
+.content p strong, .content li strong{color:var(--fg-0);font-weight:600}
+.content em{color:var(--fg-0);font-style:italic}
+.content ul, .content ol{margin:12px 0 12px 22px;color:var(--fg-1)}
+.content li{margin:6px 0;line-height:1.75}
+.content li::marker{color:var(--acc-yellow)}
+
+.content a{color:var(--acc-cyan);text-decoration:none;border-bottom:1px dotted rgba(79,209,197,.4)}
+.content a:hover{color:var(--acc-yellow);border-bottom-color:var(--acc-yellow)}
+
+.content code:not(.hljs){
+  font-family:'JetBrains Mono',monospace;
+  background:rgba(255,255,255,.06);padding:2px 7px;border-radius:4px;
+  font-size:.88em;color:var(--acc-yellow);
+}
+
+/* Derivation steps - 编号步骤式推导 */
+.deriv{
+  margin:24px 0;border:1px solid rgba(255,209,102,.18);
+  border-radius:var(--r-md);overflow:hidden;
+  background:linear-gradient(135deg,rgba(255,209,102,.04),rgba(244,143,177,.02));
+}
+.deriv-header{
+  padding:12px 18px;background:rgba(255,209,102,.08);
+  border-bottom:1px solid rgba(255,209,102,.15);
+  font-weight:700;color:var(--acc-yellow);font-size:.92rem;
+  display:flex;align-items:center;gap:8px;
+}
+.deriv-header::before{content:'📐';font-size:1.1em}
+.deriv-body{padding:18px 22px}
+.deriv-step{
+  display:grid;grid-template-columns:auto 1fr;gap:14px;
+  margin:14px 0;align-items:start;
+}
+.deriv-step-num{
+  flex-shrink:0;width:30px;height:30px;border-radius:50%;
+  background:var(--grad-derive);color:#000;font-weight:800;
+  display:grid;place-items:center;font-size:.85rem;
+  font-family:'JetBrains Mono',monospace;
+}
+.deriv-step-body{padding-top:3px;font-size:.93rem;line-height:1.75}
+.deriv-step-body p:first-child{margin-top:0}
+
+.formula{
+  margin:16px 0;padding:14px 20px;
+  background:rgba(91,141,239,.05);
+  border-left:3px solid var(--acc-blue);
+  border-radius:var(--r-md);overflow-x:auto;
+}
+.formula.boxed{border:1px solid rgba(91,141,239,.3);background:rgba(91,141,239,.04)}
+.formula.derived{
+  background:linear-gradient(135deg,rgba(255,209,102,.06),rgba(255,159,110,.04));
+  border-left-color:var(--acc-yellow);
+  border:1px solid rgba(255,209,102,.25);
+}
+.formula-title{
+  font-family:'JetBrains Mono',monospace;font-size:.72rem;
+  color:var(--acc-blue);text-transform:uppercase;letter-spacing:.08em;
+  margin-bottom:6px;font-weight:600;
+}
+.formula.derived .formula-title{color:var(--acc-yellow)}
+
+.callout{
+  margin:20px 0;padding:14px 18px;border-radius:var(--r-md);
+  border-left:4px solid var(--acc-blue);background:rgba(91,141,239,.05);
+}
+.callout-title{font-weight:700;color:var(--acc-blue);margin-bottom:5px;font-size:.92rem}
+.callout.intuition{border-left-color:var(--acc-pink);background:rgba(244,143,177,.05)}
+.callout.intuition .callout-title{color:var(--acc-pink)}
+.callout.intuition .callout-title::before{content:'💡 '}
+.callout.warn{border-left-color:var(--acc-orange);background:rgba(255,159,110,.05)}
+.callout.warn .callout-title{color:var(--acc-orange)}
+.callout.warn .callout-title::before{content:'⚠️ '}
+.callout.insight{border-left-color:var(--acc-purple);background:rgba(167,139,250,.05)}
+.callout.insight .callout-title{color:var(--acc-purple)}
+.callout.insight .callout-title::before{content:'✨ '}
+.callout.bridge{
+  border-left-color:var(--acc-green);background:linear-gradient(90deg,rgba(123,227,154,.06),transparent);
+  font-style:italic;
+}
+.callout.bridge .callout-title{color:var(--acc-green)}
+.callout.bridge .callout-title::before{content:'→ '}
+
+.svg-diagram{
+  margin:24px 0;padding:18px;
+  background:rgba(255,255,255,.02);
+  border:var(--border-soft);border-radius:var(--r-md);
+  display:flex;justify-content:center;
+}
+.chart-wrap{
+  margin:24px 0;padding:18px 22px 14px;
+  background:rgba(255,255,255,.02);
+  border:var(--border-soft);border-radius:var(--r-md);
+}
+.chart-title{font-weight:600;color:var(--fg-0);margin-bottom:6px;font-size:.96rem}
+.chart-subtitle{font-size:.78rem;color:var(--fg-3);margin-bottom:14px}
+
+.tbl-wrap{margin:20px 0;overflow-x:auto;border-radius:var(--r-md);border:var(--border-soft)}
+.content table{width:100%;border-collapse:collapse;font-size:.88rem;background:rgba(255,255,255,.02)}
+.content thead{background:linear-gradient(180deg,rgba(255,209,102,.1),rgba(255,209,102,.04))}
+.content thead th{
+  padding:11px 16px;font-weight:600;color:var(--fg-0);text-align:left;
+  border-bottom:1px solid rgba(255,209,102,.25);font-size:.84rem;
+}
+.content tbody td{padding:10px 16px;color:var(--fg-1);border-bottom:1px solid rgba(255,255,255,.05)}
+.content tbody tr:hover{background:rgba(255,255,255,.03)}
+.content tbody tr:last-child td{border-bottom:none}
+
+.toolbox{
+  margin:20px 0;padding:18px 22px;
+  background:rgba(167,139,250,.05);border:1px dashed rgba(167,139,250,.3);
+  border-radius:var(--r-md);
+}
+.toolbox-title{
+  font-weight:700;color:var(--acc-purple);
+  font-size:.92rem;margin-bottom:8px;
+  display:flex;align-items:center;gap:8px;
+}
+.toolbox-title::before{content:'🧰'}
+
+.mermaid-wrap{
+  margin:24px 0;padding:20px;
+  background:rgba(255,255,255,.02);
+  border:var(--border-soft);border-radius:var(--r-md);overflow-x:auto;
+}
+.mermaid{display:flex;justify-content:center}
+
+/* Footer */
+.footer{
+  border-top:var(--border-soft);background:rgba(255,255,255,.015);
+  padding:48px 28px;margin-top:64px;
+}
+.footer-inner{
+  max-width:1180px;margin:0 auto;display:flex;
+  justify-content:space-between;align-items:center;flex-wrap:wrap;gap:24px;
+}
+.footer-text{color:var(--fg-3);font-size:.86rem}
+.footer-links{display:flex;gap:18px;font-size:.86rem;flex-wrap:wrap}
+.footer-links a{color:var(--fg-2);text-decoration:none}
+.footer-links a:hover{color:var(--acc-yellow)}
+
+@media print{
+  .sidebar,.topnav,.footer{display:none}
+  body{background:#fff;color:#000}
+  .content{padding:0}
+}
+.desmos-wrap{
+  margin:24px 0;padding:16px;
+  background:rgba(255,255,255,.02);
+  border:var(--border-soft);border-radius:var(--r-md);
+}
+.desmos-title{font-weight:600;color:var(--acc-yellow);font-size:.95rem;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.desmos-title::before{content:'🎛️'}
+.desmos-hint{font-size:.78rem;color:var(--fg-3);margin-bottom:10px}
+.desmos-calc{height:380px;border-radius:8px;overflow:hidden;background:#fff}
+@media (max-width:700px){.desmos-calc{height:320px}}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav-inner">
+    <div class="brand">
+      <div class="brand-mark">∇</div>
+      <span>核心方法原理推导 · LLM Post-Training</span>
+    </div>
+    <div class="topnav-links">
+      <a href="#sec-toolbox">数学工具</a>
+      <a href="#sec-pg">Policy Gradient</a>
+      <a href="#sec-baseline">Advantage</a>
+      <a href="#sec-gae">GAE</a>
+      <a href="#sec-ppo">PPO Clip</a>
+      <a href="#sec-bt">BT 偏好</a>
+      <a href="#sec-dpo">DPO</a>
+      <a href="#sec-grpo">GRPO</a>
+      <a href="#sec-gspo">GSPO</a>
+      <a href="#sec-kl">KL k1/k2/k3</a>
+      <a href="#sec-unified">SFT×RL 统一</a>
+      <a class="back" href="llm-post-training-master.html">← 主综述</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="hero-content">
+    <div class="hero-tag">核心方法 · 原理与推导 · 深入浅出</div>
+    <h1>从 <span class="grad">Policy Gradient</span> 到 GRPO / DPO 的<br/>完整推导链</h1>
+    <p class="lede">
+      不堆公式，只讲清楚每个方法 <strong>"想做什么 → 用什么数学工具 → 怎么一步步推出来 → 几何上是什么意思"</strong>。
+      读完你应该能在纸上独立推出 DPO、GRPO 的损失函数。
+    </p>
+    <div class="hero-promise">
+      <span>📐 完整推导，不跳步</span>
+      <span>🎨 每个公式配可视化</span>
+      <span>💡 关键洞察用直觉解释</span>
+      <span>⏱️ 45-60 分钟读完</span>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <h4>推导路径</h4>
+    <ul id="toc">
+      <li><a href="#sec-toolbox">🧰 三个数学工具</a></li>
+      <li><a href="#sec-pg">1 · Policy Gradient 诞生</a></li>
+      <li><a href="#sec-baseline">2 · Baseline 与 Advantage</a></li>
+      <li><a href="#sec-gae">3 · GAE 偏差-方差权衡</a></li>
+      <li><a href="#sec-ppo">4 · PPO Clip 几何</a></li>
+      <li><a href="#sec-bt">5 · Bradley-Terry 偏好</a></li>
+      <li><a href="#sec-dpo">6 · RLHF → DPO 五步</a></li>
+      <li><a href="#sec-grpo">7 · PPO → GRPO 去 Critic</a></li>
+      <li><a href="#sec-gspo">8 · GRPO → GSPO Sequence-level</a></li>
+      <li><a href="#sec-kl">9 · KL 估计器：估值与梯度</a></li>
+      <li><a href="#sec-unified">10 · SFT × RL 梯度统一视角</a></li>
+      <li><a href="#sec-summary">11 · 推导链总览</a></li>
+    </ul>
+  </aside>
+
+  <main class="content">
+    <!-- §0 三个数学工具 -->
+    <section id="sec-toolbox" class="section">
+      <div class="section-num">SECTION 0 · PREREQUISITES</div>
+      <h2>三个必备<span class="grad">数学工具</span></h2>
+      <p class="section-lede">所有 RL 推导都依赖这三个工具——你只需要记住它们的形式与"什么时候用"。</p>
+
+      <div class="toolbox">
+        <div class="toolbox-title">工具 1 · log-derivative trick</div>
+        <p>把"对概率求梯度"转换成"对 log 概率求梯度乘以概率本身"：</p>
+        $$
+        \nabla_\theta \pi_\theta(x) = \pi_\theta(x) \cdot \nabla_\theta \log \pi_\theta(x)
+        $$
+        <p><strong>用途</strong>：把不可导的"在分布上采样"变成可导的"对采样结果取 log 后求梯度"。</p>
+        <p><strong>验证</strong>：链式法则展开 \(\nabla \log f = \frac{\nabla f}{f}\)，移项即得。</p>
+      </div>
+
+      <div class="toolbox">
+        <div class="toolbox-title">工具 2 · Importance Sampling（重要性采样）</div>
+        <p>想算 \(E_{x\sim p}[f(x)]\) 但只有从分布 \(q\) 的样本：</p>
+        $$
+        E_{x \sim p}[f(x)] = E_{x \sim q}\!\left[\frac{p(x)}{q(x)}\, f(x)\right]
+        $$
+        <p><strong>用途</strong>：用旧策略采样的轨迹来估算新策略的期望。这是 PPO/GRPO 能 off-policy 复用 rollout 的根本原因。</p>
+        <p><strong>注意</strong>：比例 \(p/q\) 方差会爆炸，所以才需要 clip。</p>
+      </div>
+
+      <div class="toolbox">
+        <div class="toolbox-title">工具 3 · Lagrange 乘子法</div>
+        <p>带约束的优化问题：</p>
+        $$
+        \max_\pi J(\pi) \;\text{s.t.}\; D_{\text{KL}}(\pi \| \pi_{\text{ref}}) \le \delta
+        $$
+        <p>转换为无约束：</p>
+        $$
+        \max_\pi J(\pi) - \beta\, D_{\text{KL}}(\pi \| \pi_{\text{ref}})
+        $$
+        <p><strong>用途</strong>：RLHF 的 KL 约束目标、DPO 的闭式最优策略推导都基于此。</p>
+      </div>
+
+      <div class="callout intuition">
+        <div class="callout-title">为什么这三个工具就够</div>
+        <ul>
+          <li>工具 1 让我们能<strong>对采样求导</strong>（→ Policy Gradient）</li>
+          <li>工具 2 让我们能<strong>复用旧样本</strong>（→ PPO 的 surrogate objective）</li>
+          <li>工具 3 让我们能<strong>用 KL 控制策略偏离</strong>（→ RLHF / DPO 闭式解）</li>
+        </ul>
+        所有现代 RL 方法都是这三个工具的不同组合。
+      </div>
+    </section>
+
+    <!-- §1 Policy Gradient 诞生 -->
+    <section id="sec-pg" class="section">
+      <div class="section-num">SECTION 1</div>
+      <h2>Policy <span class="grad">Gradient</span> 诞生</h2>
+      <p class="section-lede">想直接对"采样产生的回报"求梯度——这看似不可能（采样过程不可导）。log-derivative trick 巧妙地化解了它。</p>
+
+      <h3>1.1 想做什么</h3>
+      <p>定义目标：策略 \(\pi_\theta\) 产生轨迹 \(\tau\)，希望期望回报最大化：</p>
+      <div class="formula">
+        $$
+        J(\theta) = E_{\tau \sim \pi_\theta}[R(\tau)]
+        $$
+      </div>
+      <p>难点：\(\tau\) 是从 \(\pi_\theta\) 采样的，<strong>"采样"操作不可导</strong>——你怎么对一个 dice roll 求梯度？</p>
+
+      <h3>1.2 用 log-derivative trick 化解</h3>
+      <div class="deriv">
+        <div class="deriv-header">Policy Gradient Theorem 三步推导</div>
+        <div class="deriv-body">
+          <div class="deriv-step">
+            <div class="deriv-step-num">1</div>
+            <div class="deriv-step-body">
+              展开期望（这里 \(p_\theta(\tau) = \prod_t \pi_\theta(a_t|s_t)\) 是轨迹概率）：
+              $$
+              J(\theta) = \int p_\theta(\tau) R(\tau)\, d\tau
+              $$
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">2</div>
+            <div class="deriv-step-body">
+              对 \(\theta\) 求梯度，梯度进入积分（\(R(\tau)\) 不含 \(\theta\)）：
+              $$
+              \nabla_\theta J(\theta) = \int \nabla_\theta p_\theta(\tau) \cdot R(\tau)\, d\tau
+              $$
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">3</div>
+            <div class="deriv-step-body">
+              <strong>关键一步</strong>：用工具 1（log-derivative trick）：
+              $$
+              \nabla p_\theta(\tau) = p_\theta(\tau)\,\nabla \log p_\theta(\tau)
+              $$
+              代回得到：
+              $$
+              \nabla_\theta J = \int p_\theta(\tau)\, \nabla \log p_\theta(\tau)\, R(\tau)\, d\tau = E_{\tau \sim \pi_\theta}\!\left[\nabla_\theta \log p_\theta(\tau)\cdot R(\tau)\right]
+              $$
+              <strong>不可导的采样变成了可导的"对 log 采样概率求梯度乘回报"。</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3>1.3 展开到 token 级</h3>
+      <p>对 LLM，轨迹 = token 序列，\(p_\theta(\tau) = \prod_t \pi_\theta(a_t|s_t)\)，log 后变求和：</p>
+      <div class="formula derived">
+        <div class="formula-title">REINFORCE Estimator（无 baseline 版）</div>
+        $$
+        \nabla_\theta J = E_{\tau}\!\left[\sum_{t=0}^{T} \nabla_\theta \log \pi_\theta(a_t \mid s_t)\cdot R(\tau)\right]
+        $$
+      </div>
+
+      <h3>1.4 几何直觉</h3>
+      <div class="svg-diagram">
+        <svg viewBox="0 0 700 240" width="100%" style="max-width:680px">
+          <defs>
+            <marker id="arr1" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+              <polygon points="0 0, 10 3, 0 6" fill="#7be39a"/>
+            </marker>
+            <marker id="arr2" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+              <polygon points="0 0, 10 3, 0 6" fill="#ff6b8a"/>
+            </marker>
+          </defs>
+          <text x="350" y="26" text-anchor="middle" fill="#e6edf7" font-size="15" font-weight="700">策略梯度做的事</text>
+
+          <!-- 轨迹空间 -->
+          <ellipse cx="350" cy="140" rx="280" ry="70" fill="none" stroke="#5b6a82" stroke-dasharray="4"/>
+          <text x="350" y="225" text-anchor="middle" fill="#8492a8" font-size="12">轨迹空间</text>
+
+          <!-- Good trajectory -->
+          <circle cx="200" cy="110" r="8" fill="#7be39a"/>
+          <text x="200" y="92" text-anchor="middle" fill="#7be39a" font-size="11" font-weight="600">τ₁ · R=+1</text>
+          <line x1="210" y1="105" x2="280" y2="78" stroke="#7be39a" stroke-width="2" marker-end="url(#arr1)"/>
+          <text x="320" y="76" fill="#7be39a" font-size="11">↑ 提高 logπ(τ₁)</text>
+
+          <!-- Bad trajectory -->
+          <circle cx="500" cy="160" r="8" fill="#ff6b8a"/>
+          <text x="500" y="178" text-anchor="middle" fill="#ff6b8a" font-size="11" font-weight="600">τ₂ · R=−1</text>
+          <line x1="495" y1="170" x2="430" y2="200" stroke="#ff6b8a" stroke-width="2" marker-end="url(#arr2)"/>
+          <text x="450" y="216" fill="#ff6b8a" font-size="11">↓ 降低 logπ(τ₂)</text>
+
+          <text x="350" y="140" text-anchor="middle" fill="#e6edf7" font-size="13" opacity=".7">π_θ</text>
+        </svg>
+      </div>
+
+      <div class="callout intuition">
+        <div class="callout-title">直觉</div>
+        每个采样到的轨迹被"贴标签"：得分高就 <strong>把它的概率推高</strong>，得分低就压低。<strong>这就是 REINFORCE</strong>——所有现代 RL 算法的祖先。
+      </div>
+
+      <div class="callout bridge">
+        <div class="callout-title">下一节</div>
+        REINFORCE 的方差极大（一条 0 分轨迹和一条 100 分轨迹的梯度都在"上下浮动"）。下一步要引入 <strong>baseline</strong>，让我们只关心"相对好坏"。
+      </div>
+    </section>
+
+    <!-- §2 Baseline 与 Advantage -->
+    <section id="sec-baseline" class="section">
+      <div class="section-num">SECTION 2</div>
+      <h2>Baseline 与 <span class="grad">Advantage</span></h2>
+      <p class="section-lede">"100 分中的 60 分轨迹"应该被推高还是压低？答案取决于平均水平。这是引入 baseline 的根本动机。</p>
+
+      <h3>2.1 baseline 不改期望，只降方差</h3>
+      <p>对任意只依赖状态的 \(b(s)\)，从 \(R\) 中减去它：</p>
+      <div class="formula">
+        $$
+        \nabla J = E\!\left[\sum_t \nabla \log \pi_\theta(a_t|s_t)\cdot\bigl(R - b(s_t)\bigr)\right]
+        $$
+      </div>
+
+      <div class="deriv">
+        <div class="deriv-header">为什么减 baseline 不改期望</div>
+        <div class="deriv-body">
+          <div class="deriv-step">
+            <div class="deriv-step-num">1</div>
+            <div class="deriv-step-body">
+              证明 \(E[\nabla \log \pi \cdot b(s)] = 0\)：
+              $$
+              E_{a\sim\pi}[\nabla \log \pi(a|s)\cdot b(s)] = b(s)\cdot \sum_a \pi(a|s)\,\nabla \log\pi(a|s)
+              $$
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">2</div>
+            <div class="deriv-step-body">
+              用 log-derivative 反过来：\(\pi \nabla \log \pi = \nabla \pi\)：
+              $$
+              = b(s)\cdot \sum_a \nabla \pi(a|s) = b(s)\cdot \nabla \sum_a \pi(a|s) = b(s)\cdot \nabla(1) = 0
+              $$
+              <strong>baseline 项的梯度贡献恒为 0</strong>，所以减去它不改 \(\nabla J\) 的期望，但能显著降低方差。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3>2.2 Value Function：接近最优的 baseline</h3>
+      <p>严格说，方差最小的 baseline 并不是 \(V(s)\)，而是带梯度模平方加权的 \(b^*(s) = E\bigl[\|\nabla_\theta\log\pi_\theta\|^2 R\bigr] / E\bigl[\|\nabla_\theta\log\pi_\theta\|^2\bigr]\)；但它难以估计，实践中几乎总是用<strong>状态价值</strong> \(V^\pi(s) = E_{\tau|s}[R]\) 作为接近最优的近似。定义 <strong>Advantage</strong>：</p>
+      <div class="formula derived">
+        <div class="formula-title">Advantage Function</div>
+        $$
+        A^\pi(s, a) = Q^\pi(s, a) - V^\pi(s)
+        $$
+      </div>
+      <p>含义：在状态 \(s\) 下选动作 \(a\) 比"平均水平"<strong>好多少</strong>。Advantage &gt; 0 → 这个动作比平均好 → 推高；&lt; 0 → 压低。</p>
+
+      <h3>2.3 方差降低有多明显</h3>
+
+      <div class="chart-wrap">
+        <div class="chart-title">📊 REINFORCE vs REINFORCE-with-baseline 梯度方差</div>
+        <div class="chart-subtitle">模拟数据：相同任务下两种估计器的梯度方差随 batch 增长变化</div>
+        <canvas id="baselineChart" height="180"></canvas>
+      </div>
+
+      <h3>2.4 Actor-Critic 框架</h3>
+      <p>Value function 怎么得到？训一个独立网络 \(V_\psi\)（critic）来估计：</p>
+      <div class="formula">
+        $$
+        L_{\text{critic}}(\psi) = E\!\left[\bigl(V_\psi(s) - R(\tau|s)\bigr)^2\right]
+        $$
+      </div>
+      <p>这就形成了 <strong>Actor-Critic</strong>：actor 是 \(\pi_\theta\)，critic 是 \(V_\psi\)。两者同时训练。</p>
+
+      <div class="callout insight">
+        <div class="callout-title">关键洞察</div>
+        Critic 的存在是为了 <strong>降低 actor 梯度的方差</strong>。它本身不直接产生策略，只是"裁判"。当后面 GRPO 把 critic 去掉时，必须找一个替代品来降方差——那就是 group mean。
+      </div>
+
+      <div class="callout bridge">
+        <div class="callout-title">下一节</div>
+        Advantage 怎么从轨迹回报反推回每个 token？这需要在 <strong>偏差和方差之间权衡</strong>——GAE 给出了完美答案。
+      </div>
+    </section>
+
+    <!-- §3 GAE -->
+    <section id="sec-gae" class="section">
+      <div class="section-num">SECTION 3</div>
+      <h2>GAE：<span class="grad">偏差-方差</span>权衡的优雅解法</h2>
+      <p class="section-lede">把"未来回报"分解成"立即奖励 + 后续回报估计"。怎么分得多/少决定了 advantage 的偏差-方差性质。GAE 用一个参数 λ 调节这个权衡。</p>
+
+      <h3>3.1 两种极端</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>方法</th><th>Advantage 估计</th><th>偏差</th><th>方差</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Monte Carlo</strong></td><td>\(R(\tau) - V(s_t)\)（用整条轨迹回报）</td><td>无偏（如果 V 准）</td><td>极大（一条轨迹很多 token）</td></tr>
+            <tr><td><strong>TD(0)</strong></td><td>\(r_t + \gamma V(s_{t+1}) - V(s_t)\)</td><td>有偏（V 不准时被放大）</td><td>极小（只看一步）</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>3.2 TD residual 与 n-step return</h3>
+      <p>定义 TD 残差（即 1 步 advantage）：</p>
+      <div class="formula">
+        $$
+        \delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)
+        $$
+      </div>
+      <p>n-step advantage 把 n 步真实回报与第 n 步的 bootstrap 拼起来：</p>
+      <div class="formula">
+        $$
+        \hat{A}_t^{(n)} = \sum_{k=0}^{n-1} \gamma^k \delta_{t+k}
+        $$
+      </div>
+      <p>n=1 退化为 TD(0)；n=T 退化为 MC。<strong>n 越大方差越大但偏差越小</strong>。</p>
+
+      <h3>3.3 GAE：用 λ 做指数加权平均</h3>
+      <div class="deriv">
+        <div class="deriv-header">GAE 三步推导</div>
+        <div class="deriv-body">
+          <div class="deriv-step">
+            <div class="deriv-step-num">1</div>
+            <div class="deriv-step-body">
+              对所有 n-step advantage 做<strong>指数加权平均</strong>：
+              $$
+              \hat{A}_t^{\text{GAE}(\lambda)} = (1-\lambda)\bigl(\hat{A}_t^{(1)} + \lambda \hat{A}_t^{(2)} + \lambda^2 \hat{A}_t^{(3)} + \dots\bigr)
+              $$
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">2</div>
+            <div class="deriv-step-body">
+              展开 \(\hat{A}_t^{(n)} = \sum_{k=0}^{n-1}\gamma^k \delta_{t+k}\) 并合并同类项后（数学操作较繁，跳过细节）：
+              $$
+              \hat{A}_t^{\text{GAE}(\lambda)} = \sum_{k=0}^{\infty} (\gamma\lambda)^k\, \delta_{t+k}
+              $$
+              <strong>这就是 GAE 的优雅形式</strong>——只需一个参数 λ，按 \((\gamma\lambda)^k\) 加权所有 TD 残差。
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">3</div>
+            <div class="deriv-step-body">
+              <strong>极端情况验证</strong>：
+              <ul>
+                <li>λ=0：只有 \(k=0\) 一项，\(\hat{A}_t = \delta_t\) = TD(0)，高偏差低方差 ✓</li>
+                <li>λ=1：所有项权重 \(\gamma^k\)，\(\hat{A}_t = \sum_k \gamma^k \delta_{t+k} = R(\tau) - V(s_t)\) = MC，无偏高方差 ✓</li>
+              </ul>
+              <strong>λ ∈ (0, 1) 给出连续插值</strong>。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3>3.4 偏差-方差的可视化</h3>
+      <div class="chart-wrap">
+        <div class="chart-title">📈 GAE λ 对偏差与方差的影响</div>
+        <div class="chart-subtitle">实践中常取 λ ∈ [0.95, 1.0]，靠近无偏但接受方差</div>
+        <canvas id="gaeChart" height="170"></canvas>
+      </div>
+
+      <div class="desmos-wrap">
+        <div class="desmos-title">GAE 权重互动：拖动 λ 看"看多远的未来"</div>
+        <div class="desmos-hint">横轴 k = 未来第几步 · 纵轴 = (γλ)^k 衰减权重 · λ=0 只看一步，λ=1 看到底</div>
+        <div id="desmos-gae" class="desmos-calc"></div>
+      </div>
+
+      <div class="callout insight">
+        <div class="callout-title">为什么 LLM 实践用 λ ≈ 0.95</div>
+        LLM 的 V_ψ（critic）对长序列估计极差（误差累积），所以不能选 λ→0（偏差被 V 误差放大）。但 λ=1 又方差太大。<strong>0.95 是经验上的甜蜜点</strong>——VAPO 后来提出"length-adaptive λ" 进一步优化：长序列用更小的 λ。
+      </div>
+
+      <div class="callout bridge">
+        <div class="callout-title">下一节</div>
+        有了好的 advantage 估计，下一个问题：怎么用旧策略的样本去更新新策略？答案是 <strong>importance sampling + clip</strong>，也就是 PPO 的核心。
+      </div>
+    </section>
+
+    <!-- §4 PPO Clip -->
+    <section id="sec-ppo" class="section">
+      <div class="section-num">SECTION 4</div>
+      <h2>PPO Clip：<span class="grad">几何</span>就是几条直线</h2>
+      <p class="section-lede">为什么要 clip？因为 importance sampling 比例方差爆炸。怎么 clip？画图就清楚了。</p>
+
+      <h3>4.1 surrogate objective 与方差问题</h3>
+      <p>用工具 2（重要性采样），用旧策略 \(\pi_{\text{old}}\) 的样本估算新策略 \(\pi_\theta\) 的期望：</p>
+      <div class="formula">
+        $$
+        L^{\text{IS}}(\theta) = E_{a\sim \pi_{\text{old}}}\!\left[\frac{\pi_\theta(a|s)}{\pi_{\text{old}}(a|s)}\cdot \hat{A}\right]
+        $$
+      </div>
+      <p>问题：当 \(\pi_\theta\) 和 \(\pi_{\text{old}}\) 差太多时，比例 \(r_t = \pi_\theta/\pi_{\text{old}}\) 会很大，<strong>方差爆炸</strong>。这就是为什么 RL 需要 trust region：新策略不能离旧策略太远。</p>
+
+      <h3>4.2 理论根基：Performance Difference Lemma → TRPO 单调改进下界</h3>
+      <p>4.1 的 surrogate 不只是"用旧样本估新策略"的工程便利——它是一条严格定理的一阶近似。这一小节把整个 §4 唯一的理论保证补完整：<strong>知道保证从哪来，才能看清 PPO clip 在哪一步把保证丢掉了</strong>。沿用 TRPO 原文记号，用 \(\eta(\pi)\) 表示策略的期望折扣回报（即 §1 的 \(J\)，换记号以便区分新旧策略），\(\tilde\pi\) 是候选新策略。</p>
+
+      <div class="deriv">
+        <div class="deriv-header">从 Performance Difference Lemma 推出 TRPO 下界</div>
+        <div class="deriv-body">
+          <div class="deriv-step">
+            <div class="deriv-step-num">1</div>
+            <div class="deriv-step-body">
+              <strong>Performance Difference Lemma</strong>（Kakade &amp; Langford, ICML 2002）：任意两个策略的性能差，等于"沿<strong>新</strong>策略的轨迹、按<strong>旧</strong>策略的 advantage 记账"：
+              $$
+              \eta(\tilde\pi) = \eta(\pi) + E_{\tau\sim\tilde\pi}\!\left[\sum_{t=0}^{\infty}\gamma^t A^{\pi}(s_t,a_t)\right]
+              $$
+              证明只要两行：把 \(A^\pi(s_t,a_t)=E\bigl[r_t+\gamma V^\pi(s_{t+1})-V^\pi(s_t)\bigr]\) 代入，沿轨迹求和后 \(V^\pi\) 项望远镜式相消，只剩 \(\sum_t\gamma^t r_t - V^\pi(s_0)\)；取期望即 \(\eta(\tilde\pi)-\eta(\pi)\)。
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">2</div>
+            <div class="deriv-step-body">
+              <strong>唯一的麻烦</strong>：期望在 \(\tilde\pi\) 的状态分布下——\(\tilde\pi\) 还没训出来，没法采样。TRPO 的近似：状态分布硬换成旧策略的 \(d_\pi\)，动作分布用工具 2（IS）修正：
+              $$
+              L_\pi(\tilde\pi) = \eta(\pi) + E_{s\sim d_\pi,\,a\sim\pi}\!\left[\frac{\tilde\pi(a|s)}{\pi(a|s)}\,A^\pi(s,a)\right]
+              $$
+              这正是 4.1 的 surrogate（多出的 \(\eta(\pi)\) 是常数，不影响优化）。它是 \(\eta\) 的<strong>一阶近似</strong>：在 \(\tilde\pi=\pi\) 处两者的值与梯度都相同，离得越远越不可信。
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">3</div>
+            <div class="deriv-step-body">
+              换状态分布的误差能被 KL 控制住（TRPO Theorem 1）：
+              $$
+              \eta(\tilde\pi)\;\ge\;L_\pi(\tilde\pi)\;-\;C\,D_{\text{KL}}^{\max}(\pi,\tilde\pi),
+              \qquad C=\frac{4\varepsilon\gamma}{(1-\gamma)^2},\;\;\varepsilon=\max_{s,a}\bigl|A^\pi(s,a)\bigr|
+              $$
+              其中 \(D_{\text{KL}}^{\max}(\pi,\tilde\pi)=\max_s D_{\text{KL}}\bigl(\pi(\cdot|s)\,\|\,\tilde\pi(\cdot|s)\bigr)\)。直觉：策略离得近 → 状态分布漂移小 → surrogate 可信；漂移的代价以 KL 为系数线性记罚。
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">4</div>
+            <div class="deriv-step-body">
+              <strong>单调改进保证</strong>（MM 算法）：令 \(M_k(\tilde\pi)=L_{\pi_k}(\tilde\pi)-C\,D_{\text{KL}}^{\max}(\pi_k,\tilde\pi)\)，每步取 \(\pi_{k+1}=\arg\max M_k\)。由于 \(M_k(\pi_k)=\eta(\pi_k)\)：
+              $$
+              \eta(\pi_{k+1})\;\ge\;M_k(\pi_{k+1})\;\ge\;M_k(\pi_k)\;=\;\eta(\pi_k)
+              $$
+              只要最大化下界，真实性能<strong>永不变差</strong>。这是整条 PPO/GRPO 谱系里唯一一次出现"保证"二字的地方。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-title">从定理到 PPO clip：每一步都在松绑</div>
+        <ul>
+          <li><strong>第一步松绑</strong>：理论系数 \(C=4\varepsilon\gamma/(1-\gamma)^2\) 太保守（\(\gamma\to1\) 时爆炸），照它走步长趋近 0。TRPO 改成约束形式 \(\max L\ \text{s.t.}\ D_{\text{KL}}\le\delta\)——\(\delta\) 成了超参，保证从此变经验。</li>
+          <li><strong>第二步松绑</strong>：\(\max_s\) KL 无法遍历状态计算，换成采样均值 KL；求解仍需二阶方法（自然梯度/共轭梯度 + line search），实现重、算力贵——这就是 TRPO 没有流行的原因。</li>
+          <li><strong>第三步松绑</strong>：PPO 干脆丢掉 KL 项，对每个采到的 \((s,a)\) 直接 clip ratio。<strong>clip 约束的是逐样本比值，不是策略间散度</strong>：没被采到的动作完全不受约束，即使所有样本的 \(r_t\in[1-\varepsilon,1+\varepsilon]\)，KL 仍可任意大。而且 clip 是"零梯度"不是"投影"——越界样本只是不再贡献梯度，已经越界的策略不会被拉回来，一次大学习率更新可以直接冲出 clip 区。<em>Truly PPO</em>（Wang et al., 2019）实证了这两点：PPO 既不能严格限制 ratio，也没有 enforce 良定义的 trust region。</li>
+        </ul>
+        结论：<strong>PPO clip 是 trust region 的启发式近似，不是等价物</strong>。它在实践中"足够 proximal"，但每当训练不稳（MoE 路由抖动、长序列、异步 staleness），追责都应回到这三步松绑丢掉了什么。
+      </div>
+
+      <div class="callout insight">
+        <div class="callout-title">ratio 的双重角色 + LLM 语境注记</div>
+        \(r_t\) 在 PPO 里同时扮演两个角色：<strong>off-policy 修正</strong>（IS 权重，来自步骤 2）与<strong>被约束对象</strong>（clip 的输入，替代步骤 3 的 KL）。后续所有变体之争——GRPO 的 token 级 ratio、GSPO 的序列级 ratio（§8）、CISPO 的"clip 权重而非梯度"——都是在这个双重角色上做文章。另注意 LLM RLHF 通常取 \(\gamma=1\)、outcome reward、单步 bandit 视角（§7.2 展开），PDL 的"状态分布漂移"退化为"prompt 分布固定、response 分布漂移"：常数 \(C\) 的字面形式不再适用，但"surrogate 只在旧策略邻域内可信"原样成立——工程上把 clip/KL 理解为控制<strong>两次 rollout 之间分布漂移</strong>的旋钮最准确。
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">参考来源</div>
+        <ul>
+          <li>Kakade &amp; Langford, <em>Approximately Optimal Approximate Reinforcement Learning</em>（ICML 2002，performance difference lemma 出处）</li>
+          <li>Schulman et al., <em>Trust Region Policy Optimization</em>（Theorem 1 与单调改进推导）：<a href="https://arxiv.org/abs/1502.05477">arXiv:1502.05477</a></li>
+          <li>Schulman et al., <em>Proximal Policy Optimization Algorithms</em>：<a href="https://arxiv.org/abs/1707.06347">arXiv:1707.06347</a></li>
+          <li>Wang et al., <em>Truly Proximal Policy Optimization</em>（clip 不约束 ratio/KL 的实证）：<a href="https://arxiv.org/abs/1903.07940">arXiv:1903.07940</a></li>
+        </ul>
+      </div>
+
+      <h3>4.3 TRPO 的硬约束 → PPO 的 clip 软约束</h3>
+      <p>TRPO 把 4.2 的下界惩罚改写为硬约束 \(D_{\text{KL}}(\pi_\theta \| \pi_{\text{old}}) \le \delta\)，需要二阶优化求解。PPO 把"距离约束"进一步降格为对 ratio 的 <strong>clip</strong>，一阶优化器即可：</p>
+      <div class="formula derived">
+        <div class="formula-title">PPO Clip Surrogate</div>
+        $$
+        L^{\text{CLIP}}(\theta) = E_t\!\left[\min\Bigl(r_t \hat{A}_t,\ \text{clip}(r_t, 1-\varepsilon, 1+\varepsilon)\,\hat{A}_t\Bigr)\right]
+        $$
+      </div>
+
+      <h3>4.4 几何直觉：四象限分析</h3>
+      <p>横轴 \(r_t\)，纵轴 surrogate loss。根据 \(\hat{A}\) 的正负分两种情况：</p>
+
+      <div class="svg-diagram">
+        <svg viewBox="0 0 700 330" width="100%" style="max-width:680px">
+          <text x="350" y="22" text-anchor="middle" fill="#e6edf7" font-size="15" font-weight="700">PPO Clip 的几何（横轴 r_t，纵轴 L^CLIP）</text>
+
+          <!-- A > 0 case -->
+          <g transform="translate(40, 50)">
+            <text x="140" y="-10" text-anchor="middle" fill="#7be39a" font-size="13" font-weight="700">A &gt; 0（动作好，想推高 r）</text>
+            <!-- axes -->
+            <line x1="0" y1="180" x2="280" y2="180" stroke="#5b6a82"/>
+            <line x1="140" y1="20" x2="140" y2="200" stroke="#5b6a82"/>
+            <text x="285" y="184" fill="#8492a8" font-size="11">r</text>
+            <text x="148" y="20" fill="#8492a8" font-size="11">L</text>
+
+            <!-- markers -->
+            <line x1="100" y1="180" x2="100" y2="190" stroke="#a78bfa" stroke-width="2"/>
+            <text x="100" y="206" text-anchor="middle" fill="#a78bfa" font-size="10">1−ε</text>
+            <line x1="140" y1="180" x2="140" y2="190" stroke="#fff" stroke-width="2"/>
+            <text x="140" y="206" text-anchor="middle" fill="#e6edf7" font-size="10">1</text>
+            <line x1="180" y1="180" x2="180" y2="190" stroke="#a78bfa" stroke-width="2"/>
+            <text x="180" y="206" text-anchor="middle" fill="#a78bfa" font-size="10">1+ε</text>
+
+            <!-- Curve: min(r·A, clip(r)·A) -->
+            <!-- For A>0, it's r*A up to 1+ε, then flat -->
+            <line x1="20" y1="172" x2="180" y2="68" stroke="#7be39a" stroke-width="3"/>
+            <line x1="180" y1="68" x2="270" y2="68" stroke="#7be39a" stroke-width="3"/>
+            <circle cx="180" cy="68" r="5" fill="#7be39a"/>
+
+            <text x="210" y="60" fill="#7be39a" font-size="11">clipped flat</text>
+            <text x="220" y="80" fill="#7be39a" font-size="10" opacity=".8">（无法再推高）</text>
+          </g>
+
+          <!-- A < 0 case -->
+          <g transform="translate(380, 50)">
+            <text x="140" y="-10" text-anchor="middle" fill="#ff6b8a" font-size="13" font-weight="700">A &lt; 0（动作差，想降低 r）</text>
+            <line x1="0" y1="100" x2="280" y2="100" stroke="#5b6a82"/>
+            <line x1="140" y1="20" x2="140" y2="200" stroke="#5b6a82"/>
+            <text x="285" y="104" fill="#8492a8" font-size="11">r</text>
+            <text x="148" y="20" fill="#8492a8" font-size="11">L</text>
+
+            <line x1="100" y1="100" x2="100" y2="110" stroke="#a78bfa" stroke-width="2"/>
+            <text x="100" y="126" text-anchor="middle" fill="#a78bfa" font-size="10">1−ε</text>
+            <line x1="140" y1="100" x2="140" y2="110" stroke="#fff" stroke-width="2"/>
+            <text x="140" y="126" text-anchor="middle" fill="#e6edf7" font-size="10">1</text>
+            <line x1="180" y1="100" x2="180" y2="110" stroke="#a78bfa" stroke-width="2"/>
+            <text x="180" y="126" text-anchor="middle" fill="#a78bfa" font-size="10">1+ε</text>
+
+            <!-- For A<0: min = clipped 常数 (1-ε)A（r<1-ε，水平），其余取未 clip 的 rA（持续下降，r>1+ε 不封底） -->
+            <line x1="20" y1="150" x2="100" y2="150" stroke="#ff6b8a" stroke-width="3"/>
+            <line x1="100" y1="150" x2="255" y2="230" stroke="#ff6b8a" stroke-width="3"/>
+            <line x1="180" y1="191" x2="270" y2="191" stroke="#ff6b8a" stroke-width="2" stroke-dasharray="3" opacity=".6"/>
+            <circle cx="100" cy="150" r="5" fill="#ff6b8a"/>
+
+            <text x="22" y="170" fill="#ff6b8a" font-size="11">clipped flat</text>
+            <text x="22" y="184" fill="#ff6b8a" font-size="10" opacity=".8">（梯度为零，停手）</text>
+            <text x="196" y="146" fill="#ff6b8a" font-size="11">仍取未 clip 的 r·A</text>
+            <text x="196" y="160" fill="#ff6b8a" font-size="10" opacity=".8">（惩罚不封顶）</text>
+            <text x="215" y="186" fill="#8492a8" font-size="9">直接 clip 会在此封顶</text>
+          </g>
+
+          <!-- bottom annotation -->
+          <text x="350" y="295" text-anchor="middle" fill="#8492a8" font-size="12">关键：<tspan fill="#ffd166">min 操作</tspan> 让 surrogate 成为真实目标的悲观下界——收益封顶（有利方向被 clip），惩罚不封底（不利方向永不 clip）</text>
+        </svg>
+      </div>
+
+      <div class="desmos-wrap">
+        <div class="desmos-title">PPO Clip 互动：拖动 ε 和 A 看曲线如何变化</div>
+        <div class="desmos-hint">绿线 = clipped surrogate · 横轴 r · 把 A 拖成负值：r &lt; 1−ε 处绿线变平（梯度为零），r &gt; 1+ε 处持续下坠（惩罚不封顶）</div>
+        <div id="desmos-ppo" class="desmos-calc"></div>
+      </div>
+
+      <h3>4.5 为什么用 min（而不是直接 clip）</h3>
+      <p>关键直觉（对照上图逐象限看，与 PPO 原论文 Figure 1 一致）：</p>
+      <ul>
+        <li>当 \(A &gt; 0\)（动作好）：\(\min\) 在 \(r &gt; 1+\varepsilon\) 时取 clipped 常数 \((1+\varepsilon)\hat{A}\) → 梯度为零，<strong>不让你过度推高已经"赢"的动作</strong>；而 \(r &lt; 1-\varepsilon\) 时取的是未 clip 的 \(r\hat{A}\) → 好动作被误压低时，<strong>梯度继续把它拉回来</strong></li>
+        <li>当 \(A &lt; 0\)（动作差）：\(\min\) 在 \(r &lt; 1-\varepsilon\) 时取 clipped 常数 \((1-\varepsilon)\hat{A}\) → 梯度为零，<strong>压得够低就停手</strong>；而 \(r &gt; 1+\varepsilon\) 时取的是未 clip 的 \(r\hat{A}\) → 坏动作概率不降反升时，<strong>惩罚不封顶（pessimistic update）</strong></li>
+      </ul>
+      <p>四个象限合起来看规律：clip 只在「更新对自己有利」的方向封顶（\(A&gt;0\) 时的上界、\(A&lt;0\) 时的下界），在「对自己不利」的方向永不设防——所以 surrogate 是真实目标的<strong>悲观下界</strong>。</p>
+
+      <div class="callout insight">
+        <div class="callout-title">延伸：两个边界角色不同 → clip 几何决定熵</div>
+        既然下界 \(1-\varepsilon\) 只在 \(A&lt;0\) 时生效（决定坏 token 还能被压多狠）、上界 \(1+\varepsilon\) 只在 \(A&gt;0\) 时生效（决定低概率 token 的概率还能被推高多少），两者完全可以解耦设置。DAPO（2025）的 <strong>Clip-Higher</strong> 正是把上界放宽为 \(\varepsilon_{\text{high}}=0.28\)（下界保持 \(\varepsilon_{\text{low}}=0.2\)），给低概率"探索" token 留出上升空间以缓解熵塌缩；后续理论分析 <em>Clip-Low Increases Entropy and Clip-High Decreases Entropy in Reinforcement Learning of Large Language Models</em>（2025）进一步证明：clip-high 系统性压低熵、clip-low 系统性抬高熵，默认对称设置下 clip-high 效应占主导——熵塌缩在相当程度上是 clip 几何内生的，反过来也可以用更激进的 clip-low 主动抬熵。实战展开见 <a href="rl-pitfalls-survey.html">Pitfalls 综述 §5.3</a>。
+      </div>
+
+      <div class="callout intuition">
+        <div class="callout-title">一句话总结 PPO Clip</div>
+        Clip 是 trust region 的"廉价近似"——直接 truncate ratio，并用 min 操作让 update 在<strong>对自己不利时仍然继续</strong>，对自己有利时停下来。这就是 PPO 比 TRPO 简单几个数量级的原因。
+      </div>
+
+      <div class="callout bridge">
+        <div class="callout-title">下一节</div>
+        PPO 是优化 reward 的——但 RLHF 里没有 reward，只有偏好对。怎么把偏好转换成 reward？答案是 <strong>Bradley-Terry 模型</strong>。
+      </div>
+    </section>
+
+    <!-- §5 Bradley-Terry -->
+    <section id="sec-bt" class="section">
+      <div class="section-num">SECTION 5</div>
+      <h2>Bradley-Terry：<span class="grad">从偏好到 reward</span></h2>
+      <p class="section-lede">人类只能说"我更喜欢 A 不是 B"，无法给绝对分数。BT 模型把这种"偏好对"翻译成可学的"潜在分数"。</p>
+
+      <h3>5.1 模型假设</h3>
+      <p>假设每个回答 \(y\) 有一个潜在的标量"质量分" \(r(x, y)\)，<strong>用户偏好概率由分差决定</strong>：</p>
+      <div class="formula derived">
+        <div class="formula-title">Bradley-Terry Model</div>
+        $$
+        P(y_w \succ y_l \mid x) = \frac{e^{r(x, y_w)}}{e^{r(x, y_w)} + e^{r(x, y_l)}} = \sigma\!\bigl(r(x, y_w) - r(x, y_l)\bigr)
+        $$
+      </div>
+      <p>其中 \(\sigma(z) = 1/(1+e^{-z})\) 是 sigmoid。<strong>注意</strong>：BT 模型只依赖于 reward 之差，不依赖于绝对值——这意味着 reward 函数有"任意常数自由度"，这一性质等下 DPO 会用到。</p>
+
+      <h3>5.2 sigmoid 曲线的几何</h3>
+      <div class="chart-wrap">
+        <div class="chart-title">📐 Bradley-Terry 偏好概率 vs 分数差</div>
+        <div class="chart-subtitle">分差 0 → 50/50；分差 +2 → ~88% 偏好；分差 +4 → ~98% 偏好</div>
+        <canvas id="btChart" height="180"></canvas>
+      </div>
+
+      <h3>5.3 用极大似然估计 reward model</h3>
+      <p>给定偏好数据集 \(\mathcal{D} = \{(x, y_w, y_l)\}\)，对 \(r_\phi\) 做 MLE：</p>
+      <div class="formula derived">
+        <div class="formula-title">RM Loss</div>
+        $$
+        L_{\text{RM}}(\phi) = -E_{(x, y_w, y_l) \sim \mathcal{D}}\Bigl[\log \sigma\bigl(r_\phi(x, y_w) - r_\phi(x, y_l)\bigr)\Bigr]
+        $$
+      </div>
+      <p>这就是 InstructGPT/Llama2 阶段 2 训练 RM 的目标。</p>
+
+      <h3>5.4 RLHF 的完整目标</h3>
+      <p>有了 \(r_\phi\)，怎么用它优化策略？关键设计：<strong>带 KL 约束</strong>，防止策略偏离 SFT 太远（避免 reward hacking）：</p>
+      <div class="formula boxed">
+        <div class="formula-title">RLHF 的 KL-约束目标</div>
+        $$
+        \max_{\pi_\theta}\ E_{x,y\sim\pi_\theta}\!\bigl[r_\phi(x, y)\bigr] - \beta\,D_{\text{KL}}\!\bigl(\pi_\theta(\cdot|x) \,\|\, \pi_{\text{ref}}(\cdot|x)\bigr)
+        $$
+      </div>
+      <p>这是个"reward 最大化 + KL 距离最小化"的双目标问题。<strong>InstructGPT 直接用 PPO 优化它</strong>——但还有一条更优雅的路：直接对策略 closed-form 求解。</p>
+
+      <div class="callout bridge">
+        <div class="callout-title">下一节</div>
+        <strong>DPO 的核心问题</strong>：上面这个目标的最优策略 \(\pi^*\) 长什么样？能不能从 BT 模型反推出来，跳过 RL 训练？
+      </div>
+    </section>
+
+    <!-- §6 RLHF → DPO 五步 -->
+    <section id="sec-dpo" class="section">
+      <div class="section-num">SECTION 6</div>
+      <h2>RLHF → DPO：<span class="grad">五步</span>消去 reward model</h2>
+      <p class="section-lede">DPO 的核心魔法：在 BT 模型下，"reward 最大化 + KL 约束"目标的最优策略有闭式解，可以反推出 reward 与策略的对应关系，最后代入 BT 模型——分区函数 Z(x) 神奇地消去了。</p>
+
+      <h3>6.1 五步完整推导</h3>
+
+      <div class="deriv">
+        <div class="deriv-header">从 RLHF 目标到 DPO 损失（5 步）</div>
+        <div class="deriv-body">
+
+          <div class="deriv-step">
+            <div class="deriv-step-num">1</div>
+            <div class="deriv-step-body">
+              <strong>写出 RLHF 目标</strong>（即 §5.4 结果）：
+              $$
+              \max_{\pi}\ E_{y\sim\pi}[r(x,y)] - \beta\, D_{\text{KL}}(\pi \| \pi_{\text{ref}})
+              $$
+              展开 KL：
+              $$
+              = E_{y\sim\pi}\!\left[r(x,y) - \beta\log\frac{\pi(y|x)}{\pi_{\text{ref}}(y|x)}\right]
+              $$
+            </div>
+          </div>
+
+          <div class="deriv-step">
+            <div class="deriv-step-num">2</div>
+            <div class="deriv-step-body">
+              <strong>用工具 3（Lagrange）求闭式最优策略</strong>。对 \(\pi(y|x)\) 求变分，加约束 \(\sum_y \pi(y|x) = 1\)，得到：
+              $$
+              \pi^*(y|x) = \frac{1}{Z(x)}\,\pi_{\text{ref}}(y|x)\,\exp\!\left(\frac{1}{\beta}r(x,y)\right)
+              $$
+              其中 \(Z(x) = \sum_y \pi_{\text{ref}}(y|x)\exp(r(x,y)/\beta)\) 是分区函数（intractable，无法直接算）。
+            </div>
+          </div>
+
+          <div class="deriv-step">
+            <div class="deriv-step-num">3</div>
+            <div class="deriv-step-body">
+              <strong>反解 reward</strong>。两边取 log 并整理：
+              $$
+              r(x, y) = \beta\,\log\frac{\pi^*(y|x)}{\pi_{\text{ref}}(y|x)} + \beta\,\log Z(x)
+              $$
+              <strong>关键发现</strong>：reward 等价于 "policy log ratio + 与 y 无关的常数项"。
+            </div>
+          </div>
+
+          <div class="deriv-step">
+            <div class="deriv-step-num">4</div>
+            <div class="deriv-step-body">
+              <strong>代入 BT 模型</strong>。把 \(r(x, y_w)\) 与 \(r(x, y_l)\) 代入 §5 的 BT 模型：
+              $$
+              P(y_w \succ y_l) = \sigma\bigl(r(x, y_w) - r(x, y_l)\bigr)
+              $$
+              <strong>魔法时刻</strong>：BT 模型只依赖<strong>分差</strong>，\(\beta\log Z(x)\) 项相同会被消去：
+              $$
+              r(x,y_w) - r(x,y_l) = \beta\!\left(\log\frac{\pi^*(y_w|x)}{\pi_{\text{ref}}(y_w|x)} - \log\frac{\pi^*(y_l|x)}{\pi_{\text{ref}}(y_l|x)}\right)
+              $$
+              <strong>分区函数 Z(x) 神奇地消失了！</strong>
+            </div>
+          </div>
+
+          <div class="deriv-step">
+            <div class="deriv-step-num">5</div>
+            <div class="deriv-step-body">
+              <strong>极大似然</strong>。把 BT 模型作为偏好数据的似然，对 \(\pi_\theta\) 做 MLE（用 \(\pi_\theta\) 替代 \(\pi^*\)，因为我们要训练的就是它）：
+              $$
+              \boxed{\;L_{\text{DPO}}(\theta) = -E_{(x,y_w,y_l)}\!\left[\log\sigma\!\left(\beta\log\frac{\pi_\theta(y_w|x)}{\pi_{\text{ref}}(y_w|x)} - \beta\log\frac{\pi_\theta(y_l|x)}{\pi_{\text{ref}}(y_l|x)}\right)\right]\;}
+              $$
+              <strong>这就是 DPO 损失</strong>——不需要 reward model、不需要 RL、只是一个二分类交叉熵。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3>6.2 五步推导的流程图</h3>
+      <div class="mermaid-wrap">
+<div class="mermaid">
+flowchart LR
+  A["① RLHF 目标<br/>max E[r] - β KL"]:::a
+  A --> B["② 闭式最优策略<br/>π* ∝ π_ref · exp(r/β)<br/>含 Z(x)"]:::b
+  B --> C["③ 反解 reward<br/>r = β log π*/π_ref + β log Z"]:::c
+  C --> D["④ 代入 BT 模型<br/>BT 只依赖分差 → Z(x) 消去"]:::d
+  D --> E["⑤ MLE on D<br/>DPO Loss"]:::final
+  classDef a fill:#1d2638,stroke:#5b8def,color:#fff
+  classDef b fill:#1d2638,stroke:#a78bfa,color:#fff
+  classDef c fill:#1d2638,stroke:#f48fb1,color:#fff
+  classDef d fill:#1d2638,stroke:#ffd166,color:#fff
+  classDef final fill:#1d2638,stroke:#7be39a,color:#fff,stroke-width:3px
+</div>
+      </div>
+
+      <h3>6.3 DPO 梯度的物理意义</h3>
+      <p>对 \(L_{\text{DPO}}\) 求梯度（链式法则）：</p>
+      <div class="formula">
+        $$
+        \nabla L_{\text{DPO}} = -\beta \cdot E\!\left[\underbrace{\sigma(\hat{r}_l - \hat{r}_w)}_{\text{分类错误时大}}\cdot \bigl(\nabla\log\pi_\theta(y_w|x) - \nabla\log\pi_\theta(y_l|x)\bigr)\right]
+        $$
+      </div>
+      <p>其中 \(\hat{r}_w = \beta\log(\pi_\theta(y_w)/\pi_{\text{ref}}(y_w))\)。</p>
+
+      <div class="callout intuition">
+        <div class="callout-title">直觉：自动的 hard example mining</div>
+        权重 \(\sigma(\hat{r}_l - \hat{r}_w)\) 在模型把 rejected 排在 chosen 之上（即"分错了"）时较大——梯度<strong>自动聚焦在错例上</strong>。这就是为什么 DPO 比简单 SFT 更高效。
+      </div>
+
+      <div class="callout insight">
+        <div class="callout-title">DPO 为什么这么"神奇"</div>
+        因为它把"训 RM + RL 优化"两阶段合并成了"对 BT 似然的最大化"——通过<strong>把 reward 函数参数化为策略对数比</strong>。这个参数化恰好让 Z(x) 在 BT 分差中消去。<br/>
+        <strong>但代价是</strong>：DPO 是 off-policy 优化，无法探索 SFT 没见过的回答——这一局限在<a href="llm-post-training-master.html#sec-dpo-issues">主综述 §3.3「DPO 的关键缺陷」</a>中有完整展开。
+      </div>
+
+      <div class="callout bridge">
+        <div class="callout-title">下一节</div>
+        DPO 走的是"消去 RM"路线。回到 PPO 路线：能不能<strong>消去 critic</strong>？答案是 GRPO 的 group baseline。
+      </div>
+    </section>
+
+    <!-- §7 PPO → GRPO -->
+    <section id="sec-grpo" class="section">
+      <div class="section-num">SECTION 7</div>
+      <h2>PPO → GRPO：用 <span class="grad">Group Baseline</span> 替代 Critic</h2>
+      <p class="section-lede">long CoT 让 critic 估值变得极不可靠——一条 30K token 的轨迹，让 critic 准确估计每个 token 的 value 几乎不可能。GRPO 的洞察：用"同一 prompt 下采多个回答 + 组内 z-score"作为 advantage 估计。</p>
+
+      <h3>7.1 PPO 的"4 模型痛点"</h3>
+      <p>PPO 训练需要 4 个模型同时驻留显存：</p>
+      <ul>
+        <li><strong>Actor</strong> \(\pi_\theta\)：训练目标</li>
+        <li><strong>Reference</strong> \(\pi_{\text{ref}}\)：算 KL 罚分（冻结）</li>
+        <li><strong>Reward Model</strong> \(r_\phi\)：sequence-level 打分（冻结）</li>
+        <li><strong>Critic</strong> \(V_\psi\)：token-level value 估计（训练）</li>
+      </ul>
+      <p>Critic 不仅占显存，还在长 CoT 上估值不准 → advantage 计算偏差大。</p>
+
+      <h3>7.2 中间站：RLOO——leave-one-out baseline 的无偏推导</h3>
+      <p>在讲 GRPO 之前，先看一个更干净的"去 critic"答案。<em>Back to Basics</em>（Ahmadian et al., 2024）把问题拉回第一性原理：RLHF 的 reward 是 <strong>sequence-level</strong> 的（生成完才有分），把整条 completion 当作<strong>单个 action</strong>（bandit 视角）比逐 token 建模更贴合问题——中间 token 之间没有真实的环境转移，逐 token 的 credit assignment 是自找的难题。在这个视角下，PPO 的三大件被逐一消解：critic/GAE 的偏差-方差权衡不再必要（他们实测高 \(\lambda\) 反而更好）、clip 在近 on-policy 设置下每 batch 触发率 \(&lt;5\%\) 形同虚设——剩下的就是<strong>带一个好 baseline 的 REINFORCE</strong>。</p>
+
+      <div class="deriv">
+        <div class="deriv-header">RLOO 的无偏性证明与 G/(G−1) 关系</div>
+        <div class="deriv-body">
+          <div class="deriv-step">
+            <div class="deriv-step-num">1</div>
+            <div class="deriv-step-body">
+              对同一 prompt \(q\) 采 \(G\) 条回答，<strong>RLOO</strong>（leave-one-out，估计器出自 Kool et al. 2019）给第 \(i\) 条用<strong>其余 \(G-1\) 条的均值</strong>作 baseline：
+              $$
+              \nabla_\theta J \approx \frac{1}{G}\sum_{i=1}^{G}\Bigl(R_i - \underbrace{\tfrac{1}{G-1}\textstyle\sum_{j\neq i} R_j}_{b_i}\Bigr)\,\nabla_\theta \log \pi_\theta(o_i\mid q)
+              $$
+              没有 critic、没有 clip、没有 GAE——纯 REINFORCE + 免费 baseline。
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">2</div>
+            <div class="deriv-step-body">
+              <strong>无偏性</strong>：\(b_i\) 完全由其他样本算出，与 \(o_i\) <strong>独立</strong>。条件在 \(\{R_j\}_{j\neq i}\) 上套用 §2.1 的 baseline 引理：
+              $$
+              E\bigl[b_i\,\nabla_\theta\log\pi_\theta(o_i|q)\bigr] = E\bigl[b_i\bigr]\cdot \underbrace{E\bigl[\nabla_\theta\log\pi_\theta(o_i|q)\bigr]}_{=\,0} = 0
+              $$
+              所以 RLOO 是 \(\nabla_\theta J\) 的<strong>严格无偏</strong>估计。关键词是"独立"——这是它与组均值 baseline 的本质区别。
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">3</div>
+            <div class="deriv-step-body">
+              那<strong>含自身的组均值</strong>（即去掉 std 归一化后 GRPO/Dr.GRPO 用的 \(\hat A_i = R_i-\bar R\)，\(\bar R=\tfrac1G\sum_j R_j\)）呢？一行代数恒等式：
+              $$
+              R_i - \frac{1}{G-1}\sum_{j\neq i}R_j \;=\; \frac{G}{G-1}\,\bigl(R_i - \bar R\bigr)
+              $$
+              （验证：右边 \(=\tfrac{G}{G-1}R_i-\tfrac{1}{G-1}\sum_j R_j = R_i - \tfrac{1}{G-1}\sum_{j\neq i}R_j\)。）<strong>逐样本看，LOO advantage 恰是组均值 advantage 的 \(\tfrac{G}{G-1}\) 倍。</strong>
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">4</div>
+            <div class="deriv-step-body">
+              期望层面，含自身的 baseline 不再独立——拆开 \(R_i-\bar R = (1-\tfrac1G)R_i - \tfrac1G\sum_{j\neq i}R_j\)：第二项与 \(o_i\) 独立、期望为 0；第一项贡献 \((1-\tfrac1G)\nabla J\)。于是
+              $$
+              E\bigl[(R_i-\bar R)\,\nabla_\theta\log\pi_\theta(o_i|q)\bigr] \;=\; \frac{G-1}{G}\,\nabla_\theta J
+              $$
+              组均值 baseline <strong>方向无偏、模长缩水 \(\tfrac{G-1}{G}\)</strong>——乘回 \(\tfrac{G}{G-1}\) 就恢复成严格无偏的 RLOO。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-title">顺带修正一个流行的不严格表述</div>
+        "Dr.GRPO 数学上等价于 RLOO（加 PPO clip）"的说法并不严格：Dr.GRPO 去掉 std 与长度归一化后用的仍是<strong>含自身的组均值</strong> baseline，与 RLOO 相差 \(\tfrac{G}{G-1}\) 缩放因子（\(G=8\) 时约 14%，\(G\to\infty\) 才趋同）；GRPO 系还叠加了 token 级 clip 与 mini-batch 多次复用。缩放可被学习率吸收，所以二者是"方向一致、比例不同"的<strong>精神等价</strong>，引用时写成"成比例"才准确。
+      </div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>baseline 选型</th><th>无偏性</th><th>额外代价</th><th>备注</th></tr></thead>
+          <tbody>
+            <tr><td><strong>critic \(V_\psi\)</strong>（PPO+GAE）</td><td>有偏（\(V\) 不准时偏差不可控）</td><td>训练 + 驻留一个同尺寸模型</td><td>token 级信号最细，但长 CoT 上估值差（§7.1）</td></tr>
+            <tr><td><strong>leave-one-out</strong>（RLOO）</td><td>严格无偏</td><td>每 prompt 采 \(G\) 条</td><td>bandit 视角的原生形态，无 clip 的纯 REINFORCE</td></tr>
+            <tr><td><strong>组均值（含自身）</strong>（Dr.GRPO）</td><td>方向无偏，缩放 \(\tfrac{G-1}{G}\)</td><td>同上</td><td>与 RLOO 差一个常数因子，可被学习率吸收</td></tr>
+            <tr><td><strong>组均值 + std 归一化</strong>（GRPO 原版）</td><td>有偏</td><td>同上</td><td>std 引入 difficulty bias：接近全对/全错的 prompt 梯度被放大（见 7.3 步骤 3）</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>有了这个参照系，GRPO 可以读作：<strong>组均值 baseline + z-score 归一化 + 重新接上 PPO 的 token 级 clip 机械 + KL 直接进 loss</strong>。下一小节逐项拆开。</p>
+
+      <div class="callout">
+        <div class="callout-title">参考来源</div>
+        <ul>
+          <li>Kool et al., <em>Buy 4 REINFORCE Samples, Get a Baseline for Free!</em>（ICLR 2019 Workshop，LOO baseline 出处）：<a href="https://openreview.net/forum?id=r1lgTGL5DE">openreview.net/forum?id=r1lgTGL5DE</a></li>
+          <li>Ahmadian et al., <em>Back to Basics: Revisiting REINFORCE Style Optimization for Learning from Human Feedback in LLMs</em>：<a href="https://arxiv.org/abs/2402.14740">arXiv:2402.14740</a></li>
+          <li>Liu et al., <em>Understanding R1-Zero-Like Training: A Critical Perspective</em>（Dr.GRPO）：<a href="https://arxiv.org/abs/2503.20783">arXiv:2503.20783</a></li>
+        </ul>
+      </div>
+
+      <h3>7.3 GRPO 的核心 trick：group mean 作 baseline</h3>
+      <div class="deriv">
+        <div class="deriv-header">从 PPO advantage 到 GRPO advantage</div>
+        <div class="deriv-body">
+          <div class="deriv-step">
+            <div class="deriv-step-num">1</div>
+            <div class="deriv-step-body">
+              PPO 用 critic 给 advantage：\(\hat{A}_t = \delta_t + \gamma\lambda\delta_{t+1} + \dots\)（GAE）。
+              <strong>问题</strong>：critic \(V_\psi(s_t)\) 不准。
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">2</div>
+            <div class="deriv-step-body">
+              <strong>GRPO 的洞察</strong>：与其用 critic 估 \(V(s)\)，不如对同一 prompt \(q\) <strong>采样 G 个回答</strong> \(\{o_1, \dots, o_G\}\)，用<strong>组内平均回报</strong>作 baseline：
+              $$
+              \hat{A}_i = R_i - \frac{1}{G}\sum_{j=1}^G R_j
+              $$
+              这是"该回答比同组其他回答好多少"——天然的 advantage。
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">3</div>
+            <div class="deriv-step-body">
+              <strong>再做 z-score 归一化</strong>降低方差：
+              $$
+              \hat{A}_i = \frac{R_i - \text{mean}(\mathbf{R})}{\text{std}(\mathbf{R})}
+              $$
+              （后来 Dr.GRPO 论文指出 std 归一化引入 difficulty bias，建议去掉，但原版仍是 z-score）
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">4</div>
+            <div class="deriv-step-body">
+              <strong>token 共享 advantage</strong>：一条 response 内所有 policy token 共享同一个 \(\hat{A}_i\)（outcome-level supervision）。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3>7.4 完整 GRPO 目标</h3>
+      <div class="formula derived">
+        <div class="formula-title">GRPO Objective</div>
+        $$
+        L_{\text{GRPO}}(\theta) = E_{q,\{o_i\}}\!\left[\frac{1}{G}\sum_{i=1}^G \frac{1}{|o_i|}\sum_t \Bigl(\min\bigl(r_{i,t}\hat{A}_i,\,\text{clip}(r_{i,t},1\pm\varepsilon)\hat{A}_i\bigr) - \beta\,\mathbb{D}_{\text{KL}}^{(i,t)}\bigl[\pi_\theta\|\pi_{\text{ref}}\bigr]\Bigr)\right]
+        $$
+      </div>
+      <p>看上去复杂，但骨架就是 PPO clip——只不过 advantage 换成了 group z-score，且 KL 项<strong>直接加进 loss</strong>（不像 PPO 那样融进 reward）。两个照抄实现时容易踩的排版细节：① DeepSeekMath 原式中 KL 罚项是 <strong>token 级</strong>的——位于 \(\frac{1}{|o_i|}\sum_t\) 之内、与 clip 项同层逐 token 相减（上式已按原式排版，写在求和之外的简写形式照抄进代码会放错位置）；② 这里的 \(\mathbb{D}_{\text{KL}}^{(i,t)}\) 不是解析 KL，而是 §9 的 k3 估计器：\(\frac{\pi_{\text{ref}}(o_{i,t})}{\pi_\theta(o_{i,t})} - \log\frac{\pi_{\text{ref}}(o_{i,t})}{\pi_\theta(o_{i,t})} - 1\)（逐 token、保证非负；注意它作为 loss 反传时，梯度期望并非 reverse KL 而是 forward KL 的梯度——推导与修正见 §9.4）。</p>
+
+      <h3>7.5 架构对比</h3>
+      <div class="svg-diagram">
+        <svg viewBox="0 0 760 280" width="100%" style="max-width:740px">
+          <defs>
+            <linearGradient id="gradActor" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#5b8def"/><stop offset="100%" stop-color="#a78bfa"/>
+            </linearGradient>
+            <linearGradient id="gradCritic" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#4fd1c5"/><stop offset="100%" stop-color="#5b8def"/>
+            </linearGradient>
+          </defs>
+
+          <!-- PPO side -->
+          <g transform="translate(20, 30)">
+            <text x="180" y="0" text-anchor="middle" fill="#5b8def" font-size="15" font-weight="700">PPO: 4 models</text>
+            <rect x="0" y="20" width="80" height="48" rx="6" fill="url(#gradActor)"/>
+            <text x="40" y="48" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">Actor π_θ</text>
+            <text x="40" y="62" text-anchor="middle" fill="#fff" font-size="9" opacity=".8">trained</text>
+
+            <rect x="100" y="20" width="80" height="48" rx="6" fill="url(#gradCritic)"/>
+            <text x="140" y="44" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">Critic V_ψ</text>
+            <text x="140" y="58" text-anchor="middle" fill="#fff" font-size="9" opacity=".8">trained</text>
+            <text x="140" y="80" text-anchor="middle" fill="#ff6b8a" font-size="10" font-weight="600">~ 等大显存</text>
+
+            <rect x="200" y="20" width="80" height="48" rx="6" fill="#1d2638" stroke="#ffd166"/>
+            <text x="240" y="44" text-anchor="middle" fill="#ffd166" font-size="11" font-weight="600">Reward r_φ</text>
+            <text x="240" y="58" text-anchor="middle" fill="#ffd166" font-size="9" opacity=".8">frozen</text>
+
+            <rect x="300" y="20" width="80" height="48" rx="6" fill="#1d2638" stroke="#f48fb1"/>
+            <text x="340" y="44" text-anchor="middle" fill="#f48fb1" font-size="11" font-weight="600">Ref π_ref</text>
+            <text x="340" y="58" text-anchor="middle" fill="#f48fb1" font-size="9" opacity=".8">frozen</text>
+
+            <text x="180" y="130" text-anchor="middle" fill="#8492a8" font-size="11">advantage 由 critic 估</text>
+            <text x="180" y="146" text-anchor="middle" fill="#8492a8" font-size="11" opacity=".7">长 CoT 上估值不准</text>
+          </g>
+
+          <!-- arrow -->
+          <text x="380" y="100" fill="#7be39a" font-size="22" font-weight="700">→</text>
+
+          <!-- GRPO side -->
+          <g transform="translate(420, 30)">
+            <text x="170" y="0" text-anchor="middle" fill="#7be39a" font-size="15" font-weight="700">GRPO: 3 models</text>
+            <rect x="0" y="20" width="80" height="48" rx="6" fill="url(#gradActor)"/>
+            <text x="40" y="48" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">Actor π_θ</text>
+            <text x="40" y="62" text-anchor="middle" fill="#fff" font-size="9" opacity=".8">trained</text>
+
+            <rect x="100" y="20" width="80" height="48" rx="6" fill="#1d2638" stroke="#ffd166"/>
+            <text x="140" y="44" text-anchor="middle" fill="#ffd166" font-size="11" font-weight="600">Reward r_φ</text>
+            <text x="140" y="58" text-anchor="middle" fill="#ffd166" font-size="9" opacity=".8">frozen / rule</text>
+
+            <rect x="200" y="20" width="80" height="48" rx="6" fill="#1d2638" stroke="#f48fb1"/>
+            <text x="240" y="44" text-anchor="middle" fill="#f48fb1" font-size="11" font-weight="600">Ref π_ref</text>
+            <text x="240" y="58" text-anchor="middle" fill="#f48fb1" font-size="9" opacity=".8">frozen</text>
+
+            <text x="140" y="130" text-anchor="middle" fill="#7be39a" font-size="11">advantage 由 group mean 估</text>
+            <text x="140" y="146" text-anchor="middle" fill="#7be39a" font-size="11" opacity=".8">G=8/16 samples per prompt</text>
+            <text x="140" y="166" text-anchor="middle" fill="#ffd166" font-size="11" font-weight="600">省去 critic 显存（幅度依配置），长 CoT 友好</text>
+          </g>
+        </svg>
+      </div>
+
+      <div class="callout insight">
+        <div class="callout-title">GRPO 的核心代价</div>
+        节省了 critic，但 <strong>rollout 成本提升 G 倍</strong>（每个 prompt 要采 8-16 个 response）。所以 GRPO 不是"全方位胜过 PPO"——它在 long CoT 推理任务上胜出，在 short response 偏好对齐上 PPO 仍有竞争力。
+      </div>
+
+      <h3 id="sec-grpo-stats">7.6 GRPO 的统计学刻画：归一化之争的 2026 理论进展</h3>
+      <p>读完 §7.2 的 baseline 选型表，容易留下一个误导性印象：std 归一化"有偏"，所以 Dr.GRPO 去掉它就是终审结论。2025 下半年到 2026 年，一批理论工作把 GRPO 放回统计学的显微镜下，结论远比"去掉 std"微妙。下面按"各自回答了什么问题"组织四项进展。</p>
+
+      <p><strong>① GRPO 的梯度本质是 U-statistic。</strong>把 §7.2 的 leave-one-out 梯度重写一行（代数恒等，沿用步骤 3 的拆法）：
+      $$
+      \hat g \;=\; \frac{1}{G(G-1)}\sum_{i\neq j}\bigl(R_i-R_j\bigr)\,\nabla_\theta\log\pi_\theta(o_i\mid q)
+      $$
+      ——组内梯度是对<strong>有序样本对</strong>的平均，这类对样本置换对称的估计量在统计学里就叫 <strong>U-统计量</strong>。Zhou et al.（2026）由此用 Hoeffding 分解把 GRPO 梯度拆成正交分量，给出有限样本误差界与 suboptimality gap 的渐近分布：MSE 主项 \(O(1/G)\)、高阶项 \(O(1/G^2)\)，且 \(G\to\infty\) 时 GRPO <strong>渐近等价于一个"拥有完美 value function 的 oracle 策略梯度算法"</strong>——省掉 critic 在渐近意义上没有损失任何东西，这是"组采样替代 critic"（§7.3）迄今最强的理论背书。更实用的副产品是<strong>最优组规模的普适 scaling law</strong>：\(G^{*}=\sqrt{c_3/c_1}\)（\(c_1\) 由 prompt 间方差、\(c_3\) 由期望梯度范数平方决定），并且 \(G^{*}\) 与采样预算、迭代步数、学习率调度全部无关——只由数据分布与策略几何决定，给 "G=8 还是 16" 这个一直靠经验拍的超参提供了第一个原则性答案。</p>
+
+      <p><strong>② TIC-GRPO：首个收敛速率，顺带回答"GRPO 在估谁的梯度"。</strong>Pang et al. 指出一个容易被忽略的事实：GRPO 的 token 级 ratio 更新，实际估计的是<strong>旧策略 \(\pi_{\theta_{\text{old}}}\) 处的策略梯度</strong>而非当前参数处的——mini-batch 复用步数越多，这个"锚定在过去"的错位越大（根源与 §9.5 相同：样本来自 \(\pi_{\text{old}}\)）。TIC-GRPO 把 token 级 ratio 换成<strong>单个 trajectory 级概率比</strong>，让估计器重新对准当前迭代点，并由此给出 <strong>GRPO 系方法的首个收敛性分析</strong>：平均平方梯度范数以 \(O\!\bigl(T\log|\mathcal V|/\sqrt{N}\bigr)+O\!\bigl(T\log|\mathcal V|/G\bigr)\) 收敛到稳定点附近（\(N\) 为外层迭代数、\(T\) 为轨迹长度、\(|\mathcal V|\) 为词表大小、\(G\) 为组规模），且证明 TIC-GRPO 比 GRPO 收敛更快。</p>
+
+      <p><strong>③ 组相对 REINFORCE 天然是 off-policy 算法。</strong>Yao et al.（ICLR 2026）不假设任何特定的训练数据分布，从第一性原理重推组相对 REINFORCE，结论：它<strong>本身就允许一个原生的 off-policy 解释</strong>——能在 stale 数据上工作，靠的不是 importance sampling ratio 与 clip，真正起作用的两条原则是<strong>正则化策略更新</strong>与<strong>主动塑形数据分布</strong>。这一视角"祛魅"了 IS 与 clipping 在 GRPO 中的角色，也为各类看似启发式的 data-weighting 策略（按难度/通过率重加权 prompt）提供了理论根据。对工程的含义：异步训练、partial rollout 这类"轻度 off-policy"场景下 GRPO 系的经验鲁棒性，从此有了理论解释而不只是运气。</p>
+
+      <p><strong>④ std 归一化 = 自适应步长（曲率视角）。</strong>Ge et al. 证明了一个干净的引理：单 prompt 目标 \(J_i(\theta)\) 的局部平滑常数被该 prompt 在当前策略下的 reward 方差直接控制（形如 \(\|\nabla^2 J_i(\theta)\|\le 4X_{\max}^2\sqrt{\mathbb V_i(\theta)}\) 的上界）。于是<strong>除以组内 std 恰好是除以一个逆曲率代理</strong>——reward 方差小（损失面平滑）的 prompt 自动获得更大步长、方差大（陡峭）的 prompt 步长收紧，本质是一种自适应梯度法；并证明带 std 归一化的 GRPO 比未归一化的 REINFORCE 有<strong>严格更优的收敛速率</strong>，增益由各 prompt 组内 reward std 的平均值刻画。该文并未点名 Dr.GRPO，但结论恰构成"去 std"主张的理论反方：<strong>difficulty bias（统计视角的偏差，§7.2 表）与自适应步长（优化视角的加速）是同一个除法的两面</strong>。同一台显微镜也照到了 §7.4 的另一处归一化——token 梯度在组内的<strong>聚合规则</strong>：Zeng et al.（2026）证明 token 聚合引入 sign-length 耦合、GRPO 默认的序列等权聚合则隐式降权长回答，并给出正负子集分开取 token 均值再按序列数加权的 Balanced Aggregation 修正——聚合方式与 std 一样，不是无关紧要的实现细节。</p>
+
+      <div class="callout insight">
+        <div class="callout-title">怎么消化这一小节</div>
+        把 §7.2 表格里的"有偏/无偏"当唯一坐标轴，是 2025 年的视角；2026 年的视角有三根轴：<strong>统计效率</strong>（U-statistic：G 怎么选、渐近不输 oracle）、<strong>优化几何</strong>（std=自适应步长、聚合规则的长度耦合）、<strong>分布失配</strong>（梯度锚定在 \(\theta_{\text{old}}\)、原生 off-policy 解释）。Dr.GRPO 去 std 修掉的是第一根轴上的偏差，代价可能落在第二根轴上——<strong>去不去 std 是"无偏性 vs 条件数"的 trade-off，目前没有终审结论</strong>。
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">参考来源</div>
+        <ul>
+          <li>Zhou et al., <em>Demystifying Group Relative Policy Optimization: Its Policy Gradient is a U-Statistic</em>（2026-03）：<a href="https://arxiv.org/abs/2603.01162">arXiv:2603.01162</a></li>
+          <li>Pang et al., <em>TIC-GRPO: Provable and Efficient Optimization for Reinforcement Learning from Human Feedback</em>（2025-08，2026-03 修订）：<a href="https://arxiv.org/abs/2508.02833">arXiv:2508.02833</a></li>
+          <li>Yao et al., <em>Group-Relative REINFORCE Is Secretly an Off-Policy Algorithm: Demystifying Some Myths About GRPO and Its Friends</em>（ICLR 2026）：<a href="https://arxiv.org/abs/2509.24203">arXiv:2509.24203</a></li>
+          <li>Ge et al., <em>Why GRPO Needs Normalization: A Local-Curvature Perspective on Adaptive Gradients</em>（2026-01）：<a href="https://arxiv.org/abs/2601.23135">arXiv:2601.23135</a></li>
+          <li>Zeng et al., <em>Balanced Aggregation: Understanding and Fixing Aggregation Bias in GRPO</em>（2026-05）：<a href="https://arxiv.org/abs/2605.04077">arXiv:2605.04077</a></li>
+        </ul>
+      </div>
+
+      <div class="callout bridge">
+        <div class="callout-title">下一节</div>
+        GRPO 的 importance ratio 是 token-level 的：\(r_{i,t} = \pi_\theta(o_{i,t})/\pi_{\text{old}}(o_{i,t})\)。这在 MoE / 长序列上方差爆炸。<strong>GSPO 的方案：升级到 sequence-level</strong>。
+      </div>
+    </section>
+
+    <!-- §8 GRPO → GSPO -->
+    <section id="sec-gspo" class="section">
+      <div class="section-num">SECTION 8</div>
+      <h2>GRPO → GSPO：把 <span class="grad">IS 比例</span>升级到 sequence-level</h2>
+      <p class="section-lede">GRPO 的 token-level importance ratio 是 \(\prod_t \frac{\pi_\theta}{\pi_{\text{old}}}\) 的<em>逐 token 分解</em>。在长序列与 MoE 模型上，这个连乘的方差呈指数级爆炸。GSPO 改用几何平均，让方差受控。</p>
+
+      <h3>8.1 token-level 比例的方差问题</h3>
+      <p>设 token-level ratio 是 \(r_t = \pi_\theta(o_t)/\pi_{\text{old}}(o_t)\)。整条序列的"真实" sequence-level ratio 是：</p>
+      <div class="formula">
+        $$
+        R_{\text{seq}} = \prod_{t=1}^{|y|} r_t
+        $$
+      </div>
+      <p>问题：</p>
+      <ul>
+        <li>每个 \(r_t\) 略有差异（比如 0.95 ~ 1.05）</li>
+        <li>长度 |y| = 10,000 时，\(R_{\text{seq}}\) 范围是 \([0.95^{10000}, 1.05^{10000}] \approx [10^{-222}, 10^{211}]\) —— <strong>方差爆炸</strong></li>
+        <li>MoE 模型 routing 抖动会让某些 \(r_t\) 非常大，让连乘失控</li>
+      </ul>
+
+      <h3>8.2 GSPO 的解法：几何平均</h3>
+      <div class="deriv">
+        <div class="deriv-header">从 token product 到几何平均</div>
+        <div class="deriv-body">
+          <div class="deriv-step">
+            <div class="deriv-step-num">1</div>
+            <div class="deriv-step-body">
+              直接用 sequence ratio \(R_{\text{seq}} = \prod_t r_t\)？不行，方差爆炸（上面分析过）。
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">2</div>
+            <div class="deriv-step-body">
+              <strong>取几何平均</strong>（用 \(1/|y|\) 次方）：
+              $$
+              s(\theta) = \left(\prod_{t=1}^{|y|} r_t\right)^{1/|y|} = \exp\!\left(\frac{1}{|y|}\sum_t \log r_t\right)
+              $$
+              <strong>关键</strong>：等于"log-ratio 的算术平均的 exp"——方差被长度归一压回 O(1) 量级。
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">3</div>
+            <div class="deriv-step-body">
+              用 \(s_i(\theta)\) 替换 GRPO 中的 token-level \(r_{i,t}\)：
+              $$
+              L_{\text{GSPO}}(\theta) = E\!\left[\frac{1}{G}\sum_i \min\bigl(s_i\hat{A}_i,\, \text{clip}(s_i, 1\pm\varepsilon)\hat{A}_i\bigr)\right]
+              $$
+              <strong>整条序列共享一个 ratio</strong>，clip 在序列级别生效。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3>8.3 token-level vs sequence-level 的方差对比</h3>
+      <div class="chart-wrap">
+        <div class="chart-title">📉 importance ratio 的 log 分布（模拟）</div>
+        <div class="chart-subtitle">GRPO 的 token-level product 在长序列上长尾严重；GSPO 的 sequence-level 紧凑分布在 1 附近</div>
+        <canvas id="gspoChart" height="180"></canvas>
+      </div>
+
+      <div class="callout insight">
+        <div class="callout-title">为什么对 MoE 模型尤其重要</div>
+        MoE 模型每个 token 经过的 expert 路由有随机性。如果某个 token 的 expert 路由稍有不同，\(\pi_\theta(o_t)/\pi_{\text{old}}(o_t)\) 可能突然变成 0.01 或 100，让 token-level GRPO 直接发散。<strong>GSPO 在 Qwen3 上完全避免了 "Routing Replay" 这种工程 hack 的需要</strong>。
+      </div>
+
+      <div class="callout bridge">
+        <div class="callout-title">下一节</div>
+        RL 链上最后一个小但重要的话题：GRPO/PPO 都需要算 KL 散度，但 KL 是期望——只有样本怎么估？John Schulman 给出了 k1/k2/k3 三个方案。而 2025 年后大家意识到还有第二个更隐蔽的问题：把估计器塞进 loss 之后，<strong>梯度</strong>优化的还是不是 KL？
+      </div>
+    </section>
+
+    <!-- §9 KL 估计器：估值与梯度 -->
+    <section id="sec-kl" class="section">
+      <div class="section-num">SECTION 9</div>
+      <h2>KL 的<span class="grad">估计与优化</span>（k1 / k2 / k3）</h2>
+      <p class="section-lede">KL 散度 \(D_{\text{KL}}(\pi_\theta \| \pi_{\text{ref}}) = E_{x\sim\pi_\theta}[\log \pi_\theta/\pi_{\text{ref}}]\) 是期望，我们手里只有样本。这一节回答两个<strong>互相独立</strong>的问题：① 怎么把 KL 的<strong>值</strong>估准（当监控尺子用）；② 把估计器写进 loss 之后，<strong>梯度</strong>优化的还是不是这个 KL（当正则缰绳用）。两个问题的答案不一样——把它们混为一谈，是 GRPO 实现里最常见的误解。</p>
+
+      <h3>9.1 约定：比值方向是第一道坑</h3>
+      <p>整节固定记号。我们要估计/优化的是 <strong>reverse KL</strong>，样本只能来自当前策略 \(\pi_\theta\)（rollout 是它自己生成的）：</p>
+      <div class="formula boxed">
+        $$
+        D_{\text{KL}}(\pi_\theta \,\|\, \pi_{\text{ref}}) = E_{x\sim\pi_\theta}\!\left[\log\frac{\pi_\theta(x)}{\pi_{\text{ref}}(x)}\right],
+        \qquad
+        u(x) \;\triangleq\; \frac{\pi_{\text{ref}}(x)}{\pi_\theta(x)}\;\;\text{（参考在上、采样在下）}
+        $$
+        对照 Schulman 原 blog 的记号：他写 \(\mathrm{KL}[q,p]\)、从 \(q\) 采样、\(r = p(x)/q(x)\)；代入 \(q=\pi_\theta\)、\(p=\pi_{\text{ref}}\)，他的 \(r\) 就是这里的 \(u\)。由工具 2（importance sampling）立刻得到全节最关键的恒等式：
+        $$
+        E_{x\sim\pi_\theta}[u] = \int \pi_\theta\cdot\frac{\pi_{\text{ref}}}{\pi_\theta}\,dx = \int \pi_{\text{ref}}\,dx = 1
+        \;\;\Longrightarrow\;\; E[u-1]=0
+        $$
+      </div>
+      <div class="callout warn">
+        <div class="callout-title">方向写反 = 最常见的实现错误</div>
+        把比值定义成 \(r=\pi_\theta/\pi_{\text{ref}}\)（直觉上"自己/参考"更顺手）再代入 \((r-1)-\log r\)，得到的<strong>不是</strong>无偏估计：此时 \(E_{\pi_\theta}[r-1]=\chi^2(\pi_\theta\|\pi_{\text{ref}})>0\)（χ² 散度，两分布不同则恒正），"控制变量"不再零均值，整个估计的期望变成 \(\chi^2 - D_{\text{KL}}\) 而非 \(D_{\text{KL}}\)。<strong>检查口诀：放进 \((\cdot-1)-\log(\cdot)\) 的比值，必须是"参考在上、采样在下"</strong>。DeepSeekMath 原式（其公式 4）写的就是 \(u\) 方向：\(\tfrac{\pi_{\text{ref}}}{\pi_\theta} - \log\tfrac{\pi_{\text{ref}}}{\pi_\theta} - 1\)。
+      </div>
+
+      <h3>9.2 三个估计器</h3>
+
+      <div class="formula">
+        <strong>k1 估计（最朴素）</strong>
+        $$
+        \hat{k}_1 = \log\frac{\pi_\theta}{\pi_{\text{ref}}} = -\log u
+        $$
+        <strong>性质</strong>：无偏（\(E[\hat{k}_1] = D_{\text{KL}}\)），但<strong>约一半样本为负</strong>（而真 KL 恒 ≥ 0），方差大。
+      </div>
+
+      <div class="formula">
+        <strong>k2 估计</strong>
+        $$
+        \hat{k}_2 = \tfrac{1}{2}(\log u)^2
+        $$
+        <strong>性质</strong>：恒 ≥ 0，但<strong>有偏</strong>。偏差小有理论原因：\(E[\hat{k}_2]\) 是 \(f(x)=\tfrac12(\log x)^2\) 对应的 f-divergence，而所有光滑 f-divergence 在 \(\pi_\theta\approx\pi_{\text{ref}}\) 时与 KL <strong>二阶等价</strong>（同一 Fisher 二次型）——分布接近时偏差可忽略，拉开后迅速变大。
+      </div>
+
+      <div class="formula derived">
+        <strong>k3 估计（GRPO 默认）</strong>
+        $$
+        \hat{k}_3 = (u - 1) - \log u,\qquad u=\frac{\pi_{\text{ref}}}{\pi_\theta}
+        $$
+        <strong>性质</strong>：恒 ≥ 0（由 \(\log u \le u-1\)），<strong>无偏</strong>，且在分布接近时经验方差远低于 k1。这正是 DeepSeekMath 逐 token 加进 loss 的那一项（§7.4）。
+      </div>
+
+      <p>Schulman 博客里的高斯数值实验（\(q=\mathcal N(0,1)\)）把三者的取舍量化得很清楚：</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>估计器</th><th>真 KL = 0.005 时（bias/true · stdev/true）</th><th>真 KL = 0.5 时（bias/true · stdev/true）</th></tr></thead>
+          <tbody>
+            <tr><td><strong>k1</strong></td><td>0 · <strong>20</strong></td><td>0 · 2</td></tr>
+            <tr><td><strong>k2</strong></td><td><strong>0.002</strong> · 1.42</td><td><strong>0.25</strong> · 1.73</td></tr>
+            <tr><td><strong>k3</strong></td><td>0 · 1.42</td><td>0 · 1.70</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-title">"k3 低方差"是经验观察，不是定理</div>
+        k3 含 \(u\) 的一次项，而 \(\mathrm{Var}[u] = \chi^2(\pi_{\text{ref}}\|\pi_\theta)\)：一旦 \(\pi_\theta\) 偏离 \(\pi_{\text{ref}}\) 较远，\(u\) 的重尾会让 k3 的方差反超 k1。上表的优势只在"两分布接近"的区间成立——这也是后面 §9.4 梯度问题的伏笔。
+      </div>
+
+      <h3>9.3 k3 的"控制变量法"推导</h3>
+      <div class="deriv">
+        <div class="deriv-header">k3 怎么得到？给 k1 加一个零均值控制变量</div>
+        <div class="deriv-body">
+          <div class="deriv-step">
+            <div class="deriv-step-num">1</div>
+            <div class="deriv-step-body">
+              想降低 k1 的方差，标准武器是<strong>控制变量法</strong>：加一个期望为 0、且与 k1 负相关的量。手头唯一现成的零均值量就是 §9.1 的恒等式：
+              $$
+              E_{x\sim\pi_\theta}[u - 1] = 0
+              $$
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">2</div>
+            <div class="deriv-step-body">
+              于是得到一族估计器——对<strong>任意</strong> \(\lambda\) 都无偏（加零均值项不改期望）：
+              $$
+              \hat{k}_\lambda = -\log u + \lambda\,(u - 1),\qquad E[\hat k_\lambda] = D_{\text{KL}}(\pi_\theta\|\pi_{\text{ref}})\;\;\forall\lambda
+              $$
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">3</div>
+            <div class="deriv-step-body">
+              \(\lambda\) 怎么选？<strong>方差最优解算不出来</strong>：最小化 \(\mathrm{Var}[\hat k_\lambda]\) 解出的 \(\lambda^*\) 依赖 \(\pi_\theta,\pi_{\text{ref}}\) 本身，没有解析形式（Schulman 原文："we get an expression that depends on p and q and is hard to calculate analytically"）。退而求其次，<strong>取 \(\lambda = +1\)</strong>：由 log 的凹性 \(\log u \le u-1\)，
+              $$
+              \hat{k}_3 = (u - 1) - \log u \;\ge\; 0\quad\text{逐样本非负}
+              $$
+              所以 \(\lambda=1\) 买到的是"保证非负"这条硬性质，"低方差"只是顺带的经验红利——<strong>不要把它说成方差最优</strong>。
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">4</div>
+            <div class="deriv-step-body">
+              <strong>几何意义与推广</strong>：\(\hat k_3\) 是凸函数 \(-\log u\) 与它在 \(u=1\) 处切线的垂直距离——一个 <strong>Bregman 散度</strong>。同一配方对任意凸 \(f\) 都成立：\(f(u) - f'(1)(u-1)\) 是 f-divergence \(D_f\) 的非负无偏估计器。取 \(f(x)=x\log x\)，就得到 <strong>forward KL</strong> \(D_{\text{KL}}(\pi_{\text{ref}}\|\pi_\theta)\) 的估计器 \(u\log u - (u-1)\)（同样只用 \(\pi_\theta\) 的样本）。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-title">📊 k1 / k2 / k3 偏差与方差对比（模拟）</div>
+        <div class="chart-subtitle">理想估计应在左下角（低偏差 + 低方差）；k3 的"低方差"只在分布接近时成立</div>
+        <canvas id="klChart" height="180"></canvas>
+      </div>
+
+      <div class="desmos-wrap">
+        <div class="desmos-title">KL 估计互动：拖动 u₀ 看三个估计器</div>
+        <div class="desmos-hint">横轴 u = π_ref/π_θ（参考在上、采样在下）· 蓝 k1=−log u · 橙 k2=½(log u)² · 绿 k3=(u−1)−log u（非负且无偏）· 紫虚线 1−u 是 k1 在 u=1 处的切线，k3 = 蓝线与切线之差（Bregman 距离）</div>
+        <div id="desmos-kl" class="desmos-calc"></div>
+      </div>
+
+      <h3>9.4 估计 KL 值 ≠ 优化 KL：梯度视角</h3>
+      <div class="callout intuition">
+        <div class="callout-title">尺子与缰绳是两件事</div>
+        监控面板要的是<strong>值准</strong>；loss 里要的是<strong>梯度对</strong>。一个估计器的值无偏，完全不保证它作为 loss 时梯度指向 KL 下降的方向——k1 与 k3 恰好是两个方向相反的反例：k1 值无偏、放进 loss 后梯度期望为零；k3 值无偏、放进 loss 后优化的却是另一个 KL。
+      </div>
+
+      <p>先立标尺：reverse KL 的<strong>真梯度</strong>是什么？</p>
+      <div class="deriv">
+        <div class="deriv-header">真梯度：所有实现的"对错标准"</div>
+        <div class="deriv-body">
+          <div class="deriv-step">
+            <div class="deriv-step-num">1</div>
+            <div class="deriv-step-body">
+              对 \(D_{\text{KL}} = \int \pi_\theta\,(\log\pi_\theta - \log\pi_{\text{ref}})\,dx\) 用乘积法则（\(\theta\) 同时出现在采样分布与被积函数里）：
+              $$
+              \nabla_\theta D_{\text{KL}} = \int \nabla_\theta\pi_\theta\cdot\log\frac{\pi_\theta}{\pi_{\text{ref}}}\,dx \;+\; \int \pi_\theta\,\nabla_\theta\log\pi_\theta\,dx
+              $$
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">2</div>
+            <div class="deriv-step-body">
+              第二项 \(=\int\nabla_\theta\pi_\theta\,dx=\nabla_\theta 1=0\)（score 恒等式 \(E[\nabla_\theta\log\pi_\theta]=0\)），第一项用工具 1（log-derivative trick）：
+              $$
+              \boxed{\;\nabla_\theta D_{\text{KL}}(\pi_\theta\|\pi_{\text{ref}}) = E_{x\sim\pi_\theta}\!\big[\,\underbrace{(-\log u)}_{=\,\hat k_1}\cdot\nabla_\theta\log\pi_\theta(x)\,\big]\;}
+              $$
+              任何声称"在正则 reverse KL"的实现，梯度期望都必须等于它。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p>实现上 KL 罚项有两种放置方式（对应 verl/TRL 等框架里两个不同的开关）：</p>
+      <div class="formula">
+        <strong>方式 A：in-reward（InstructGPT / PPO-RLHF 惯例）</strong>
+        $$
+        r_t \;\leftarrow\; r_t - \beta\cdot\mathrm{sg}[\hat k]\qquad\text{（\(\hat k\) detach，不反传；梯度走 score function 通道 } E[-\beta\hat k\cdot\nabla_\theta\log\pi_\theta]\text{）}
+        $$
+        <strong>方式 B：as-loss（GRPO / DeepSeekMath 惯例）</strong>
+        $$
+        \mathcal L \;\leftarrow\; \mathcal L_{\text{PG}} + \beta\cdot\hat k(\theta)\qquad\text{（\(\hat k\) 是 \(\theta\) 的函数，直接自动微分：} \beta\,E[\nabla_\theta \hat k]\text{）}
+        $$
+      </div>
+
+      <div class="deriv">
+        <div class="deriv-header">把三个估计器分别放进 loss（方式 B）逐个求导</div>
+        <div class="deriv-body">
+          <div class="deriv-step">
+            <div class="deriv-step-num">1</div>
+            <div class="deriv-step-body">
+              <strong>k1-as-loss：梯度期望为零。</strong>\(\hat k_1 = \log\pi_\theta - \log\pi_{\text{ref}}\)，后者是常数：
+              $$
+              \nabla_\theta\hat k_1 = \nabla_\theta\log\pi_\theta
+              \;\;\Rightarrow\;\;
+              E_{\pi_\theta}[\nabla_\theta\hat k_1] = 0
+              $$
+              与 \(\pi_{\text{ref}}\) 完全无关——<strong>没有任何正则信号</strong>，大 batch 下形同虚设，小 batch 下是纯噪声。
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">2</div>
+            <div class="deriv-step-body">
+              <strong>k2-as-loss：值有偏，梯度无偏。</strong>
+              $$
+              \nabla_\theta\hat k_2 = \nabla_\theta\,\tfrac12(\log\tfrac{\pi_\theta}{\pi_{\text{ref}}})^2 = (-\log u)\cdot\nabla_\theta\log\pi_\theta = \hat k_1\cdot\nabla_\theta\log\pi_\theta
+              $$
+              <strong>逐样本</strong>恰好等于真梯度的被积函数——不只期望相等，连随机变量都和"k1-in-reward"的 score 项一模一样（arXiv:2510.01555 Theorem 5.1 的 gradient-equivalent）。<strong>k2 的正确归宿是 loss。</strong>
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">3</div>
+            <div class="deriv-step-body">
+              <strong>k3-as-loss：优化的是 forward KL。</strong>由 \(\nabla_\theta u = -u\,\nabla_\theta\log\pi_\theta\)：
+              $$
+              \nabla_\theta\hat k_3 = \left(1-\tfrac1u\right)\nabla_\theta u = (1-u)\cdot\nabla_\theta\log\pi_\theta
+              $$
+              取期望（再用一次 \(E_{\pi_\theta}[u\cdot g] = E_{\pi_{\text{ref}}}[g]\)）：
+              $$
+              E_{\pi_\theta}[\nabla_\theta\hat k_3] = 0 - E_{\pi_{\text{ref}}}[\nabla_\theta\log\pi_\theta] = \nabla_\theta\, D_{\text{KL}}(\pi_{\text{ref}}\,\|\,\pi_\theta)
+              $$
+              ——<strong>这是 forward KL 的梯度</strong>。k3 的值无偏地估计 reverse KL，梯度却无偏地优化 forward KL；系数 \((1-u)\) 正是正确系数 \((-\log u)\) 在 \(u=1\) 处的一阶 Taylor 近似，所以它只是 reverse-KL 梯度的<strong>一阶有偏近似</strong>。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout insight">
+        <div class="callout-title">GRPO 默认的 k3-as-loss 实际在做什么</div>
+        训练初期 \(u\approx 1\)，forward / reverse KL 的梯度一阶一致，看不出差别；策略漂远后三个失真同时出现：<br/>
+        ① <strong>方向</strong>：优化的是 mode-covering 的 FKL，而不是设计意图中 mode-seeking 的 RKL；<br/>
+        ② <strong>饱和</strong>：\(u\to 0\)（\(\pi_\theta\) 把概率质量堆进 \(\pi_{\text{ref}}\) 的低概率区——恰是最需要拉回的漂移）时系数 \((1-u)\) 封顶在 1，而正确系数 \(-\log u\to+\infty\)——最该拉回来的时候拉力最弱；调大 β 只能整体缩放拉力，补不回逐样本的相对失真（arXiv:2510.01555 §6 固定 β=0.5 的 on-policy 实验：k2-as-loss 比 k3-as-loss 与 reference 耦合更紧、reward/长度方差更低，即同等 β 下 k3 的实际约束偏松）；<br/>
+        ③ <strong>重尾</strong>：梯度系数的方差 \(\mathrm{Var}[1-u]=\chi^2(\pi_{\text{ref}}\|\pi_\theta)\)，漂远后爆炸。<br/>
+        <strong>一行修复</strong>：把 loss 写成 \(\rho\cdot\hat k_3\)，其中 \(\rho = \pi_\theta(x)/\mathrm{sg}[\pi_\theta(x)]\)（数值恒为 1，梯度不为零）。链式法则给出 \(\nabla_\theta(\rho\hat k_3) = \rho\,(\hat k_3 + 1 - u)\,\nabla_\theta\log\pi_\theta = \rho\,\hat k_1\,\nabla_\theta\log\pi_\theta\)——值仍是无偏的 k3，梯度变回无偏的 RKL 梯度。
+      </div>
+
+      <p>对方式 A（in-reward）做同样的计算（score 项 \(E[\hat k\cdot\nabla_\theta\log\pi_\theta]\)，推导同上、只是系数不求导），把六种组合汇总成一张表：</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>估计器</th><th>估值（从 \(\pi_\theta\) 采样）</th><th>as-loss：\(E[\nabla_\theta\hat k]\)</th><th>in-reward：\(E[\hat k\cdot\nabla_\theta\log\pi_\theta]\)</th><th>一句话判定</th></tr></thead>
+          <tbody>
+            <tr><td><strong>k1</strong> \(=-\log u\)</td><td>无偏；可负；方差大</td><td>❌ \(0\)：无正则信号</td><td>✅ \(\nabla D_{\text{KL}}(\pi_\theta\|\pi_{\text{ref}})\)：原则性实现</td><td><strong>放 reward</strong>，或当监控尺子</td></tr>
+            <tr><td><strong>k2</strong> \(=\tfrac12(\log u)^2\)</td><td>有偏（分布接近时偏差极小）；非负</td><td>✅ \(\nabla D_{\text{KL}}(\pi_\theta\|\pi_{\text{ref}})\)：与 k1-in-reward 逐样本等价</td><td>❌ \(\nabla D_f-\nabla D_{\text{KL}}\)：正则信号一阶抵消</td><td><strong>放 loss</strong></td></tr>
+            <tr><td><strong>k3</strong> \(=(u-1)-\log u\)</td><td>无偏；非负；经验低方差（重尾警告）</td><td>⚠ \(\nabla D_{\text{KL}}(\pi_{\text{ref}}\|\pi_\theta)\)：FKL 梯度，RKL 的一阶近似（GRPO 默认）</td><td>❌ \(\nabla\text{RKL}-\nabla\text{FKL}\approx 0\)：信号二阶小量、不稳</td><td>当监控可；放 loss 须知其偏，或乘 \(\rho\) 修正</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size:.85rem;color:var(--fg-2)">注：表中 in-reward 列略去系数 \(-\beta\)；"✅"的标准 = 期望等于 reverse KL 真梯度。k2/k3 in-reward 的"一阶抵消"指：相应期望是两个在 \(\pi_\theta=\pi_{\text{ref}}\) 处一阶相同的梯度之差，正则强度只剩二阶小量——名义上的 β 几乎不起作用。</p>
+
+      <h3>9.5 off-policy：mini-batch 复用之后，KL 项需要 IS 权重</h3>
+      <p>以上所有"期望"默认 on-policy。现实中 PPO/GRPO 对同一批 rollout 要做多个 mini-batch epoch——除第一步外样本来自 \(\pi_{\text{old}}\neq\pi_\theta\)；异步训练的 staleness 更甚。此时每个结论都会再偏一次：\(E_{\pi_{\text{old}}}[\nabla\hat k]\neq E_{\pi_\theta}[\nabla\hat k]\)。</p>
+      <div class="formula derived">
+        <strong>通用修正：分子可微的 IS 系数</strong>
+        $$
+        \rho(x) = \frac{\pi_\theta(x)}{\mathrm{sg}[\pi_{\text{old}}(x)]},\qquad
+        \nabla_\theta\big(\rho\,\hat k_3\big) = \rho\,\hat k_1\,\nabla_\theta\log\pi_\theta
+        \;\;\Rightarrow\;\;
+        E_{\pi_{\text{old}}}\!\big[\nabla_\theta(\rho\hat k_3)\big] = E_{\pi_\theta}\!\big[\hat k_1\nabla_\theta\log\pi_\theta\big] = \nabla_\theta D_{\text{KL}}(\pi_\theta\|\pi_{\text{ref}})
+        $$
+        同一个式子统一了 on-policy（\(\pi_{\text{old}}=\pi_\theta\)，\(\rho\) 数值恒 1）与 off-policy；且 \(\nabla(\mathrm{sg}[\rho]\,\hat k_2)\) 与 \(\nabla(\rho\,\hat k_3)\) 是<strong>同一个随机变量</strong>，两种写法可互换。
+      </div>
+      <div class="callout warn">
+        <div class="callout-title">开源实现普遍漏掉这一项</div>
+        常见代码里 PG 项有 importance ratio，<strong>KL 项却没有</strong>——mini-batch 复用越多、staleness 越大，KL 正则偏得越多（arXiv:2510.01555 附录给出系统修正）。另注意 \(\rho\) 与 \(u\) 一样重尾，实践需配合 clip 使用。
+      </div>
+
+      <h3>9.6 实践速查：何时用什么</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>用途</th><th>推荐写法</th><th>决策依据</th></tr></thead>
+          <tbody>
+            <tr><td>训练监控 / 汇报 KL 值</td><td><strong>k1 的 batch 均值</strong>（或逐 token 解析 KL）</td><td>只需值无偏，方差靠 batch 平均消化；k3 值也无偏但 \(u\) 重尾时均值反而不稳</td></tr>
+            <tr><td>PPO：KL 融进 reward</td><td><strong>k1</strong>（InstructGPT 惯例）</td><td>score 项期望恰为 RKL 真梯度，唯一不需修正的 in-reward 用法</td></tr>
+            <tr><td>GRPO：KL 直接进 loss</td><td><strong>k2</strong>，或 <strong>\(\rho\cdot\)k3</strong>（值报告另用 k1）</td><td>k2-as-loss 梯度无偏且与 k1-in-reward 等价；沿用 DeepSeekMath 原版裸 k3 时，须知它优化 FKL 方向、系数饱和使实际约束比名义 β 偏松，并监控 \(u\) 分布</td></tr>
+            <tr><td>off-policy / 异步 / 多 epoch 复用</td><td>任何 as-loss 项 × \(\rho=\pi_\theta/\mathrm{sg}[\pi_{\text{old}}]\)</td><td>不乘 IS 权重时，无论选哪个 k 梯度都偏；\(\rho\) 重尾需 clip</td></tr>
+            <tr><td>DPO 中的隐式 KL（β 系数）</td><td>不显式估计</td><td>已被解析消去，藏在 log-ratio 里</td></tr>
+            <tr><td>RLVR 推理训练删 KL（DAPO 等）</td><td>—</td><td>删不删是场景决策（要不要锚住 \(\pi_{\text{ref}}\)、省不省 reference model），与估计器选择是两个独立问题</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout insight">
+        <div class="callout-title">为什么这件小事很重要</div>
+        方向写反，估出来的是 \(\chi^2-\text{KL}\)；估计器放错位置，正则要么消失（k1-as-loss）、要么在优化另一个散度（k3-as-loss）。多轮 agentic RL 在 100+ turn 上累积 KL，这些失真都会被序列长度放大。Schulman 2020 年几百字的 blog 给出了"值估计"的标准答案；2025 年的一批工作把问题推进到"梯度正确性"——<strong>选估计器先问用途：当尺子，还是当缰绳</strong>。
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">参考来源</div>
+        <ul>
+          <li>John Schulman, <em>Approximating KL Divergence</em>（2020，k1/k2/k3 原始出处）：<a href="http://joschu.net/blog/kl-approx.html">joschu.net/blog/kl-approx.html</a></li>
+          <li>Shao et al., <em>DeepSeekMath</em>（GRPO 与 k3-as-loss 的出处，公式 4）：<a href="https://arxiv.org/abs/2402.03300">arXiv:2402.03300</a></li>
+          <li>Liu et al., <em>Rethinking KL Regularization in RLHF: From Value Estimation to Gradient Optimization</em>（2025-10）：<a href="https://arxiv.org/abs/2510.01555">arXiv:2510.01555</a></li>
+          <li><em>A Comedy of Estimators: On KL Regularization in RL Training of LLMs</em>（2025-12）：<a href="https://arxiv.org/abs/2512.21852">arXiv:2512.21852</a></li>
+          <li>Xihuai Wang, <em>Choosing KL Estimators in RL: From Value Unbiasedness to Gradient Correctness</em>（2025-12）：<a href="https://xihuai18.github.io/reinforcement-learning/2025/12/01/kl-estimators-en.html">xihuai18.github.io</a></li>
+        </ul>
+      </div>
+
+      <div class="callout bridge">
+        <div class="callout-title">下一节</div>
+        RL 侧的推导链到此完整。还差最后一块拼图：被当作"另一个世界"的 <strong>SFT</strong>，其实也藏在同一个 policy gradient 表达式里——而且藏着一个病态的隐式 reward。
+      </div>
+    </section>
+
+    <!-- §10 SFT 与 RL 的梯度统一视角 -->
+    <section id="sec-unified" class="section">
+      <div class="section-num">SECTION 10</div>
+      <h2>SFT 与 RL 的<span class="grad">梯度统一视角</span></h2>
+      <p class="section-lede">SFT 的交叉熵看起来与 RL 毫无关系——没有采样、没有 reward。但只要做一次"干换元"，SFT 的梯度就变成一个标准 policy gradient，且隐式 reward 是病态的 \(1/\pi_\theta\)。这个改写在 2025 年催生了一行代码的修正（DFT）和一个把所有后训练目标装进同一估计器的框架（UPGE/HPT）。</p>
+
+      <h3>10.1 SFT 交叉熵的 policy-gradient 改写</h3>
+      <div class="deriv">
+        <div class="deriv-header">四步：从交叉熵到隐式 reward</div>
+        <div class="deriv-body">
+          <div class="deriv-step">
+            <div class="deriv-step-num">1</div>
+            <div class="deriv-step-body">
+              SFT 最小化 demonstration \(y^\star\) 的负对数似然：
+              $$
+              \mathcal{L}_{\text{SFT}}(\theta) = -E_{(x,y^\star)\sim\mathcal{D}}\bigl[\log\pi_\theta(y^\star|x)\bigr],
+              \qquad
+              \nabla_\theta\mathcal{L}_{\text{SFT}} = -E\bigl[\nabla_\theta\log\pi_\theta(y^\star|x)\bigr]
+              $$
+              表面上没有任何 RL 要素：不采样、不打分。
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">2</div>
+            <div class="deriv-step-body">
+              <strong>干换元</strong>（工具 2 的反向使用——把"固定一点求值"硬写成"对自己分布的期望"）。对任意固定的 \(y^\star\)：
+              $$
+              \nabla_\theta\log\pi_\theta(y^\star|x)
+              = \sum_y \pi_\theta(y|x)\cdot\frac{\mathbb{1}[y=y^\star]}{\pi_\theta(y|x)}\cdot\nabla_\theta\log\pi_\theta(y|x)
+              = E_{y\sim\pi_\theta}\!\left[\frac{\mathbb{1}[y=y^\star]}{\pi_\theta(y|x)}\,\nabla_\theta\log\pi_\theta(y|x)\right]
+              $$
+              验证：求和里 \(\pi_\theta\) 与 \(1/\pi_\theta\) 相消，指示函数只留下 \(y=y^\star\) 一项，恒等成立。
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">3</div>
+            <div class="deriv-step-body">
+              与 §1 的 policy gradient \(\nabla J=E_{y\sim\pi_\theta}[\,r(x,y)\,\nabla\log\pi_\theta(y|x)\,]\) 逐项对照：<strong>SFT 就是 on-policy policy gradient</strong>，隐式 reward 为
+              $$
+              \tilde r(x,y) \;=\; \frac{\mathbb{1}[y=y^\star]}{\pi_\theta(y|x)}
+              $$
+              （DFT 论文把它拆成 IS 权重 \(w=1/\pi_\theta\) 与稀疏 reward \(\mathbb{1}[y=y^\star]\) 两件，乘起来是同一回事。）
+            </div>
+          </div>
+          <div class="deriv-step">
+            <div class="deriv-step-num">4</div>
+            <div class="deriv-step-body">
+              token 级版本同理：第 \(t\) 个 token 的隐式 reward 是 \(1/\pi_\theta(y^\star_t|y^\star_{&lt;t},x)\)——<strong>模型越不会的 token，拿到的 reward 越大</strong>。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout insight">
+        <div class="callout-title">为什么这个改写重要</div>
+        推导链里的所有方法（PPO/GRPO/DPO/SFT）从此站在同一个表达式 \(E[\,\text{reward}\times\nabla\log\pi\,]\) 上，差别只剩三个问题：<strong>reward 是什么、baseline 是什么、ratio 怎么处理</strong>。"SFT vs RL"不再是两个世界，而是同一估计器的两组参数取值。
+      </div>
+
+      <h3>10.2 隐式 \(1/\pi\) reward 的病态性与 DFT 的一行修正</h3>
+      <p>把 \(\tilde r=\mathbb{1}[y=y^\star]/\pi_\theta\) 当成 reward 来审视，它有三宗病：</p>
+      <ul>
+        <li><strong>方差爆炸</strong>：\(\pi_\theta(y^\star)\to 0\) 时 \(\tilde r\to\infty\)。梯度范数被模型<strong>最不会</strong>的 demonstration token 主导——§2 用 baseline 辛苦降下来的方差，SFT 在 reward 里原样奉还。</li>
+        <li><strong>reward 非稳态</strong>：\(\tilde r\) 依赖 \(\theta\)，每步更新都在改写自己的 reward——优化目标持续漂移，不是固定 reward 下的 policy gradient。</li>
+        <li><strong>推向记忆而非泛化</strong>：概率越低推力越大、一路推到 1，把概率质量整体塞向 demonstration。这是 <em>SFT Memorizes, RL Generalizes</em>（ICML 2025）实证结论的梯度层面解释；<em>RL's Razor</em> 进一步给出 KL 视角——on-policy RL 隐式偏向离 base 最近（KL 最小）的解，而 SFT 可以漂到任意远。</li>
+      </ul>
+
+      <div class="formula derived">
+        <div class="formula-title">DFT（Dynamic Fine-Tuning）：一行修正</div>
+        $$
+        \mathcal{L}_{\text{DFT}}(\theta) = -\,E\!\left[\sum_t \mathrm{sg}\bigl[\pi_\theta(y^\star_t|y^\star_{&lt;t},x)\bigr]\cdot\log\pi_\theta(y^\star_t|y^\star_{&lt;t},x)\right]
+        $$
+      </div>
+      <p>\(\mathrm{sg}[\cdot]\) 是 stop-gradient。给每个 token 的交叉熵乘上自己的概率（detach 掉），恰好与隐式 reward 里的 \(1/\pi_\theta\) <strong>相消</strong>——等效 reward 整流为干净的 \(\mathbb{1}[y=y^\star]\)。实现就一行：<code>loss = -(p.detach() * logp).sum()</code>。效果（DFT 论文，NuminaMath-CoT 100K 训练）：Qwen2.5-Math-1.5B 上数学基准平均 +15.66 分，而标准 SFT 仅 +2.09（约 5.9 倍），并在 Qwen2.5-Math-7B、LLaMA-3.2-3B/3.1-8B、DeepSeekMath-7B 上一致成立；offline RL 设定下也有竞争力。</p>
+
+      <div class="callout warn">
+        <div class="callout-title">注意：\(1/\pi\) 不是"写错了"，是目标错位</div>
+        交叉熵仍是极大似然的正确梯度——若目标就是拟合 demonstration 分布（如格式对齐、风格克隆），\(1/\pi\) 对难 token 的上权重恰是其分内之事。DFT 改变的是<strong>泛化-记忆权衡</strong>：当 demonstration 只是"通往正确答案的一条路径"而非"唯一正确分布"（数学/代码推理），按 reward 视角整流才有收益。选 SFT 还是 DFT，先回答"我要模型复刻分布，还是学会任务"。
+      </div>
+
+      <h3>10.3 UPGE：一个估计器、四个旋钮</h3>
+      <p><em>Towards a Unified View of LLM Post-Training</em>（2025）把上面的观察推到头：<strong>所有常见后训练目标的梯度都是同一个 Unified Policy Gradient Estimator 的特例</strong>——</p>
+      <div class="formula derived">
+        <div class="formula-title">Unified Policy Gradient Estimator</div>
+        $$
+        \nabla_\theta\mathcal{L}_{\text{Uni}} \;=\; \mathbb{1}_{\text{stable}}\;\cdot\;\frac{1}{\pi_{\text{ref}}}\;\cdot\;\hat A\;\cdot\;\nabla_\theta\pi_\theta
+        $$
+      </div>
+      <p>注意最右是 \(\nabla\pi_\theta\)（不是 \(\nabla\log\pi_\theta\)），由 \(\nabla\pi_\theta=\pi_\theta\nabla\log\pi_\theta\) 可还原所有熟悉形式。四个槽位的取值决定算法：</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>方法</th><th>稳定化掩码 \(\mathbb{1}_{\text{stable}}\)</th><th>分母 \(\pi_{\text{ref}}\)</th><th>advantage \(\hat A\)</th><th>还原出的梯度</th></tr></thead>
+          <tbody>
+            <tr><td><strong>SFT</strong></td><td>恒为 1</td><td>\(\pi_\theta\)（当前策略！）</td><td>\(\equiv 1\)</td><td>\(\nabla\log\pi_\theta(y^\star)\)——\(1/\pi\) 病灶藏在分母槽</td></tr>
+            <tr><td><strong>DFT</strong>*</td><td>恒为 1</td><td>\(\pi_\theta\)</td><td>\(\mathrm{sg}[\pi_\theta]\)</td><td>\(\mathrm{sg}[\pi_\theta]\,\nabla\log\pi_\theta\)——advantage 槽抵消分母槽</td></tr>
+            <tr><td><strong>PPO</strong></td><td>clip 触发指示</td><td>\(\pi_{\text{old}}\)（rollout 策略）</td><td>GAE</td><td>\(r_t\hat A_t\nabla\log\pi_\theta\)（§4）</td></tr>
+            <tr><td><strong>GRPO</strong></td><td>clip 触发指示</td><td>\(\pi_{\text{old}}\)</td><td>组内 z-score</td><td>\(r_{i,t}\hat A_i\nabla\log\pi_\theta\)（§7）</td></tr>
+            <tr><td><strong>离线/off-policy 目标</strong></td><td>恒为 1</td><td>\(\equiv 1\)（拿不到 rollout 策略）</td><td>任务定义</td><td>\(\hat A\,\nabla\pi_\theta\)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size:.85rem;color:var(--fg-2)">* DFT 行是本文按四件套语义做的映射，原论文表格未单列 DFT。UPGE 论文的核心论点：各方法只是在不同<strong>数据分布假设</strong>下做不同的<strong>偏差-方差权衡</strong>——SFT 的偏差来自 demonstration 分布与 \(\pi_\theta\) 的漂移，RL 的偏差来自 clip 截断——没有谁在所有数据条件下严格占优。</p>
+
+      <h3>10.4 HPT：按通过率动态切换 SFT/RL 信号</h3>
+      <p>既然 SFT 与 RL 是同一估计器的两组取值，就不必在流程上"先 SFT 后 RL"地粗粒度切换。UPGE 论文给出的算法 <strong>HPT（Hybrid Post-Training）</strong>按 prompt 细粒度选择信号：对每个 prompt 先采 \(n=8\) 条 rollout，按 verifier 通过率 \(P=\tfrac1n\sum_i v(\tau_i)\) 切换——</p>
+      <div class="formula">
+        $$
+        \mathcal{L}_{\text{HPT}} = \alpha\,\mathcal{L}_{\text{RL}} + \beta\,\mathcal{L}_{\text{SFT}},\qquad
+        (\alpha,\beta)=\begin{cases}(1,0) &amp; P &gt; \gamma \quad\text{（会做：on-policy RL 信号）}\\[2pt] (0,1) &amp; P \le \gamma \quad\text{（不会做：demonstration 信号）}\end{cases}
+        $$
+      </div>
+      <p>阈值 \(\gamma\) 随底座调：Qwen 系取 \(\gamma=0\)（仅全错时才用 SFT），LLaMA 系取 \(\gamma=2/8\)。背后的决策逻辑值得记住：</p>
+      <ul>
+        <li><strong>全错的组里 policy gradient 没有信号</strong>：组内 reward 全 0 时 advantage 全 0（§7.3），梯度为零——这正是 demonstration 的比较优势区，SFT 在这里注入模型采不到的正样本；</li>
+        <li><strong>会做的题上 on-policy RL 信号更优</strong>：自己采出来的解在自己分布内、KL 漂移小（RL's Razor）、不付 \(1/\pi\) 的方差税；</li>
+        <li>静态"冷启动 SFT → RL"流水线只是 HPT 的特例（按训练阶段切换 vs 按 prompt 切换）。</li>
+      </ul>
+      <p>效果（UPGE 论文）：Qwen2.5-Math-7B 上六个数学基准平均 <strong>52.7</strong>，对比静态流水线 SFT→GRPO 的 46.5 与混合基线 LUFFY 的 49.8；AIME 2024 上 33.0 vs 25.7/26.1，且 OOD（ARC-c/GPQA）也保持领先。</p>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>场景</th><th>推荐信号</th><th>决策依据</th></tr></thead>
+          <tbody>
+            <tr><td>无 verifier / 无法 rollout / 风格与格式对齐</td><td><strong>SFT</strong>（交叉熵）</td><td>目标就是拟合分布，\(1/\pi\) 的难 token 上权重是分内之事</td></tr>
+            <tr><td>数学/代码等"路径不唯一"的推理任务，只有 demonstration</td><td><strong>DFT</strong></td><td>一行修正整流病态 reward，泛化收益几乎免费</td></tr>
+            <tr><td>模型已有非零通过率 + 可靠 reward</td><td><strong>on-policy RL</strong>（GRPO/RLOO 系）</td><td>KL 漂移小、不付 \(1/\pi\) 方差税；遗忘也更少</td></tr>
+            <tr><td>难度谱宽（部分 prompt 全错）的数据集</td><td><strong>HPT 式混合</strong></td><td>全错区 PG 无信号，按通过率逐 prompt 切换</td></tr>
+            <tr><td>有显著更强的教师模型</td><td>优先评估<strong>蒸馏</strong></td><td>dense 的逐 token 信号通常比 outcome RL 便宜得多（见主综述）</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">参考来源</div>
+        <ul>
+          <li>Wu et al., <em>On the Generalization of SFT: A Reinforcement Learning Perspective with Reward Rectification</em>（DFT，ICLR 2026）：<a href="https://arxiv.org/abs/2508.05629">arXiv:2508.05629</a> · <a href="https://github.com/yongliang-wu/DFT">github.com/yongliang-wu/DFT</a></li>
+          <li>Lv et al., <em>Towards a Unified View of Large Language Model Post-Training</em>（UPGE + HPT）：<a href="https://arxiv.org/abs/2509.04419">arXiv:2509.04419</a></li>
+          <li>Chu et al., <em>SFT Memorizes, RL Generalizes: A Comparative Study of Foundation Model Post-training</em>（ICML 2025）：<a href="https://arxiv.org/abs/2501.17161">arXiv:2501.17161</a></li>
+          <li>Shenfeld et al., <em>RL's Razor: Why Online Reinforcement Learning Forgets Less</em>：<a href="https://arxiv.org/abs/2509.04259">arXiv:2509.04259</a></li>
+        </ul>
+      </div>
+
+      <div class="callout bridge">
+        <div class="callout-title">下一节</div>
+        至此推导链闭环：从 REINFORCE 出发的 RL 谱系，与从交叉熵出发的 SFT 谱系，在同一个估计器上会师。最后一节把全部 10 节连成一张演化树。
+      </div>
+    </section>
+
+    <!-- §11 推导链总览 -->
+    <section id="sec-summary" class="section">
+      <div class="section-num">SECTION 11 · SYNTHESIS</div>
+      <h2>推导链<span class="grad">总览</span></h2>
+      <p class="section-lede">把前 10 节连成一条完整的"演化树"——每个方法是上一个的某种修补。</p>
+
+      <div class="mermaid-wrap">
+<div class="mermaid">
+flowchart TB
+  PG["§1 Policy Gradient<br/>log-derivative trick<br/>∇J = E[∇logπ · R]"]:::origin
+  PG --> BL["§2 Baseline<br/>降方差<br/>R → R - V(s)"]:::a
+  BL --> AC["Actor-Critic<br/>需 critic V_ψ"]:::a
+  AC --> GAE["§3 GAE<br/>n-step 加权平均<br/>λ 调节 bias-variance"]:::a
+  GAE --> PPO["§4 PPO Clip<br/>min-clip 实现 trust region<br/>需 critic"]:::ppo
+  PPO --> RLHF["§5 RLHF<br/>+ Bradley-Terry RM<br/>+ KL constraint"]:::ppo
+
+  RLHF --> DPO["§6 DPO<br/>消去 RM + Z(x)<br/>BT 分差消去 trick"]:::dpo
+  RLHF --> RLOO["§7.2 RLOO<br/>leave-one-out baseline<br/>bandit 视角，严格无偏"]:::grpo
+  RLOO --> GRPO["§7 GRPO<br/>消去 critic<br/>group mean baseline"]:::grpo
+
+  GRPO --> GSPO["§8 GSPO<br/>token-level → sequence-level IS<br/>方差受控"]:::grpo
+  GRPO --> KL["§9 KL 估计器<br/>k3 = (u−1)−log u, u=π_ref/π_θ<br/>估值无偏 ≠ 梯度正确"]:::aux
+
+  PPO --> KL
+  PG -.-> UNI["§10 统一视角<br/>SFT 梯度 = 隐式 reward 1/π 的 PG<br/>DFT 整流 · UPGE · HPT"]:::aux
+
+  classDef origin fill:#1d2638,stroke:#ffd166,color:#fff,stroke-width:3px
+  classDef a fill:#1d2638,stroke:#5b8def,color:#fff
+  classDef ppo fill:#1d2638,stroke:#a78bfa,color:#fff
+  classDef dpo fill:#1d2638,stroke:#f48fb1,color:#fff
+  classDef grpo fill:#1d2638,stroke:#7be39a,color:#fff
+  classDef aux fill:#1d2638,stroke:#ff9f6e,color:#fff
+</div>
+      </div>
+
+      <h3>11.1 一句话记住每个方法</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>方法</th><th>核心 trick</th><th>"在做什么"一句话</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Policy Gradient</strong></td><td>log-derivative</td><td>给采样轨迹打分，好的推高 logπ，坏的压低</td></tr>
+            <tr><td><strong>Advantage / AC</strong></td><td>减 V(s)</td><td>只关心"比平均好坏"，不关心绝对回报</td></tr>
+            <tr><td><strong>GAE</strong></td><td>λ-加权 TD 残差</td><td>用一个旋钮调节"看多远未来"</td></tr>
+            <tr><td><strong>PPO Clip</strong></td><td>min(r·A, clip(r)·A)</td><td>新策略不能跑得太远，跑远了就 pessimistic</td></tr>
+            <tr><td><strong>BT 模型</strong></td><td>sigmoid(分差)</td><td>把偏好对翻译成 reward 模型</td></tr>
+            <tr><td><strong>DPO</strong></td><td>BT 消去 Z(x)</td><td>不要 RM 也不要 RL，一个分类 loss 搞定</td></tr>
+            <tr><td><strong>RLOO</strong></td><td>leave-one-out baseline</td><td>其余 G−1 条的均值当 baseline，严格无偏地去掉 critic；组均值版与它只差 G/(G−1) 缩放</td></tr>
+            <tr><td><strong>GRPO</strong></td><td>group mean as baseline</td><td>不要 critic，用组内多采样的均值降方差</td></tr>
+            <tr><td><strong>GSPO</strong></td><td>geometric-mean ratio</td><td>importance sampling 比例升级到序列级，方差受控</td></tr>
+            <tr><td><strong>KL k1/k2/k3</strong></td><td>控制变量 + 梯度视角</td><td>k3=(u−1)−log u（u=π_ref/π_θ）估值无偏非负；但放进 loss 后梯度优化的是 forward KL——估值准 ≠ 梯度对</td></tr>
+            <tr><td><strong>SFT ⇄ RL 统一</strong></td><td>隐式 reward 1/π</td><td>SFT = reward 为 1[y=y*]/π 的 policy gradient；DFT 乘 sg[π] 整流病灶；UPGE 四旋钮装下全谱系，HPT 按通过率切换信号</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>11.2 你应该能独立做到</h3>
+      <div class="callout insight">
+        <div class="callout-title">读完这页后能做的事</div>
+        <ul>
+          <li>✅ 在纸上独立推 <strong>Policy Gradient Theorem</strong>（3 步用 log-derivative）</li>
+          <li>✅ 写出 <strong>performance difference lemma</strong> 并推出 TRPO 下界 \(\eta \ge L - C\,D_{\text{KL}}^{\max}\)，说清 PPO clip 在哪三步松绑里丢掉了单调改进保证</li>
+          <li>✅ 解释 <strong>PPO clip 的 min 操作为什么不对称</strong>（pessimistic update）</li>
+          <li>✅ 从 RLHF 目标推到 <strong>DPO loss</strong>（5 步：Lagrange → 反解 r → 代入 BT → 消去 Z）</li>
+          <li>✅ 解释为什么 <strong>GRPO 不需要 critic</strong>（group mean as baseline）</li>
+          <li>✅ 证明 <strong>RLOO 的严格无偏性</strong>（baseline 独立性），并推出组均值 baseline 与它相差 G/(G−1) 缩放</li>
+          <li>✅ 解释为什么 <strong>GSPO 对 MoE 模型尤其重要</strong>（routing 抖动放大 token ratio）</li>
+          <li>✅ 区分<strong>估 KL 值与优化 KL</strong>：监控用 k1 均值，正则用 k1-in-reward / k2-as-loss / ρ·k3，并能推导 GRPO 默认 k3-as-loss 的梯度实为 forward KL</li>
+          <li>✅ 把 <strong>SFT 交叉熵改写成 policy gradient</strong>，指出隐式 reward \(\mathbb{1}[y=y^\star]/\pi\) 的三宗病态与 DFT 的一行修正，并按 UPGE 四旋钮给任意新算法定位</li>
+        </ul>
+      </div>
+
+      <h3>11.3 没讲到的（请看其他页面）</h3>
+      <ul>
+        <li><strong>多轮 + Tool Use</strong> 的推导（POMDP / Token Mask / Credit Assignment）→ <a href="multi-turn-tool-use.html">多轮 Tool Use 专题</a></li>
+        <li><strong>实战训练 pitfalls</strong>（reward hacking / entropy collapse 等）→ <a href="rl-pitfalls-survey.html">Pitfalls 综述</a></li>
+        <li><strong>框架与工程</strong>（veRL / OpenRLHF 选型）→ <a href="rl-frameworks-survey.html">框架综述</a></li>
+        <li><strong>更广的算法谱系</strong>（DPO 14+ 变体 / GRPO 13+ 变体）→ <a href="llm-post-training-master.html#sec-dpo-family">主综述 §3.2</a> 与 <a href="llm-post-training-master.html#sec-grpo-family">§4.4</a></li>
+      </ul>
+    </section>
+
+    <script>
+    window.addEventListener('load', () => {
+      // §2 baseline variance chart
+      const ctx2 = document.getElementById('baselineChart');
+      if (ctx2) new Chart(ctx2, {
+        type: 'line',
+        data: {
+          labels: ['16','32','64','128','256','512','1024'],
+          datasets: [
+            { label:'REINFORCE (no baseline)', data:[180,165,150,140,135,128,122],
+              borderColor:'#ff6b8a',backgroundColor:'rgba(255,107,138,.1)',tension:.3,fill:true },
+            { label:'REINFORCE + V(s) baseline', data:[80,55,40,32,28,24,22],
+              borderColor:'#7be39a',backgroundColor:'rgba(123,227,154,.1)',tension:.3,fill:true }
+          ]
+        },
+        options:{
+          scales:{
+            x:{title:{display:true,text:'batch size',color:'#8492a8'},ticks:{color:'#8492a8'},grid:{color:'rgba(255,255,255,.05)'}},
+            y:{title:{display:true,text:'梯度方差（相对值）',color:'#8492a8'},ticks:{color:'#8492a8'},grid:{color:'rgba(255,255,255,.05)'}}
+          },
+          plugins:{legend:{labels:{color:'#b9c4d4',font:{size:11}}}}
+        }
+      });
+
+      // §3 GAE bias-variance chart
+      const ctx3 = document.getElementById('gaeChart');
+      if (ctx3) new Chart(ctx3, {
+        type: 'line',
+        data: {
+          labels: ['0.0','0.1','0.3','0.5','0.7','0.9','0.95','0.99','1.0'],
+          datasets: [
+            { label:'偏差 (bias，依赖 V_ψ 准确性)', data:[1.0,0.85,0.6,0.4,0.25,0.12,0.06,0.02,0],
+              borderColor:'#ff9f6e',backgroundColor:'rgba(255,159,110,.1)',tension:.3 },
+            { label:'方差 (variance)', data:[0.05,0.08,0.15,0.25,0.4,0.65,0.78,0.92,1.0],
+              borderColor:'#5b8def',backgroundColor:'rgba(91,141,239,.1)',tension:.3 }
+          ]
+        },
+        options:{
+          scales:{
+            x:{title:{display:true,text:'λ (GAE 参数)',color:'#8492a8'},ticks:{color:'#8492a8'},grid:{color:'rgba(255,255,255,.05)'}},
+            y:{title:{display:true,text:'相对值（0-1）',color:'#8492a8'},ticks:{color:'#8492a8'},grid:{color:'rgba(255,255,255,.05)'}}
+          },
+          plugins:{legend:{labels:{color:'#b9c4d4',font:{size:11}}}}
+        }
+      });
+
+      // §5 BT sigmoid chart
+      const ctx5 = document.getElementById('btChart');
+      if (ctx5) {
+        const xs = [], ys = [];
+        for (let d = -5; d <= 5; d += 0.2) {
+          xs.push(d.toFixed(1));
+          ys.push(1/(1+Math.exp(-d)));
+        }
+        new Chart(ctx5, {
+          type: 'line',
+          data: {
+            labels: xs,
+            datasets: [{
+              label:'P(y_w ≻ y_l) = σ(r_w − r_l)',
+              data:ys, borderColor:'#ffd166', backgroundColor:'rgba(255,209,102,.15)',
+              tension:.3, fill:true, pointRadius:0
+            }]
+          },
+          options:{
+            scales:{
+              x:{title:{display:true,text:'reward 分数差 (r_w − r_l)',color:'#8492a8'},ticks:{color:'#8492a8',maxTicksLimit:11},grid:{color:'rgba(255,255,255,.05)'}},
+              y:{title:{display:true,text:'偏好概率',color:'#8492a8'},ticks:{color:'#8492a8'},grid:{color:'rgba(255,255,255,.05)'},min:0,max:1}
+            },
+            plugins:{legend:{labels:{color:'#b9c4d4',font:{size:11}}}}
+          }
+        });
+      }
+
+      // §8 GSPO ratio distribution
+      const ctx8 = document.getElementById('gspoChart');
+      if (ctx8) {
+        // 模拟分布数据
+        const bins = ['-4','-3','-2','-1','0','1','2','3','4'];
+        new Chart(ctx8, {
+          type: 'bar',
+          data: {
+            labels: bins,
+            datasets: [
+              { label:'GRPO token-level (长 tail)', data:[12,18,22,15,10,15,22,18,12],
+                backgroundColor:'rgba(255,107,138,.5)', borderColor:'#ff6b8a', borderWidth:1 },
+              { label:'GSPO sequence-level (集中)', data:[1,3,12,30,60,30,12,3,1],
+                backgroundColor:'rgba(123,227,154,.5)', borderColor:'#7be39a', borderWidth:1 }
+            ]
+          },
+          options:{
+            scales:{
+              x:{title:{display:true,text:'log(importance ratio)',color:'#8492a8'},ticks:{color:'#8492a8'},grid:{color:'rgba(255,255,255,.05)'}},
+              y:{title:{display:true,text:'频率',color:'#8492a8'},ticks:{color:'#8492a8'},grid:{color:'rgba(255,255,255,.05)'}}
+            },
+            plugins:{legend:{labels:{color:'#b9c4d4',font:{size:11}}}}
+          }
+        });
+      }
+
+      // §9 KL bias-variance scatter
+      const ctx9 = document.getElementById('klChart');
+      if (ctx9) new Chart(ctx9, {
+        type: 'scatter',
+        data: {
+          datasets: [
+            { label:'k1 = −log u (无偏，可负，方差大)', data:[{x:0, y:1.0, r:14}],
+              backgroundColor:'rgba(91,141,239,.7)' },
+            { label:'k2 = ½(log u)² (有偏，非负，低方差)', data:[{x:0.4, y:0.5, r:14}],
+              backgroundColor:'rgba(255,159,110,.7)' },
+            { label:'k3 = (u−1)−log u (无偏，非负，经验低方差) ⭐', data:[{x:0, y:0.3, r:18}],
+              backgroundColor:'rgba(123,227,154,.85)' }
+          ]
+        },
+        options:{
+          scales:{
+            x:{title:{display:true,text:'偏差 (bias)',color:'#8492a8'},ticks:{color:'#8492a8'},grid:{color:'rgba(255,255,255,.05)'},min:-0.2,max:0.8},
+            y:{title:{display:true,text:'方差 (variance)',color:'#8492a8'},ticks:{color:'#8492a8'},grid:{color:'rgba(255,255,255,.05)'},min:0,max:1.3}
+          },
+          plugins:{
+            legend:{labels:{color:'#b9c4d4',font:{size:11}}},
+            tooltip:{ callbacks:{ label:c=>c.dataset.label } }
+          }
+        }
+      });
+    });
+    </script>
+
+  </main>
+</div>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-text">
+      © 2026 · 核心方法原理推导 · 配套 <a href="llm-post-training-master.html" style="color:var(--acc-yellow)">LLM Post-Training Master Atlas</a>
+    </div>
+    <div class="footer-links">
+      <a href="llm-post-training-master.html">主综述</a>
+      <a href="multi-turn-tool-use.html">多轮 Tool Use</a>
+      <a href="rl-frameworks-survey.html">训练框架</a>
+      <a href="rl-pitfalls-survey.html">实战 Pitfalls</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+mermaid.initialize({
+  startOnLoad:true,theme:'base',
+  themeVariables:{
+    background:'transparent',primaryColor:'#1d2638',
+    primaryTextColor:'#e6edf7',primaryBorderColor:'#ffd166',
+    lineColor:'#5b8def',secondaryColor:'#a78bfa',tertiaryColor:'#151c2e',
+    fontFamily:'Inter, Noto Sans SC, sans-serif'
+  },
+  flowchart:{curve:'basis',htmlLabels:true}
+});
+const tocLinks = document.querySelectorAll('#toc a');
+const observer = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      const id = e.target.id;
+      tocLinks.forEach(a=>{
+        a.classList.toggle('active', a.getAttribute('href')==='#'+id);
+      });
+    }
+  });
+},{rootMargin:'-30% 0px -60% 0px',threshold:0});
+document.querySelectorAll('section.section').forEach(s=>observer.observe(s));
+</script>
+
+<script>
+window.addEventListener('load', () => {
+  const el = document.getElementById('desmos-ppo');
+  if (!el || typeof Desmos === 'undefined') return;
+  const calc = Desmos.GraphingCalculator(el, { expressions: true, settingsMenu: false, zoomButtons: true });
+  calc.setMathBounds({ left: -0.5, right: 2.5, bottom: -2.5, top: 2.5 });
+  calc.setExpression({ id: 'eps', latex: '\\epsilon=0.2', sliderBounds: { min: 0.05, max: 0.5, step: 0.01 } });
+  calc.setExpression({ id: 'adv', latex: 'A=1', sliderBounds: { min: -2, max: 2, step: 0.1 } });
+  calc.setExpression({ id: 'unc', latex: 'r\\cdot A', color: Desmos.Colors.RED, lineStyle: Desmos.Styles.DASHED, lineOpacity: 0.5 });
+  calc.setExpression({ id: 'clp', latex: 'L\\left(r\\right)=\\min\\left(r\\cdot A,\\operatorname{clip}\\left(r,1-\\epsilon,1+\\epsilon\\right)\\cdot A\\right)', color: Desmos.Colors.GREEN });
+  calc.setExpression({ id: 'v1', latex: 'x=1-\\epsilon', color: Desmos.Colors.PURPLE, lineOpacity: 0.4, lineStyle: Desmos.Styles.DASHED });
+  calc.setExpression({ id: 'v2', latex: 'x=1+\\epsilon', color: Desmos.Colors.PURPLE, lineOpacity: 0.4, lineStyle: Desmos.Styles.DASHED });
+});
+</script>
+
+<script>
+window.addEventListener('load', () => {
+  const el = document.getElementById('desmos-gae');
+  if (!el || typeof Desmos === 'undefined') return;
+  const calc = Desmos.GraphingCalculator(el, { expressions: true, settingsMenu: false });
+  calc.setMathBounds({ left: -0.5, right: 20, bottom: -0.1, top: 1.1 });
+  calc.setExpression({ id: 'lam', latex: '\\lambda=0.95', sliderBounds: { min: 0, max: 1, step: 0.01 } });
+  calc.setExpression({ id: 'gam', latex: '\\gamma=0.99', sliderBounds: { min: 0.8, max: 1, step: 0.005 } });
+  calc.setExpression({ id: 'w', latex: 'w\\left(k\\right)=\\left(\\gamma\\lambda\\right)^{k}', color: Desmos.Colors.BLUE });
+});
+</script>
+
+<script>
+window.addEventListener('load', () => {
+  const el = document.getElementById('desmos-kl');
+  if (!el || typeof Desmos === 'undefined') return;
+  const calc = Desmos.GraphingCalculator(el, { expressions: true, settingsMenu: false });
+  calc.setMathBounds({ left: 0, right: 4, bottom: -1.5, top: 3 });
+  // 横轴是 u = π_ref/π_θ（参考在上、采样在下）——方向写反则 k3 不再无偏
+  calc.setExpression({ id: 'k1', latex: 'k_{1}\\left(u\\right)=-\\ln\\left(u\\right)', color: Desmos.Colors.BLUE });
+  calc.setExpression({ id: 'k2', latex: 'k_{2}\\left(u\\right)=\\frac{1}{2}\\left(\\ln\\left(u\\right)\\right)^{2}', color: Desmos.Colors.ORANGE });
+  calc.setExpression({ id: 'k3', latex: 'k_{3}\\left(u\\right)=u-1-\\ln\\left(u\\right)', color: Desmos.Colors.GREEN, lineWidth: 3 });
+  calc.setExpression({ id: 'tan', latex: 'y=1-x', color: Desmos.Colors.PURPLE, lineStyle: Desmos.Styles.DASHED, lineOpacity: 0.5 });
+  calc.setExpression({ id: 'u0', latex: 'u_{0}=1.5', sliderBounds: { min: 0.1, max: 3.5, step: 0.05 } });
+  calc.setExpression({ id: 'p1', latex: '\\left(u_{0},k_{1}\\left(u_{0}\\right)\\right)', color: Desmos.Colors.BLUE });
+  calc.setExpression({ id: 'p2', latex: '\\left(u_{0},k_{2}\\left(u_{0}\\right)\\right)', color: Desmos.Colors.ORANGE });
+  calc.setExpression({ id: 'p3', latex: '\\left(u_{0},k_{3}\\left(u_{0}\\right)\\right)', color: Desmos.Colors.GREEN });
+});
+</script>
+
+<script>
+window.addEventListener('load', () => {
+  if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
+  gsap.registerPlugin(ScrollTrigger);
+  document.querySelectorAll('.deriv').forEach(deriv => {
+    const steps = deriv.querySelectorAll('.deriv-step');
+    gsap.from(steps, {
+      opacity: 0, y: 24,
+      duration: 0.5, stagger: 0.18, ease: 'power2.out',
+      scrollTrigger: { trigger: deriv, start: 'top 80%', once: true }
+    });
+  });
+  // formula 块的轻量浮现
+  document.querySelectorAll('.formula.derived').forEach(f => {
+    gsap.from(f, {
+      opacity: 0, scale: 0.96,
+      duration: 0.55, ease: 'back.out(1.4)',
+      scrollTrigger: { trigger: f, start: 'top 85%', once: true }
+    });
+  });
+});
+</script>
+</body>
+</html>

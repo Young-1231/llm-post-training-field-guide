@@ -1,0 +1,11 @@
+.DS_Store
+._*
+.claude/
+.vscode/
+.idea/
+node_modules/
+.env
+.env.*
+*.log
+*.tmp
+*.bak

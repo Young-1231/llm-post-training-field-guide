@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>奖励模型：从 Bradley-Terry 到 GenRM 与 Rubric Reward</title>
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']]
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<style>
+  :root {
+    --bg: #fafaf7;
+    --fg: #1f2328;
+    --muted: #6e7781;
+    --accent: #0a5fb8;
+    --accent2: #b91c1c;
+    --warn: #b45309;
+    --ok: #15803d;
+    --code-bg: #f3f3ee;
+    --border: #d8d8d2;
+    --box-bg: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.75;
+    margin: 0;
+    padding: 0;
+    font-size: 16px;
+  }
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 48px 28px 96px;
+  }
+  header.hero {
+    border-bottom: 2px solid var(--fg);
+    margin-bottom: 36px;
+    padding-bottom: 18px;
+  }
+  header.hero h1 {
+    font-size: 34px;
+    margin: 0 0 8px 0;
+    letter-spacing: -0.5px;
+  }
+  header.hero .subtitle {
+    color: var(--muted);
+    font-size: 16px;
+    margin: 4px 0;
+  }
+  nav.toc {
+    background: var(--box-bg);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    padding: 18px 24px;
+    border-radius: 6px;
+    margin-bottom: 40px;
+  }
+  nav.toc h2 {
+    margin: 0 0 10px 0;
+    font-size: 18px;
+    color: var(--accent);
+  }
+  nav.toc ol {
+    margin: 0;
+    padding-left: 20px;
+    columns: 2;
+    column-gap: 28px;
+  }
+  nav.toc ol li { margin: 4px 0; break-inside: avoid; }
+  nav.toc a { color: var(--fg); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); text-decoration: underline; }
+
+  h2.section {
+    font-size: 26px;
+    margin-top: 56px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+    color: var(--accent);
+  }
+  h3 {
+    font-size: 20px;
+    margin-top: 28px;
+    margin-bottom: 8px;
+  }
+  h4 {
+    font-size: 17px;
+    margin-top: 20px;
+    margin-bottom: 6px;
+    color: #2a3038;
+  }
+  p { margin: 10px 0; }
+  ul, ol { margin: 8px 0; padding-left: 24px; }
+  li { margin: 4px 0; }
+  code {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.92em;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  pre code { background: transparent; padding: 0; }
+
+  .callout {
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    border-left: 4px solid;
+    background: var(--box-bg);
+  }
+  .callout-warn { border-color: var(--warn); background: #fff8eb; }
+  .callout-tip { border-color: var(--ok); background: #effaf2; }
+  .callout-bug { border-color: var(--accent2); background: #fef2f2; }
+  .callout-info { border-color: var(--accent); background: #eff6ff; }
+  .callout strong { display: block; margin-bottom: 4px; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 14px 0;
+    font-size: 15px;
+    background: var(--box-bg);
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #f0efeb; font-weight: 600; }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    margin-right: 6px;
+    background: #e7e5dd;
+    color: #444;
+  }
+  .tag.bug { background: #fee2e2; color: #991b1b; }
+  .tag.fix { background: #dcfce7; color: #166534; }
+  .tag.alg { background: #dbeafe; color: #1e40af; }
+
+  .formula-box {
+    background: var(--box-bg);
+    border: 1px dashed var(--border);
+    padding: 12px 16px;
+    margin: 14px 0;
+    border-radius: 6px;
+    overflow-x: auto;
+  }
+  .ref {
+    background: var(--box-bg);
+    border-top: 2px solid var(--border);
+    margin-top: 48px;
+    padding-top: 20px;
+    font-size: 14.5px;
+  }
+  .ref ul { padding-left: 22px; }
+  .ref li { margin: 6px 0; }
+  .ref a { color: var(--accent); word-break: break-all; }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 14px 0;
+  }
+  @media (max-width: 720px) {
+    nav.toc ol { columns: 1; }
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+  .small { font-size: 14px; color: var(--muted); }
+  blockquote {
+    border-left: 4px solid var(--border);
+    padding: 4px 16px;
+    color: var(--muted);
+    margin: 14px 0;
+    background: var(--box-bg);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header class="hero">
+  <h1>奖励模型：从 Bradley-Terry 到 GenRM 与 Rubric Reward</h1>
+  <div class="subtitle">神经奖励模型的训练、评测、攻防与工业化：标量 RM / PRM / GenRM / rubric reward 的一张统一地图</div>
+  <div class="subtitle small"><a href="llm-post-training-master.html">← 返回总纲（LLM Post-Training 全景综述）</a> · 2026-06-12 · 后训练知识库专题 · 配套阅读：<a href="derivations.html#sec-bt">derivations.html §5（BT→DPO 推导）</a> · <a href="rl-pitfalls-survey.html#sec-1">rl-pitfalls-survey.html §1/§3/§11（reward hacking / length bias / 监控）</a></div>
+</header>
+
+<nav class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><a href="#sec-1">奖励信号全景：三分谱系与 2017→2026 的钟摆</a></li>
+    <li><a href="#sec-2">Bradley-Terry 标量 RM：理论、实现与训练纪律</a></li>
+    <li><a href="#sec-3">奖励过优化：Gao Scaling Laws 与防御工具箱</a></li>
+    <li><a href="#sec-4">偏好数据工程：标注、噪声、清洗与迭代式 RLHF</a></li>
+    <li><a href="#sec-5">PRM vs ORM：过程奖励的承诺与现实</a></li>
+    <li><a href="#sec-6">生成式奖励模型（GenRM）：把奖励变成推理任务</a></li>
+    <li><a href="#sec-7">Rubric Reward 工业化：从 RaR 到 Kimi K2 与 DeepSeek-V4</a></li>
+    <li><a href="#sec-8">Judge 偏置与对抗鲁棒性：Master Key 与 token 空间攻击</a></li>
+    <li><a href="#sec-9">RM 评测基准：RewardBench 系与「榜单 ≠ 下游」</a></li>
+    <li><a href="#sec-10">把 RM 接进 RL 训练循环：工程实操</a></li>
+    <li><a href="#sec-11">总结：决策表、检查清单与开放问题</a></li>
+    <li><a href="#refs">参考文献</a></li>
+  </ol>
+</nav>
+
+<p class="small">本文是知识库中「奖励模型」这半边的系统性补全（对应审计差距 G18 / G19 / G39）：既有文档把 RLHF 算法链讲到了专家级，但 RM 本身——它怎么训、怎么评、怎么被攻击、什么时候该换成 GenRM 或 rubric——一直是空白。本文所有 arXiv 编号与数字结论均经 2026-06-12 联网核实，可放心引用。</p>
+
+<!-- ============== Section 1 ============== -->
+<h2 class="section" id="sec-1">1. 奖励信号全景：三分谱系与 2017→2026 的钟摆</h2>
+
+<h3>1.1 一切后训练的核心问题：奖励从哪里来</h3>
+<p>RL 后训练的全部分歧，归根结底是一个问题：<strong>「好」的定义由谁给出、以什么形式给出。</strong>2026 年的从业者面对的是一个三分谱系：</p>
+
+<table>
+<thead><tr><th>奖励源</th><th>形式</th><th>适用域</th><th>优点</th><th>致命弱点</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>可验证奖励（verifiable reward / RLVR）</strong></td>
+  <td>规则、单元测试、符号求解器、字符串匹配</td>
+  <td>数学、代码、逻辑、格式约束</td>
+  <td>便宜、确定性、不易被语义攻击</td>
+  <td>只覆盖可验证域；verifier 本身仍可被 hack（见 <a href="rl-pitfalls-survey.html#sec-1">pitfalls §1</a> 的套壳/泄漏案例）</td>
+</tr>
+<tr>
+  <td><strong>Rubric 奖励（rubric / checklist reward）</strong></td>
+  <td>把「好」分解为一组可逐条核验的标准，由 LLM judge 或确定性 verifier 逐条打分再聚合</td>
+  <td>医疗问答、创意写作、开放指令等「难验证但可分解」的域</td>
+  <td>可解释、可针对性防 hack（写入 prescriptive 条目）、小 judge 也能用</td>
+  <td>rubric 设计与维护成本高；rubric 自身覆盖不全就是新的 hacking 面</td>
+</tr>
+<tr>
+  <td><strong>神经 RM（标量 BT RM / PRM / GenRM）</strong></td>
+  <td>从偏好数据学出的打分器：标量头输出分数，或生成式模型输出 critique + 判断</td>
+  <td>通用对话、风格、helpfulness 等无法分解的整体偏好</td>
+  <td>覆盖面最广、自动化程度最高、标量 RM 推理极便宜</td>
+  <td>静态 proxy 必被过优化（§3）；分布外失真；可被对抗攻击（§8）</td>
+</tr>
+</tbody>
+</table>
+
+<div class="callout callout-info">
+<strong>从业者核心判断力（2026 共识）</strong>
+纯标量 BT RM 在可验证域已被 RLVR 取代，在开放域被「GenRM / rubric reward + 推理时扩展」挤压；但它因为<em>便宜、低延迟、不走语义通道因而不易被 master-key 式语义攻击</em>，仍是 Best-of-N 重排、数据过滤、偏好数据预筛的主力。「什么场景用哪类奖励源」是本文反复回答的问题，最终决策表见 §11。
+</div>
+
+<h3>1.2 2017→2026 时间线：神经 RM 的兴衰与回摆</h3>
+<table>
+<thead><tr><th>阶段</th><th>代表工作</th><th>奖励范式</th></tr></thead>
+<tbody>
+<tr><td>2017</td><td>Christiano et al.（deep RL from human preferences, arXiv 1706.03741）</td><td>奠基：两两偏好比较 → BT 形式拟合奖励 → RL 优化。偏好对→RM→RL 的范式由此确立。</td></tr>
+<tr><td>2020</td><td>Stiennon et al. 摘要任务 RLHF（2009.01325）</td><td>第一条完整 LLM 流水线 SFT→RM→PPO+KL penalty，首次系统记录 reward 过优化与 KL 的关系。</td></tr>
+<tr><td>2022</td><td>InstructGPT（2203.02155）、Anthropic HH-RLHF（2204.05862）、CAI（2212.08073）</td><td>三阶段范式定型；HH 引入在线迭代 RLHF 与 RM 校准分析；CAI 用 AI feedback 替代人类无害性标注（RLAIF 源头）。</td></tr>
+<tr><td>2023</td><td>Llama 2（2307.09288）、Lightman et al.（2305.20050）、DPO（2305.18290）</td><td>工业级 RM 工程细节最详尽的公开报告（双 RM + margin loss）；PRM 在 MATH 上确立 process supervision 优势；DPO 证明 policy 隐式就是 RM。</td></tr>
+<tr><td>2024</td><td>RewardBench（2403.13787）、Llama 3（2407.21783）、GenRM 萌芽（Generative Verifiers 2408.15240、CLoud 2408.11791、Self-Taught Evaluators 2408.02666）</td><td>RM 评测成为子方向；Llama 3 弃 PPO 改 SFT+DPO 路线、并因数据规模化后增益消失而移除 margin；「用 LLM 生成能力做 RM」的三条早期路线出现。</td></tr>
+<tr><td>2025 上半年</td><td>DeepSeek-R1（2501.12948）、DeepSeek-GRM/SPCT（2504.02495）、RM-R1（2505.02387）</td><td>钟摆打到最左：R1 明确弃用神经 RM/PRM、全用 rule-based 可验证奖励；但同期 DeepSeek 自己发布 GRM——生成式 RM + 推理时扩展，神经 RM 以新形态回归。</td></tr>
+<tr><td>2025 下半年</td><td>Kimi K2（2507.20534）、Master-RM（2507.08794）、Skywork-Reward-V2（2507.01352）、RaR（2507.17746）、Nemotron GenRM（2025-12 模型卡）</td><td>rubric reward 进入工业生产（K2 self-critique）；judge 对抗鲁棒性研究引爆（master key 攻击）；标量 RM 用 4000 万级数据清洗证明数据杠杆仍在；NVIDIA 用 235B GenRM 直接当 RL 奖励源。</td></tr>
+<tr><td>2026 上半年</td><td>DeepSeek-V4（2026-04 技术报告）、Rubric-ARM（2602.01511）、Beyond Length Scaling（2603.01571）、RLR³（2605.30244）</td><td>钟摆回摆完成：V4 用 rubric-guided GRM（actor 同时当 generator 和 judge）处理难验证任务；rubric 生成本身被 RL 化；GenRM 研究主线转向「推理算力怎么花」（广度 × 深度）与抗 hack 路由。</td></tr>
+</tbody>
+</table>
+
+<div class="callout callout-warn">
+<strong>修正既有文档的 2025 叙事</strong>
+<a href="llm-post-training-master.html">master</a> 与 <a href="rl-pitfalls-survey.html">pitfalls</a> 中「DeepSeek 弃 neural RM 改 rule-based、规则奖励不可被 hack」的叙事只对了一半、且止步于 2025 年初：(1) R1 弃用的是<em>拿偏好训练的标量 RM/PRM 直接当大规模 RL 奖励</em>，同年 DeepSeek 即用 SPCT 训出生成式 GRM；(2) 2026-04 的 DeepSeek-V4 对难验证任务明确采用 rubric-guided 数据 + 模型自身当 judge 的 GRM 路线，评判能力与生成能力联合优化。「弃用神经 RM」从来不是终点，而是钟摆的一个端点。另外「rule-based reward 无 reward hacking」本身就是错误论断，勘误见审计 G11。
+</div>
+
+<h3>1.3 各家路线一览（必须能脱口而出）</h3>
+<table>
+<thead><tr><th>厂商</th><th>奖励路线</th><th>关键事实</th></tr></thead>
+<tbody>
+<tr><td><strong>OpenAI</strong></td><td>经典 RM+PPO 起家，PRM 重仓（PRM800K），后大量转向 rubric / CoT 监督</td><td>InstructGPT 定义三阶段；Let's Verify Step by Step 证明 process supervision 在 MATH 上显著优于 outcome supervision。</td></tr>
+<tr><td><strong>Anthropic</strong></td><td>Constitutional AI / RLAIF + 在线迭代 RLHF</td><td>HH-RLHF 给出 RM 校准（§2.4）、reward 与 $\sqrt{\mathrm{KL}}$ 近似线性的经验关系；2026-01 新宪法转向 reason-based（解释理由而非规则清单）。</td></tr>
+<tr><td><strong>Meta</strong></td><td>Llama 2：helpfulness/safety 双 RM + margin BT + rejection sampling + PPO；Llama 3：弃 PPO，改 rejection sampling + SFT + DPO</td><td>Llama 3 报告：DPO 对大模型更省算力、在 IFEval 等指令跟随上表现更好；margin 在数据规模化后增益递减而移除。</td></tr>
+<tr><td><strong>DeepSeek</strong></td><td>R1 全 rule-based → GRM/SPCT 推理时扩展 → V4 rubric-guided GRM</td><td>本文 §5.3（弃 PRM 三理由）、§6.3（SPCT）、§7.4（V4）。</td></tr>
+<tr><td><strong>Moonshot (Kimi)</strong></td><td>K2：verifiable rewards + self-critique rubric reward 联合 RL</td><td>模型自己当 critic 做成对比较；rubric 含 core（价值观）与 prescriptive（防 hack）两类条目；critic 能力在 SFT 阶段用偏好数据引导启动。</td></tr>
+<tr><td><strong>NVIDIA</strong></td><td>大 GenRM 直接做 RL 奖励源</td><td>Qwen3-Nemotron-235B-A22B-GenRM（基于 Qwen3-235B-A22B-Thinking-2507）作为 RLHF 奖励信号训练 Nemotron-3-Nano-30B；RM-Bench 87.3 / JudgeBench 87.4。</td></tr>
+<tr><td><strong>Ai2（开放参考）</strong></td><td>Olmo 3：全开放 SFT→DPO→RLVR</td><td>RLVR 用符号求解器与单元测试；全部数据/代码/checkpoint 开源，是研究 RM 与 RLVR 交互最透明的参考实现。</td></tr>
+</tbody>
+</table>
+
+<!-- ============== Section 2 ============== -->
+<h2 class="section" id="sec-2">2. Bradley-Terry 标量 RM：理论、实现与训练纪律</h2>
+
+<h3>2.1 BT 模型与损失函数</h3>
+<p>Bradley &amp; Terry (1952) 的成对比较模型假设每个对象有一个潜在「实力」分数，胜率由分数差的 sigmoid 给出。映射到 RLHF：给定 prompt $x$ 与两个回复 $y_w \succ y_l$，</p>
+
+<div class="formula-box">
+$$ P(y_w \succ y_l \mid x) = \frac{e^{r(x,y_w)}}{e^{r(x,y_w)} + e^{r(x,y_l)}} = \sigma\big(r(x,y_w) - r(x,y_l)\big) $$
+</div>
+
+<p>对偏好数据做极大似然，得到标准 RM 损失（即 negative log-sigmoid of score difference）：</p>
+
+<div class="formula-box">
+$$ \mathcal{L}_{\mathrm{RM}}(\theta) = -\,\mathbb{E}_{(x,y_w,y_l)\sim\mathcal{D}}\Big[\log \sigma\big(r_\theta(x,y_w) - r_\theta(x,y_l)\big)\Big] $$
+</div>
+
+<p>三个常被忽略的理论性质：</p>
+<ul>
+  <li><strong>只学相对差，不学绝对值。</strong>对所有 $r$ 加同一常数（甚至每个 prompt 加不同常数），损失不变。所以不同 prompt 之间的 RM 分数不可比，把原始 RM 分数当全局质量度量是常见误用；这也是 §10 中 reward 归一化必须做的根本原因。</li>
+  <li><strong>K-wise 推广是 Plackett-Luce。</strong>对一个 prompt 的 $K$ 个回复全排序 $\tau$：$P(\tau) = \prod_{k=1}^{K} \frac{\exp r(x, y_{\tau(k)})}{\sum_{j=k}^{K}\exp r(x,y_{\tau(j)})}$。Zhu et al.（2301.11270）给出了 pairwise 与 K-wise 比较下 RM 学习的统计理论。实践中 InstructGPT 不直接用 PL 损失，而是把排序拆成 $\binom{K}{2}$ 个 BT 对（见 2.2）。</li>
+  <li><strong>margin 变体。</strong>Llama 2 利用标注的四档偏好强度，在损失中加离散 margin：$-\log\sigma(r_w - r_l - m(r))$，差异大的对用大 margin。但 <strong>Llama 3 在数据规模化后观察到 margin 增益递减而移除</strong>——margin loss 并非必需，数据规模与质量上去之后它是噪声放大器。</li>
+</ul>
+
+<p class="small">BT 与 DPO 的闭式对应（policy 隐式就是 RM）的完整推导见 <a href="derivations.html#sec-bt">derivations.html §5-6</a>，此处不重复。</p>
+
+<h3>2.2 实现细节（每一条都有出处，每一条都有人踩过坑）</h3>
+<ul>
+  <li><strong>架构：</strong>标准做法是 <code>AutoModelForSequenceClassification</code> 式的「LM 骨干 + 标量线性头」，取<strong>最后一个非 padding token</strong> 的 hidden state 过线性头输出标量。RM 通常从 SFT/chat checkpoint 初始化（Llama 2 明确从 chat checkpoint 初始化，让 RM 与 policy「知识同源」）；新加的 reward head 用小方差高斯初始化（HF 博客 <em>The N Implementation Details of RLHF with PPO</em> 复现了 OpenAI 的具体做法）。</li>
+  <li><strong>$\binom{K}{2}$ 同 batch 是 InstructGPT 的关键 trick。</strong>标注时给标注员 $K=4$ 到 $9$ 个回复做排序，产生 $\binom{K}{2}$ 个比较对。这些对高度相关：如果 shuffle 进整个数据集分散训练，<em>一个 epoch 就会过拟合</em>。正确做法是把同一 prompt 的所有比较对作为单个 batch 元素一起前向——每个回复只需一次前向，验证准确率与 log loss 都显著更好。这是所有自研 RM 训练管线必须复刻的细节。</li>
+  <li><strong>RM 尺寸不必跟 policy 对齐。</strong>InstructGPT 全程用 6B RM 服务 175B policy：省算力，而且 175B RM 训练不稳定、不适合再拿去初始化 RL 的 value function。「RM 必须和 policy 一样大」是没有依据的迷信；真正的 scaling 收益见 §3 的 Gao 系数分析。</li>
+  <li><strong>双 RM 解耦目标冲突。</strong>Llama 2 训练 helpfulness RM 与 safety RM 两个独立模型，因为单 RM 在两个有张力的目标上都难以做好。多目标解耦的现代形态是 ArmoRM（2406.12845）：多目标回归头 + MoE gating，按上下文自动选择目标权重。</li>
+</ul>
+
+<h3>2.3 训练纪律：三条铁律</h3>
+<div class="callout callout-tip">
+<strong>铁律 1：RM 只训 1 个 epoch。</strong>
+InstructGPT 与 Llama 2 都报告多 epoch 迅速过拟合（validation loss 恶化）。注意 InstructGPT 的教训更细：即使只训一个 epoch，比较对组织方式不对（没做 $\binom{K}{2}$ 同 batch）照样过拟合。
+</div>
+<div class="callout callout-tip">
+<strong>铁律 2：held-out 准确率 65–75% 即正常水平，不要盲目刷高。</strong>
+锚点数字（InstructGPT）：训练标注员相互一致率 72.6±1.5%，held-out 标注员 77.3±1.3%；按标注员分组做 5-fold 交叉验证，RM 预测 held-out 组偏好的准确率 69.6±0.9%。人类一致率就是 RM 准确率的天花板量级——RM 准确率逼近或超过它，往往说明评测集分布太窄或泄漏，而非 RM 真的更好。
+</div>
+<div class="callout callout-tip">
+<strong>铁律 3：调参重点在数据而非超参。</strong>
+InstructGPT 报告 RM 对学习率不敏感。RM 质量的第一杠杆是偏好数据的质量与组织（§4），第二是底座选择，超参排最后。
+</div>
+
+<h3>2.4 校准性：RM 分数什么时候能当概率用（HH-RLHF）</h3>
+<p>BT 损失训出来的不只是排序器——按 §2.1 的模型假设，分数差 $\Delta := r_w - r_l$ 经 sigmoid 后是一个<strong>概率预测</strong>：$\sigma(\Delta)$ 应当等于真实偏好胜率。校准（calibration）检验的就是这件事：在 held-out 偏好对上按 $\Delta$ 分桶，画「经验准确率 vs 理论曲线 $1/(1+e^{-\Delta})$」。Anthropic HH-RLHF（2204.05862，§3.3 <em>Calibration of Preference Models and Implications for RL</em>）是第一份系统的 RM 校准分析，三个结论至今有效：</p>
+<ul>
+  <li><strong>校准可以做得很好，但混合目标会拖累它。</strong>只在 helpfulness 数据上训的 PM 校准曲线几乎贴着理论线；helpful + harmless 混训的 PM 则轻微 under-confident。目标张力连校准都会污染——与 Llama 2 拆双 RM（§2.2）是同一动机的两种表现。</li>
+  <li><strong>高分区校准系统性退化。</strong>把比较对限制到「两个样本 PM 分数都高于阈值」的子集，准确率随阈值上升而下降：高分区里同样的 $\Delta$ 对应的真实胜率差越来越小。论文给的三个原因：区分两个都很精致的回复本身更难、训练集里非 generic 的高质量样本稀少、高质量对的分数本就接近。</li>
+  <li><strong>准确率随规模 log-linear 改善。</strong>13M→52B 七档模型上，PM 准确率随模型尺寸与偏好数据量都近似 log-linear 提升（同文 §3.2）——与 Gao 系数分析（§3.1）互证：scaling 平滑买到改善，但买不到质变。</li>
+</ul>
+
+<div class="callout callout-warn">
+<strong>实战推论：分数 ≠ 概率，高分区尤甚</strong>
+RL 中后期 policy 恰好把输出推进了校准最差的高分区——proxy 分数还在涨，但每一分对应的真实质量增益在缩水。HH 由此明确预期：policy 达到足够高 PM 分数后，继续 RLHF 训练收益递减（diminishing returns），「this also motivates online training」——这正是 §3 过优化曲线的校准视角，也是 HH 走 online 迭代 RLHF（§4.3）的直接动机。操作上：凡是隐含「分数 = 校准概率」的用法——BoN 里拿 $\sigma(\Delta)$ 当胜率估计、拿分数阈值筛「高置信」数据、把分数差直接读作质量差——都必须先画校准曲线（重点单看高分区）再决定信多少；校准曲线应与 §2.3 的 held-out 准确率一起列入 RM 验收项。
+</div>
+
+<h3>2.5 标量 RM 的固有局限（为什么后面需要 §6/§7）</h3>
+<ul>
+  <li><strong>不可解释：</strong>一个标量给不出「为什么」，错了无法定位是数据噪声、风格偏置还是真实分歧。</li>
+  <li><strong>表达力瓶颈：</strong>把多维质量压缩成一维分数，注定在「正确但难看 vs 漂亮但错误」这类组合上失真（RM-Bench 2410.16184 系统性地度量了 RM 对内容细微差异的敏感度与对风格偏置的抵抗力：风格干扰下 SOTA RM 平均准确率仅 46.6%，低于 50% 的随机水平）。</li>
+  <li><strong>静态 proxy + 漂移的 policy：</strong>RL 中后期 policy 输出移出 RM 训练分布，RM 评分失真。这是 §3 过优化与 §4.3 迭代式 RLHF 的共同根源。</li>
+  <li><strong>无法用推理算力换判断质量：</strong>标量 RM 一次前向定生死；GenRM 可以多采样投票、拉长 critique（§6.3、§6.5），这是两者最本质的结构差异。</li>
+</ul>
+
+<!-- ============== Section 3 ============== -->
+<h2 class="section" id="sec-3">3. 奖励过优化：Gao Scaling Laws 与防御工具箱</h2>
+
+<h3>3.1 定量规律：$d=\sqrt{\mathrm{KL}}$ 与两条函数形式</h3>
+<p>Gao, Schulman &amp; Hilton（2210.10760）用合成实验定义了这个问题的标准研究框架：拿一个大「gold RM」当真值生成标签，训练小 proxy RM，对 proxy 优化并观察 gold 分数。定义 $d := \sqrt{D_{\mathrm{KL}}(\pi \,\|\, \pi_{\mathrm{init}})}$，gold reward 的经验形式为：</p>
+
+<div class="formula-box">
+$$ R_{\mathrm{BoN}}(d) = d\,(\alpha_{\mathrm{bon}} - \beta_{\mathrm{bon}}\, d) \qquad\qquad R_{\mathrm{RL}}(d) = d\,(\alpha_{\mathrm{RL}} - \beta_{\mathrm{RL}} \log d) $$
+</div>
+
+<p>解读：</p>
+<ul>
+  <li>两条曲线都是<strong>先升后降</strong>——proxy 分数单调上升的同时，真实质量越过拐点开始下跌，这就是 Goodhart's Law 的定量形态。</li>
+  <li><strong>BoN 与 RL 的退化形式不同</strong>：BoN 是二次型（衰减更急），RL 是 $d\log d$ 型（作者注明该形式在原点附近不成立，斜率发散）。同样的 proxy RM，用在 BoN 重排和用在 RL 优化上的「安全 KL 预算」不一样，监控阈值要分开定。顺带记住 BoN 的解析 KL：$\mathrm{KL}_{\mathrm{bon}} = \log n - \frac{n-1}{n}$（Stiennon et al. 附录 G.3，Gao et al. 沿用）——$n=64$ 也才约 3.2 nats，这就是为什么 BoN 是「温和优化器」、适合当过优化探针（§3.2）。</li>
+  <li><strong>系数随 RM 参数量平滑变化</strong>：更大的 RM 把拐点推得更远，但不消除拐点。论文还扫了 RM 数据量、policy 大小与 KL penalty 系数的影响。这是「RM scaling 有用但不解决问题」的出处。</li>
+  <li>与 Anthropic HH-RLHF 的「reward 近似线性于 $\sqrt{\mathrm{KL}}$」经验关系同框看：训练早期 $d$ 小，$R(d)\approx \alpha d$，线性段正是健康区间；偏离线性即是预警信号。</li>
+</ul>
+
+<div class="callout callout-warn">
+<strong>KL 正则不是保险箱：Catastrophic Goodhart</strong>
+Kwa et al.（2407.14503）证明当 reward 误差是 heavy-tailed 时，KL 正则化无法阻止过优化——policy 可以在极小 KL 预算内找到误差长尾上的极端样本。reward 误差轻尾时 KL 才有兜底作用。结合 §8 的 token 空间攻击看：对抗样本恰恰制造 heavy tail，所以「有 KL 就安全」在对抗场景下是错觉。
+</div>
+
+<h3>3.2 检测：怎么知道自己正在过优化</h3>
+<ul>
+  <li><strong>gold/reference RM 重打分：</strong>标准检测法。用一个更强的、不参与训练的 RM 给 policy 输出重打分；训练早期 proxy 与 gold 同升，过优化时 proxy 继续涨而 gold 开始跌——回退 checkpoint 或提高 KL 系数。</li>
+  <li><strong>BoN 监控：</strong><a href="rl-pitfalls-survey.html#sec-11">pitfalls §11</a> 的做法——定期对固定 prompt 集做 Best-of-N（如 N=64）采样，观察 RM 选出的 top 样本人工质量是否还在涨。BoN 是比 RL 更便宜的「过优化探针」，因为它对同一个 RM 施加可控强度的优化压力。</li>
+  <li><strong>real-eval 相关性：</strong>跟踪训练 reward 与真实评测（人工或独立 benchmark）的相关性，相关性破裂即拐点。</li>
+</ul>
+
+<h3>3.3 防御工具箱</h3>
+<table>
+<thead><tr><th>工具</th><th>机制</th><th>代表工作</th><th>注意点</th></tr></thead>
+<tbody>
+<tr><td><strong>RM ensemble</strong></td><td>多个 RM 取 min 或 mean−λ·std，惩罚分歧大的样本（分歧大 ≈ OOD）</td><td>Coste et al. 2310.02743</td><td>成员同源（同一预训练底座）则多样性有限，效果打折；成本随成员数线性涨。</td></tr>
+<tr><td><strong>多目标 + MoE gating</strong></td><td>把奖励分解为可解释维度（helpfulness、correctness、verbosity…）回归 + 按上下文 gating，可显式抑制 length bias</td><td>ArmoRM 2406.12845；个性化方向见稀疏 MoE RM 2606.04284</td><td>需要多目标标注数据（如 HelpSteer2 2406.08673）。</td></tr>
+<tr><td><strong>信息瓶颈正则</strong></td><td>压缩 RM 内部表征中与偏好无关的信息，减少可被 hack 的伪特征</td><td>InfoRM 2402.09345</td><td>其 IB 潜空间的 outlier 还可当过优化检测器用。</td></tr>
+<tr><td><strong>长度解耦</strong></td><td>双头分别拟合长度相关/无关分量，训练时只用后者</td><td>ODIN 2402.07319；现象定量见 Singhal et al. 2310.03716</td><td>length bias 是第一大系统性偏置，见 <a href="rl-pitfalls-survey.html#sec-3">pitfalls §3</a>。</td></tr>
+<tr><td><strong>Reward shaping（有界化）</strong></td><td>两条设计原则：RL reward 应有界；应「初期快速增长、后期渐进收敛」。PAR 把 RM 分数中心化后过 sigmoid 当奖励</td><td>PAR 2502.18770</td><td>PAR 报告 AlpacaEval 2.0 胜率比基线方法高至少 5 个百分点，且训满两个 epoch 仍未 hack；只需一个 reference reward。</td></tr>
+<tr><td><strong>迭代重训 RM</strong></td><td>用最新 policy 采样→重标注→重训 RM，对抗分布漂移</td><td>Anthropic HH、Llama 2/3（§4.3）</td><td>大改动场景下单轮「train RM once」流水线必然撞墙。</td></tr>
+<tr><td><strong>换奖励源</strong></td><td>可验证部分走 verifier，难验证部分走 rubric/GenRM</td><td>§6 / §7</td><td>2026 年的结构性答案：不是把标量 RM 修到完美，而是缩小它的责任范围。</td></tr>
+</tbody>
+</table>
+
+<p class="small">过优化的更广义形态（emergent misalignment：生产编码 RL 中学会 hack 的模型泛化出伪装对齐、配合恶意行为，Anthropic 2511.18397；机制统一论 Proxy Compression Hypothesis，2604.13602 综述）超出本文 RM 主线，建议在 eval-safety 专题展开；此处只需记住：<strong>RM 被 hack 不只是掉点问题，而是失配的种子。</strong></p>
+
+<!-- ============== Section 4 ============== -->
+<h2 class="section" id="sec-4">4. 偏好数据工程：标注、噪声、清洗与迭代式 RLHF</h2>
+
+<h3>4.1 标注设计：InstructGPT 与 Llama 2 的两套范本</h3>
+<ul>
+  <li><strong>InstructGPT 式（排序制）：</strong>每个 prompt 采 $K=4$–$9$ 个回复让标注员全排序，拆成 $\binom{K}{2}$ 对。优点是单位标注时间产出的比较对多；代价是对内相关性高，必须同 batch 训练（§2.2）。</li>
+  <li><strong>Llama 2 式（成对 + 强度分档）：</strong>二选一并标注偏好强度（四档，从 significantly better 到 negligibly better），强度档位喂给 margin loss。同时按目标拆分标注流（helpfulness / safety 分开收集）。</li>
+  <li><strong>共同纪律：</strong>写清标注规范文档、用 held-out 标注员测一致率、用一致率校准对 RM 准确率的预期（§2.3 铁律 2）。一致率没测出来之前，RM 准确率数字没有意义。</li>
+</ul>
+
+<h3>4.2 噪声与清洗：质量 &gt; 数量，但规模在清洗后兑现</h3>
+<ul>
+  <li><strong>公开偏好集噪声严重。</strong>Secrets of RLHF Part II（2401.06080）系统分析了偏好数据中的噪声标签并提出度量偏好强度、翻转/丢弃可疑标签的流程——拿公开偏好集直接训 RM 之前必须过一遍质量分析，这是它最大的实用价值。</li>
+  <li><strong>Skywork-Reward v1（2410.18451）：精筛 80K 对</strong>——明确强调比现有数据集小得多——训出的 Gemma-27B RM 登顶当时的 RewardBench，证明「小而精」打得过「大而脏」。</li>
+  <li><strong>Skywork-Reward-V2（2507.01352）：清洗后的规模才是规模。</strong>人机协同两阶段流水线（人类核验 + LLM 自动化 curation）构建 SynPref-40M（4000 万对），实际用其中精选的 2600 万对训练 0.6B–8B 共 8 个 BT 标量 RM，在七大 RM 基准全面 SOTA。消融确认：效果同时来自规模与质量，缺一不可。这是「标量 RM 的数据杠杆仍未耗尽」的最强证据。</li>
+  <li><strong>实践默认流程：</strong>AI 预筛（用现有 RM/judge 打分、过滤明显噪声与重复）+ 人工抽检（校准 AI 筛选器本身的偏置）。纯人标贵且慢，纯 AI 标会复制 judge 偏置（§8），混合是 2025 之后的事实标准。</li>
+</ul>
+
+<h3>4.3 迭代式 RLHF：对抗「静态 RM × 漂移 policy」</h3>
+<p>RM 是静态快照，policy 在 RL 中持续漂移——这对矛盾只有两类解法：限制漂移（KL，§3）或更新快照（迭代）。工业界的标准编排：</p>
+<pre>
+轮次 t:  用当前最优 policy π_t 对新 prompt 采样
+      → 人工/AI 标注新偏好对（数据分布跟随 policy 分布）
+      → 重训/增量训练 RM_t+1
+      → 用 RM_t+1 做下一轮 RL / rejection sampling / DPO → π_t+1
+</pre>
+<ul>
+  <li><strong>Anthropic HH-RLHF</strong>：「online」迭代模式的最早系统记录——每周用最新 policy 重新收集偏好、重训 RM，整个流水线滚动前进。论文给出的动机正是 §2.4 的校准发现：PM 在高分区失准，必须用新数据让它「stay on-distribution」。</li>
+  <li><strong>Llama 2</strong>：多轮迭代（论文中 RLHF-V1 到 V5），每轮混合 rejection sampling 与 PPO，RM 随轮次重训。</li>
+  <li><strong>Llama 3</strong>：每轮用上一轮最优模型采样收集偏好数据，使训练数据贴近当前 policy 分布；整条管线为 rejection sampling + SFT + DPO（弃 PPO：大规模下 DPO 更省算力且在 IFEval 等指令跟随上更好）。</li>
+</ul>
+
+<div class="callout callout-info">
+<strong>与 DPO 家族的接口</strong>
+迭代式流水线里 RM 的三重身份：① rejection sampling 的重排器；② DPO 偏好对的标注器（off-policy 数据 → on-policy 化的关键，online vs offline 差距的理论见审计 G22）；③ PPO 的奖励源。同一个 RM 的质量问题会沿三条通道同时传播——这就是为什么 §9 的「下游 proxy 验证」必须在你实际使用 RM 的那条通道上做。
+</div>
+
+<!-- ============== Section 5 ============== -->
+<h2 class="section" id="sec-5">5. PRM vs ORM：过程奖励的承诺与现实</h2>
+
+<h3>5.1 二分法的起源</h3>
+<p>Uesato et al.（2211.14275, DeepMind）在数学应用题上首次系统对比两种监督：<strong>outcome supervision</strong>（只看最终答案对错 → ORM）与 <strong>process supervision</strong>（逐步骤评判 → PRM），确立了这对术语。Lightman et al.（2305.20050, OpenAI）把结论推到最有影响力的形态：发布 80 万步级标注的 PRM800K，证明在 MATH 上 process supervision 显著优于 outcome supervision，并奠定「PRM + Best-of-N 搜索」的标准用法。</p>
+
+<div class="formula-box">
+<p style="margin:0">两种 PRM 用法的形式化：设解答由步骤 $s_1,\dots,s_T$ 组成，PRM 给出 $p_t = P(s_t \text{ 正确} \mid x, s_{1:t})$。<br>
+<strong>重排（BoN）：</strong>对每个候选解聚合步级分（常用 $\min_t p_t$ 或 $\prod_t p_t$），取最高者。<br>
+<strong>RL 密集奖励：</strong>把 $p_t$ 作为 step 级 reward 接进 PPO/GRPO——这正是后来被证明极易被 hack 的用法。</p>
+</div>
+
+<h3>5.2 自动标注：Math-Shepherd 与它的噪声</h3>
+<p>人工步级标注（PRM800K 路线）贵到无法复制，Math-Shepherd（2312.08935）给出省钱主流：<strong>MC 自动标注</strong>——从步骤 $s_t$ 出发采样多条 completion，用「有多少条最终走到正确答案」估计该步的价值，无需人工。代价是噪声显著：一个错误步骤碰巧被后续修正、或正确步骤后续采样质量差，都会标错。ProcessBench（2412.06559）把「找出最早错误步骤（或确认全对）」做成基准后给出残酷对照：在竞赛/奥数级难题上，现有开源 PRM 既不如<em>直接 prompt 通用 LLM 当 critic</em>，也不如在 PRM800K 上朴素微调的 baseline——MC 自动标注的噪声在难题上被充分暴露。PRMBench（2501.03124）做了更细粒度的错误类型分析；2025-10 的 PRM 综述（2510.08049）进一步指出：现有 PRM 出了数学域（常识推理、开放任务）泛化很差，数据构建贵且标注噪声大。</p>
+
+<h3>5.3 实战定位：R1 的三连否定与 PRM 的真正用武之地</h3>
+<div class="callout callout-bug">
+<strong>DeepSeek-R1 弃用 PRM 的三个理由（原文要点，必须完整记住）</strong>
+① 细粒度 step 难以定义、其正确性难以评判；自动标注效果不佳，人工标注无法规模化。② 神经 RM（含 PRM）在大规模 RL 中必然遭遇 reward hacking。③ 重训 RM 需要额外训练资源，使整条流水线复杂化。——注意这是对「拿 PRM 当大规模 RL 奖励源」的否定，不是对 PRM 这个物种的否定。
+</div>
+<table>
+<thead><tr><th>用法</th><th>判定</th><th>理由</th></tr></thead>
+<tbody>
+<tr><td>Best-of-N / 树搜索重排（test-time scaling）</td><td class="small">✅ 主战场</td><td>优化压力一次性、可控；PRM 的步级信息在搜索剪枝中价值最大。</td></tr>
+<tr><td>数据过滤 / 蒸馏数据挑选</td><td class="small">✅ 安全</td><td>离线使用，无迭代优化压力。</td></tr>
+<tr><td>直接当 RL 密集奖励</td><td class="small">❌ 高危</td><td>R1 三连否定；policy 会迅速学会「看起来聪明但不推进解题」的步骤骗分。</td></tr>
+<tr><td>数学域之外直接复用</td><td class="small">❌ 不成立</td><td>PRM 综述（2510.08049）：跨域泛化差是当前 PRM 的结构性短板。</td></tr>
+</tbody>
+</table>
+
+<h3>5.4 2026 的统一视角：RM 本来就是 value function</h3>
+<p>TCRM（2604.22981）把 ORM/PRM 之争翻了个底朝天：在标准 BT 损失上加两个正则项——分别对应 Monte Carlo 与 TD 两种价值学习目标——使 RM 在<strong>任意</strong> token 处的输出都成为「给定前缀条件下最终奖励的条件期望」。也就是说，<strong>训练得当的 RM 形式上就是 value function</strong>。效果：中段 token 的判断准确率从 50%（随机）提到 88.9%；零步级标注拿到 ProcessBench 44.9 F1；在 PPO 中 reward model 与 critic 合一，省 27% 显存、快 19% 每步耗时。架构、数据、推理全不用改。这条线与 §6 的 GenRM 是互补的两种「让 RM 产出更多结构」的路径：TCRM 在 token 维度展开，GenRM 在推理链维度展开。</p>
+
+<!-- ============== Section 6 ============== -->
+<h2 class="section" id="sec-6">6. 生成式奖励模型（GenRM）：把奖励变成推理任务</h2>
+
+<h3>6.1 为什么以及谱系：从「分类头」到「生成判断」</h3>
+<p>标量 RM 把判断压成一次前向；GenRM 的核心赌注是：<strong>评判本身是推理任务，应该花推理算力</strong>。三条 2024 年的萌芽路线奠定了形态：</p>
+<ul>
+  <li><strong>Generative Verifiers（2408.15240, DeepMind）：</strong>把验证器从判别式分类头改写成 next-token prediction 目标，与解题生成联合训练。立刻解锁三件标量头做不到的事：CoT 式验证、majority voting 吃测试时算力、与指令微调无缝衔接。Best-of-N 下提升显著（GSM8K 73%→93.4%，MATH easy-to-hard 28%→44.6%），全面优于判别式 RM、DPO 式 verifier 与裸 LLM-as-judge。</li>
+  <li><strong>CLoud（2408.11791）：</strong>Critique-out-Loud——先生成自然语言 critique，再以 critique 为条件输出标量分。「先解释后打分」的两段式成为后来 GenRM 的标准骨架。</li>
+  <li><strong>Self-Taught Evaluators（2408.02666, Meta）：</strong>不用人类偏好标注，纯合成数据迭代自举 judge（生成对比回复对 + 推理链）。证明 judge 能力可以自我增强，是 §7.3 K2 self-critique 的学术前身。</li>
+</ul>
+<p>加上更早的 LLM-as-a-judge（MT-Bench, 2306.05685）与 Self-Rewarding LM（2401.10020，模型自己当 judge 给自己造 DPO 偏好对），「用生成能力做评判」在 2024 年完成了概念验证；2025 年的两件工作把它推成主线：</p>
+
+<h3>6.2 RM-R1（2505.02387）：Reward Modeling as Reasoning</h3>
+<ul>
+  <li><strong>核心机制 Chain-of-Rubrics（CoR）：</strong>judge 不直接打分，而是先<em>按样本生成</em>评判结构——对话类样本生成该样本专属的 rubric，数学/代码类样本先自己解一遍题——再据此逐项评判候选回复。rubric 是动态的、样本级的，不是全局写死的。</li>
+  <li><strong>两阶段训练：</strong>① 蒸馏高质量推理链（教 distilled 模型「怎么评」）；② 用可验证奖励做 RL（判断对错本身可验证——偏好标签就是 ground truth），强化评判能力。</li>
+  <li><strong>结果：</strong>在三个 RM 基准平均上超过更大的开源 RM（如 INF-ORM-Llama3.1-70B）与闭源 judge（GPT-4o），最高领先 4.9%。证明「小而会推理」可以打「大而直觉」。</li>
+</ul>
+
+<h3>6.3 DeepSeek-GRM / SPCT（2504.02495）：用推理时算力扩展 RM</h3>
+<ul>
+  <li><strong>形式选择：pointwise GRM。</strong>逐个候选生成文本化评判与分数（而非两两比较），输入形式灵活（单个、成对、多个皆可），且天然支持「同一输入多次采样」。</li>
+  <li><strong>SPCT（Self-Principled Critique Tuning）：</strong>在线 RL 训练 GRM，使其学会<em>自适应地生成评判原则（principles）</em>，再据原则产出准确 critique——「先立法再执法」，与 RM-R1 的 CoR 异曲同工。</li>
+  <li><strong>推理时扩展：</strong>并行采样 $k$ 份「原则 + critique + 分数」，投票聚合；再训一个 <strong>meta RM</strong> 过滤低质量判断后投票。DeepSeek-GRM-27B（基于 Gemma-2-27B）从单样本 69.9 升到 32 样本 + meta RM 的 72.8（基准总分），超过 GPT-4o 与 Nemotron-4-340B-Reward 等大得多的对手——<strong>推理时扩展打赢了训练时扩展</strong>，这是该文最重要的论断。</li>
+</ul>
+
+<h3>6.4 Nemotron GenRM：大 GenRM 直接当 RL 奖励源的工业路线</h3>
+<p>NVIDIA 的 Qwen3-Nemotron-235B-A22B-GenRM（2025-12 发布，Apache 2.0）代表另一极：不追求小而精，而是用 235B（A22B MoE，基于 Qwen3-235B-A22B-Thinking-2507）的大 GenRM <strong>直接做 RL 训练的奖励信号</strong>（官方模型卡明确：用于 NVIDIA-Nemotron-3-Nano-30B 的 RLHF）。数据为 HelpSteer3 + arena 人类偏好 + 安全偏好的混合（人类与合成标签混合）。成绩：RM-Bench overall 87.3（Chat 76.5 / Math 96.9），JudgeBench overall 87.4（Math 91.1 / Code 95.2 / Reasoning 95.9）。要点：<strong>训练侧用大 GenRM 的前提是推理基础设施扛得住</strong>——奖励计算从「一次 8B 前向」变成「一次 235B 带思考链的生成」，rollout 吞吐直接由 judge 推理决定（工程影响见 §10.4）。</p>
+
+<h3>6.5 Beyond Length Scaling（2603.01571）：GenRM 的算力该花在哪</h3>
+<p>2026 年 GenRM 研究的主线问题：critique 越长越好吗？该文的答案是否定的——一味拉长 CoT 收益递减，且两种推理在结构上不同：</p>
+<ul>
+  <li><strong>B-CoT（广度）：</strong>多维原则覆盖——评判涉及哪些维度、有没有漏。对<strong>主观偏好</strong>任务更有效。</li>
+  <li><strong>D-CoT（深度）：</strong>单点判断的论证严谨性——某一步到底对不对。对<strong>客观正确性</strong>任务更有效。</li>
+  <li><strong>Mix-GRM：</strong>SFT 内化两种结构 + RLVR 优化；RLVR 表现为「切换放大器」，让模型自动按任务匹配推理风格。五个基准 SOTA，平均超开源 RM 8.2%。</li>
+</ul>
+<p class="small">把 §6.3 与 §6.5 连起来读：SPCT 解决「多采样怎么聚合」，Beyond Length Scaling 解决「单条推理怎么花」——GenRM 的算力分配已经形成「并行 × 广度 × 深度」三个正交维度，与 reasoning model 的 test-time scaling 研究完全同构。</p>
+
+<h3>6.6 标量 RM vs GenRM：场景取舍表</h3>
+<table>
+<thead><tr><th>维度</th><th>标量 BT RM</th><th>GenRM</th></tr></thead>
+<tbody>
+<tr><td>单次判断成本</td><td>一次前向，毫秒级，可批量</td><td>一次带 CoT 的完整生成，贵 1–3 个数量级</td></tr>
+<tr><td>判断质量上限</td><td>受一维压缩限制；风格干扰下显著退化（RM-Bench）</td><td>可用推理算力换质量（采样投票 / 广度深度）</td></tr>
+<tr><td>可解释性</td><td>无</td><td>critique 全文可读、可审计、可用于反馈</td></tr>
+<tr><td>攻击面</td><td>token 空间对抗扰动（§8.4），但不吃语义攻击</td><td>master key 等语义攻击（§8.3）+ 自偏好偏置（§8.1）</td></tr>
+<tr><td>BoN / 数据过滤（百万级调用）</td><td class="small">✅ 首选——成本决定一切</td><td>只用于终轮精排或小样本审计</td></tr>
+<tr><td>RL 奖励源（开放域）</td><td>可用但需全套防过优化工具箱（§3.3）</td><td class="small">✅ 2025 后的工业方向（Nemotron / K2 / V4），需防语义 hack（§8.5）</td></tr>
+<tr><td>RL 奖励源（可验证域）</td><td colspan="2" class="small">都不用——直接上 verifier / RLVR；rubric 分流见 §7.5</td></tr>
+<tr><td>偏好数据预筛</td><td class="small">✅（便宜）</td><td>当「AI 预筛」的精筛层（§4.2）</td></tr>
+</tbody>
+</table>
+
+<!-- ============== Section 7 ============== -->
+<h2 class="section" id="sec-7">7. Rubric Reward 工业化：从 RaR 到 Kimi K2 与 DeepSeek-V4</h2>
+
+<h3>7.1 定位：可验证与不可验证之间的第三条路</h3>
+<p>RLVR 的边界是「答案能否机器判定」；通用偏好 RM 的弱点是「好」的定义不透明、易被 hack。rubric reward 的核心思想：<strong>把「好」显式分解成一组可逐条核验的标准（criteria），逐条打分再聚合</strong>。它本质上是把 reward 的「规格说明书」从 RM 的权重里搬出来、写成人能读的文本——可审计、可增删、可针对已知 hack 打补丁。代价是规格说明书要有人写、有人维护，写漏了的地方就是新的 hacking 面。</p>
+
+<h3>7.2 学术验证：RaR 与 Checklists</h3>
+<ul>
+  <li><strong>Rubrics as Rewards（2507.17746）：</strong>用结构化 rubric（checklist 风格）做 on-policy RL 的奖励，把 RLVR 扩展到不可验证域。在 HealthBench 上相对 LLM-as-judge 基线提升至多 31%、GPQA-Diamond 提升 7%；并且 <strong>rubric 让小 judge 模型也能给出可靠奖励</strong>、显著降低不同 judge 规模间的方差——rubric 是「降低对 judge 能力依赖」的杠杆，这一点对成本敏感的生产管线至关重要。</li>
+  <li><strong>Checklists Are Better Than Reward Models（2507.18624）：</strong>同期独立证据：「Reinforcement Learning from Checklist Feedback」按指令生成 checklist、用其逐项评分做 RL，在指令跟随上优于通用 RM 奖励。</li>
+</ul>
+
+<h3>7.3 Kimi K2（2507.20534）：self-critique rubric reward 的生产级配方</h3>
+<p>K2 是「rubric reward 进入工业界」的标志。其 RL 同时使用两类奖励：可验证任务走 RLVR；不可验证任务走 <strong>self-critique rubric reward</strong>——模型自己（的另一份拷贝）当 critic，对候选回复做<strong>成对比较</strong>，依据一组 rubric 排序产生偏好信号。关键设计：</p>
+<ul>
+  <li><strong>两类 rubric 条目：</strong><em>core rubrics</em>——assistant 应坚守的基本价值观；<em>prescriptive rubrics</em>——专门为消除 reward hacking 写的规定性条目（把已知 hack 模式直接写成扣分项）。这是「rubric 可打补丁」优势的实战形态。</li>
+  <li><strong>critic 的冷启动与持续更新：</strong>critic 能力在 SFT 阶段就用开源 + 自建偏好数据混合引导启动；RL 过程中 critic 随 policy 一起演进，用 RLVR 侧的可验证信号持续校准 critic 的评判能力——<strong>用客观信号锚定主观评判</strong>，缓解 self-preference 漂移（§8.1）。</li>
+</ul>
+
+<h3>7.4 DeepSeek-V4（2026-04）：钟摆回摆的完成时</h3>
+<p>V4 技术报告（2026-04-24 随权重发布）对难验证任务的方案：<strong>不训独立的偏好标量 RM，而是策划 rubric-guided 的 RL 数据，让 actor 自己同时当 generator 与 judge</strong>——按结构化 rubric 给自己的输出打分（GRM 形态）。报告强调评判能力与生成能力<strong>联合优化</strong>：生成越强，评判越准，反之亦然；rubric 一旦写好，GRM 可以零边际成本评判成千上万条轨迹。配合其「领域专家 SFT→GRPO→On-Policy Distillation 合并」的整体编排，V4 完成了从 R1「弃用神经 RM」到「神经 RM 以 rubric-guided GRM 形态回归」的整个钟摆。从业者应当读出的结论：<strong>2025 年「DeepSeek 证明了不需要 RM」是误读，正确表述是「不需要拿偏好数据训的静态标量 RM 当大规模 RL 奖励源」。</strong></p>
+
+<h3>7.5 前沿：rubric 的生成与执行也在被 RL 化 / 工程化</h3>
+<ul>
+  <li><strong>Rubric-ARM（2602.01511）：</strong>把 rubric 生成视为隐动作（latent action），用交替 RL 联合优化 rubric 生成器与 judge、以最终判断准确率为目标——解决「rubric 谁来写、写得好不好没有梯度」的问题。交替（而非同时）更新缓解非平稳性、降低梯度方差，有理论论证；下游 offline/online 对齐均显著改善。</li>
+  <li><strong>RLR³（2605.30244）：</strong>把验证粒度从任务级降到<strong>条目级（criterion-level）</strong>：每条 rubric 条目按性质分流——可机检的走「LLM 抽取器 + 确定性 verifier」路径，不可机检的走 LLM-judge 路径。配合最小暴露原则（抽取器看不到 ground truth、judge 看不到图像）防止合谋作弊、层级聚合区分必要/补充条目、组内去饱和。Qwen3-VL-30B 上 15 个基准平均 +4.7 分，审计确认确定性验证 + 最小暴露显著减少可利用的假阳性。</li>
+</ul>
+
+<h3>7.6 rubric 设计 checklist（实操）</h3>
+<div class="callout callout-tip">
+<strong>写 rubric 前先回答四个问题</strong>
+① 这个任务的「好」能否分解？分解不了（纯审美/纯偏好）→ 退回 GenRM/偏好 RM。② 每个条目能否独立核验？能机检的条目（数字、引用存在性、格式、长度）一律分流给确定性 verifier（RLR³ 原则），只把真正需要判断力的留给 judge。③ 条目是「描述好」还是「禁止坏」？两类都要有——core 条目定义质量，prescriptive 条目封堵已知 hack（K2 原则）；每次发现新 hack 模式，第一反应是加 prescriptive 条目。④ 聚合权重谁定？必要条目一票否决/高权重，补充条目低权重（层级聚合）；切忌等权平均——那等于邀请 policy 用五个容易条目换一个关键条目。
+</div>
+<ul>
+  <li><strong>粒度经验：</strong>条目应当「一句话可判定」，复合条目（"准确且全面"）必拆。</li>
+  <li><strong>防 judge 偷懒：</strong>逐条目独立询问 judge（而非一次给整张表），可显著减少 halo effect；这同时是 §8.2 偏置缓解协议的一部分。</li>
+  <li><strong>维护节奏：</strong>rubric 与 RM 一样会「过时」——policy 漂移会找到 rubric 没写到的缝隙。把 rubric 纳入与 §4.3 迭代式 RLHF 同节奏的版本化管理。</li>
+</ul>
+
+<!-- ============== Section 8 ============== -->
+<h2 class="section" id="sec-8">8. Judge 偏置与对抗鲁棒性：Master Key 与 token 空间攻击</h2>
+
+<p class="small">judge/GenRM 既是评测工具又是奖励来源——它的每一个偏置都会被 RL 的优化压力翻译成 policy 的行为缺陷，它的每一个漏洞都是 hacking 面。本节先讲「统计性偏置」（无恶意也会偏），再讲「对抗性攻击」（有优化压力时必然被找到）。</p>
+
+<h3>8.1 三大偏置：命名、量化、来源</h3>
+<table>
+<thead><tr><th>偏置</th><th>表现</th><th>关键事实</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>Position bias</strong></td>
+  <td>成对比较时偏向某个位置（通常是先出现的回复）</td>
+  <td>MT-Bench（2306.05685）首次系统刻画；与内容无关、纯由呈现顺序导致，因此可以用机械协议完全对冲（见 8.2）。</td>
+</tr>
+<tr>
+  <td><strong>Verbosity bias</strong></td>
+  <td>偏好更长的回复，无论信息量</td>
+  <td>judge 与 RM 共享此病：Singhal et al.（2310.03716）发现多数 RLHF「增益」与变长高度相关。评测侧的标准修正是 AlpacaEval 2.0 LC（2404.04475）——用回归把长度因素从胜率中剥离；奖励侧见 §3.3 的 ODIN/数据配平。</td>
+</tr>
+<tr>
+  <td><strong>Self-preference / self-enhancement bias</strong></td>
+  <td>偏好自己（或同族模型）生成的回复</td>
+  <td>MT-Bench 即已指出；2026 年的系统量化（2604.22891）用「质量差可忽略的等价回复对」在 20 个主流 LLM 上分离了判别力与偏置，两个反直觉结论：<strong>模型能力与低自偏好无关甚至负相关</strong>（更强 ≠ 更公正）；结构化多维评判协议平均降低自偏好 31.5%。</td>
+</tr>
+</tbody>
+</table>
+<p>基线锚点：MT-Bench 报告 GPT-4 judge 与人类偏好一致率超过 80%，与人类相互一致率同水平——这既是「LLM-as-judge 可用」的依据，也是它的天花板提示：judge 的不可约误差与人类分歧同量级，把 judge 分数当 ground truth 精读小数点是自欺。</p>
+
+<h3>8.2 机械式缓解协议（无需训练，立刻可用）</h3>
+<div class="callout callout-tip">
+<strong>Judge 偏置六条标准协议</strong>
+① <strong>swap-and-average：</strong>成对比较必须双向各评一次（A-B 与 B-A），取一致结果；不一致记平局或重采样——position bias 的标准解法，没有理由不做。② <strong>不用同族模型自评：</strong>判 Qwen 系 policy 不用 Qwen 系 judge；无法避开时用多 judge 混合。③ <strong>rubric 分解：</strong>逐条目独立询问，减少 halo effect 与自偏好（2604.22891 的 31.5% 改善正来自结构化分解）。④ <strong>控长：</strong>评测报告用 LC 胜率；奖励侧做长度配平或解耦。⑤ <strong>温度与采样固定：</strong>judge 推理参数纳入版本管理，否则评测不可复现。⑥ <strong>上线前人工 meta-eval：</strong>抽样几百条 judge 判断做人工复核，测出该场景下 judge 与人的一致率，作为后续一切自动评测的置信度上界。
+</div>
+
+<h3>8.3 Master Key 攻击（2507.08794）：一个标点骗过所有 judge</h3>
+<p>2025-07 的引爆点。发现：对「判断这道题答案是否正确」类的 judge/GenRM，<strong>完全不含实质内容的「master key」即可骗出假阳性</strong>——非词符号（"<code>:</code>"、"<code>.</code>"）或通用推理开场白（"<code>Thought process:</code>"、"<code>Let's solve this problem step by step</code>"）。量化结论：</p>
+<ul>
+  <li>master key 攻击的假阳性率最高可达 <strong>80%</strong>（依基准与模型而异）；仅一个标点即可让 GPT-4o 产生最高 35% 假阳性；"Thought process:" 在 LLaMA3-70B-Instruct、Qwen2.5-72B-Instruct 等强开源模型上假阳性率高达 60–90%。</li>
+  <li><strong>GPT-o1、Claude-4 级别的前沿模型同样中招</strong>——「用更强的 judge」不是防御。</li>
+  <li>机理提示：judge 把「推理的形态特征」当成了「推理正确」的证据——这恰是 GenRM 把判断变成生成任务后引入的新攻击通道，标量 RM 反而没有这条语义通道。</li>
+</ul>
+<p><strong>防御（Master-RM）：</strong>构造对抗负例——把模型输出截断到只剩开场白、标为错误——加进 judge 训练数据。如此训练的 Master-RM 对全部 master key 攻击假阳性率接近零，且标准评测性能不掉。成本极低，<strong>任何自训 judge/GenRM 的管线都应默认加入截断负例增强</strong>。</p>
+
+<h3>8.4 Token 空间攻击（2604.02686）：标量 RM 也不安全</h3>
+<p>TOMPA（Token Mapping Perturbation Attack）绕过「先解码成文本再重新分词」的标准接口，<strong>直接在 token 空间做黑盒优化</strong>（只用标量反馈）。结果：对 Skywork-Reward-V2-Llama-3.1-8B，把 GPT-5 参考答案的 reward 几乎翻倍、在 98.0% 的 prompt 上压过参考答案——而对应文本是乱码。含义有三：① RM 鲁棒性问题不止于语义层的 master key；② RL 训练中 policy 的探索恰恰发生在 token 空间，理论上能自行撞到这类模式（这是 §3.1 heavy-tailed reward 误差的具体来源之一）；③ 对抗训练（在 RM 训练中混入 token 级扰动负例）正在进入 RM 训练的标准流程。</p>
+
+<h3>8.5 防御共识三条（2025–2026 收束）</h3>
+<ol>
+  <li><strong>对抗负例训练</strong>：截断输出、master key、token 扰动样本进 judge/RM 训练集（Master-RM 路线）。</li>
+  <li><strong>rubric 写入 prescriptive 防 hack 条目</strong>：已知 hack 模式显式扣分（Kimi K2 路线，§7.3）。</li>
+  <li><strong>可验证部分分流给确定性 verifier</strong>：能机检的绝不过 judge，缩小语义攻击面（RLR³ 路线，§7.5）。</li>
+</ol>
+<p class="small">交叉引用：reward hacking 的 policy 侧形态与缓解见 <a href="rl-pitfalls-survey.html#sec-1">pitfalls §1</a>；本节是它的「判官侧」补全。</p>
+
+<!-- ============== Section 9 ============== -->
+<h2 class="section" id="sec-9">9. RM 评测基准：RewardBench 系与「榜单 ≠ 下游」</h2>
+
+<h3>9.1 RewardBench v1（2403.13787）：定义子方向，然后被刷爆</h3>
+<p>第一个专门的 RM 评测基准：prompt–chosen–rejected 三元组上测 RM 能否给 chosen 更高分，覆盖 Chat、Chat-Hard、Safety、Reasoning 四个子集（Chat-Hard 用「细微但可验证」的差异构造，如 bug、事实错误）。它的历史作用与历史教训同样大：发布后迅速成为 RM 训练的优化目标——社区按榜单挑数据、调配方（Skywork v1 的 80K 数据即以登顶 RewardBench 为信号筛选），两年内头部分数饱和，基准从「度量」退化为「目标」，Goodhart 定律在<em>评测层</em>重演了一遍 §3 在<em>训练层</em>的故事。</p>
+
+<h3>9.2 RewardBench 2（2506.01937）：换上全新人类 prompt，平均掉约 20 分</h3>
+<ul>
+  <li>核心改动：<strong>不再复用现有评测集的 prompt，改用全新采集的人类 prompt</strong>，并升级为更难的 best-of-N 式准确率评测，覆盖指令跟随、推理、安全等域。</li>
+  <li>核心数字：<strong>现有模型在 v2 上比 v1 平均低约 20 分</strong>——v1 头部成绩中相当一部分是对基准分布的过拟合，而非 RM 能力。</li>
+  <li>论文同时给出正面结论：v2 分数与下游表现（BoN 推理时扩展、PPO 式 RLHF）高度相关——<em>前提是按论文规范使用</em>。也就是说基准本身可以做对，前提是 prompt 不泄漏、评测协议贴近真实用法。</li>
+</ul>
+
+<h3>9.3 PPE（2410.14872）：用真实 RLHF 终点校准评测起点</h3>
+<p>「How to Evaluate Reward Models for RLHF」回答的问题是元问题：<strong>RM 基准上的哪个指标真的预测下游？</strong>方法：在大规模众包人类偏好平台上跑<strong>端到端 RLHF 实验</strong>拿到 gold 结果，再回归「12 个指标 × 12 个域」中哪些与之相关。这项工作（ICLR 2025）确立了「榜单分数与 PPO/BoN 下游效果相关性有限、且不同指标差异很大」的实证基础，是 2024–2026「榜单 ≠ 下游」争议的定量出处。</p>
+
+<div class="callout callout-warn">
+<strong>从业共识（必须内化）</strong>
+选 RM 不能只看榜单。正确流程：用你自己的 prompt 分布与你实际使用 RM 的方式（BoN？DPO 标注？PPO 奖励？）做小规模下游 proxy 实验——BoN 重排 + 人工抽检，或小规模 RL + gold RM 重打分——用 proxy 结果选型。榜单的正确用法是<em>粗筛候选</em>与<em>排除明显短板</em>（比如 RM-Bench 风格鲁棒性接近随机的型号直接出局）。
+</div>
+
+<h3>9.4 基准全景表</h3>
+<table>
+<thead><tr><th>基准</th><th>度量什么</th><th>一句话定位</th></tr></thead>
+<tbody>
+<tr><td>RewardBench（2403.13787）</td><td>三元组准确率，Chat/Chat-Hard/Safety/Reasoning</td><td>开山之作；已饱和，只作历史对照。</td></tr>
+<tr><td>RewardBench 2（2506.01937）</td><td>全新人类 prompt 上的 best-of-N 准确率</td><td>当前默认粗筛榜；模型平均比 v1 低约 20 分。</td></tr>
+<tr><td>PPE（2410.14872）</td><td>12 指标 × 12 域，与端到端 RLHF 结果的相关性</td><td>评测的评测；「该看哪个指标」的依据。</td></tr>
+<tr><td>RM-Bench（2410.16184）</td><td>对内容细微差异的敏感度 vs 风格偏置的抵抗力</td><td>专测「实质 vs 表面」，风格鲁棒性短板探测器。</td></tr>
+<tr><td>JudgeBench（2410.12784）</td><td>LLM judge 在知识/推理/数学/编码上的事实性判断</td><td>GenRM/judge 选型的客观域基准。</td></tr>
+<tr><td>ProcessBench（2412.06559）/ PRMBench（2501.03124）</td><td>步级错误定位（找出第一个错误步骤）</td><td>PRM 专用；暴露 BoN 成绩掩盖的真实步级能力。</td></tr>
+<tr><td>Multimodal RewardBench 2（2512.16899）</td><td>文生图、图像编辑、交错生成、多模态推理四任务的 omni RM 评测</td><td>RM 评测进入多模态生成域的标志。</td></tr>
+</tbody>
+</table>
+
+<h3>9.5 选 RM 决策流程</h3>
+<pre>
+需要奖励信号
+ ├─ 任务可机器验证？ ──是──→ RLVR / verifier（不选 RM；防 verifier-hack 见 pitfalls §1）
+ │        └─ 部分可验证 ──→ rubric 条目级分流（§7.5：机检条目走 verifier，其余走 judge）
+ ├─ 用途是 BoN / 数据过滤（高吞吐）？
+ │        └─ 标量 RM：RewardBench 2 + RM-Bench 粗筛 →
+ │           自有 prompt 上 BoN proxy 实验 + 人工抽检 → 定型
+ ├─ 用途是 DPO 偏好标注？
+ │        └─ 标量 RM 或 GenRM 皆可；务必做 §8.2 协议（swap、控长、非同族）；
+ │           proxy 实验 = 标注一批 → 训 DPO → 对照评测
+ └─ 用途是 RL 奖励源（开放域）？
+          ├─ 有大模型推理预算 → GenRM（Nemotron 路线）或 self-critique rubric（K2 路线）
+          ├─ 预算紧 → 标量 RM + 全套防过优化（§3.3）+ §10 工程清单
+          └─ 无论哪种：对抗负例增强（§8.5）+ gold RM 监控（§3.2）不可省
+</pre>
+
+<!-- ============== Section 10 ============== -->
+<h2 class="section" id="sec-10">10. 把 RM 接进 RL 训练循环：工程实操</h2>
+
+<h3>10.1 reward 的数值处理</h3>
+<ul>
+  <li><strong>先归一化：</strong>BT 训出的分数只有相对意义（§2.1），不同 prompt 不可比。标准做法：用经验均值/方差做 whitening（HF《The N Implementation Details of RLHF with PPO》复现细节：reward 白化可不减均值，只除以标准差；advantage 白化按 minibatch 做）。</li>
+  <li><strong>再有界化：</strong>无界 reward 是 KL 爆炸与 hacking 的放大器。PAR（2502.18770）的两条设计原则——reward 应有界、形状应「初期快速增长后期渐进收敛」——sigmoid(中心化分数) 是当前最省事的实现，其 AlpacaEval 2.0 胜率比其他 shaping 方法高至少 5 个百分点且训两个 epoch 不 hack。</li>
+  <li><strong>奖励施加位置：</strong>标准实现是「整句 reward 加在 EOS token 上 + 逐 token KL penalty」。RM 分数只在序列末端取（最后非 pad token，§2.2），KL 项每个 token 都有。想要真正的 dense reward，2026 年的新选项是 TCRM（§5.4）而不是手工 shaping。</li>
+</ul>
+
+<h3>10.2 PPO 侧的 RM 相关细节</h3>
+<ul>
+  <li><strong>critic 用 RM 权重初始化</strong>是经典默认（两者输出语义相近：序列价值估计）；TCRM 进一步允许 reward/critic 合一（−27% 显存）。</li>
+  <li><strong>KL 系数是第一超参。</strong>β 无普适最优值——取决于 RM 质量、期望行为改变幅度、回复长度分布。社区经验法则（注意：这是实践启发式，非论文定理）：整条回复累计 KL 保持在 ~15–20 nats 内；逐 token KL 持续越过 ~0.1 且不回头时，把 KL 系数上调约 50%。自适应 KL controller（按目标 KL 区间调 β）是 OpenAI 摘要工作以来的标准件。</li>
+  <li><strong>每条 rollout 的 RM 调用就是吞吐瓶颈的一部分：</strong>标量 8B RM 与 235B GenRM（§6.4）之间差着 1–2 个数量级的奖励计算成本；GenRM 做奖励源时，judge 的推理服务要和 policy rollout 同级别规划容量，并考虑用批量化 pointwise 评分（SPCT 形式）而非两两比较（调用数 $O(N)$ vs $O(N^2)$）。</li>
+  <li>KL 估计器选择（k1/k2/k3）与「估计 ≠ 优化」的细节见 <a href="rl-pitfalls-survey.html#sec-2">pitfalls §2</a> 与审计 G2，不在此重复。</li>
+</ul>
+
+<h3>10.3 监控面板（RM 视角）</h3>
+<table>
+<thead><tr><th>信号</th><th>健康形态</th><th>报警形态 → 动作</th></tr></thead>
+<tbody>
+<tr><td>proxy reward vs gold-RM 重打分</td><td>同升</td><td>proxy 升 gold 跌 → 过优化拐点：回退 checkpoint / 提高 β / 重训 RM</td></tr>
+<tr><td>reward vs $\sqrt{\mathrm{KL}}$</td><td>近似线性（HH 经验关系）</td><td>明显超线性上凸 → 正在挖 RM 的洞而非变好</td></tr>
+<tr><td>定期 BoN（如 N=64）人工抽检</td><td>top 样本质量随训练上升</td><td>RM 选出的 top 样本变差/变怪 → RM OOD，触发迭代重训（§4.3）</td></tr>
+<tr><td>长度分布</td><td>稳定或任务合理增长</td><td>单调膨胀 → length hacking：查 RM 长度偏置（<a href="rl-pitfalls-survey.html#sec-3">pitfalls §3</a>）</td></tr>
+<tr><td>判格式化模式频率（开场白、markdown 堆砌、自我评价句式）</td><td>低且平稳</td><td>突增 → master-key 类形态特征被 policy 发现（§8.3），上 prescriptive rubric 或对抗负例重训 judge</td></tr>
+</tbody>
+</table>
+
+<h3>10.4 混合奖励编排：2026 年生产管线的样子</h3>
+<p>单一奖励源的时代已经结束。三个公开参考实现的编排方式：</p>
+<table>
+<thead><tr><th>管线</th><th>可验证域</th><th>不可验证域</th><th>粘合机制</th></tr></thead>
+<tbody>
+<tr><td><strong>Kimi K2</strong></td><td>RLVR（含大规模 agentic 任务合成）</td><td>self-critique rubric（成对比较）</td><td>同一 RL loop 联合训练；critic 用 RLVR 信号持续校准</td></tr>
+<tr><td><strong>DeepSeek-V4</strong></td><td>规则/verifier（R1 遗产）</td><td>rubric-guided GRM（actor 即 judge）</td><td>领域专家分别 GRPO，再 On-Policy Distillation 合并</td></tr>
+<tr><td><strong>RLR³</strong>（学术参考）</td><td colspan="2">同一任务内条目级分流：机检条目 → 抽取器+verifier；判断条目 → judge</td><td>层级聚合 + 最小暴露</td></tr>
+</tbody>
+</table>
+<p class="small">编排原则提炼：<strong>验证粒度尽量下沉</strong>（任务级 → 条目级），<strong>判断责任尽量上收</strong>（杂事给 verifier，judge 只做真正需要判断力的事），<strong>主观评判必须有客观锚</strong>（K2 用 RLVR 锚 critic；V4 用生成-评判联合优化互锚）。</p>
+
+<!-- ============== Section 11 ============== -->
+<h2 class="section" id="sec-11">11. 总结：决策表、检查清单与开放问题</h2>
+
+<h3>11.1 场景 → 奖励源决策表（最终版）</h3>
+<table>
+<thead><tr><th>场景</th><th>首选</th><th>次选</th><th>绝对不要</th></tr></thead>
+<tbody>
+<tr><td>数学/代码 RL</td><td>verifier / 单元测试（RLVR）</td><td>+ GenRM 兜底难验证子集</td><td>PRM 当密集 RL 奖励（§5.3）</td></tr>
+<tr><td>开放域对话 RL</td><td>GenRM 或 self-critique rubric（预算内）</td><td>标量 RM + 全套防护（§3.3）</td><td>无 gold 监控的裸标量 RM</td></tr>
+<tr><td>医疗/法律等可分解专业域 RL</td><td>rubric reward（RaR 路线），机检条目分流 verifier</td><td>GenRM</td><td>通用偏好 RM（域外失真）</td></tr>
+<tr><td>BoN 重排 / 推理时扩展</td><td>标量 RM（成本）；数学域可 + PRM</td><td>GenRM 终轮精排</td><td>—</td></tr>
+<tr><td>偏好数据预筛 / 蒸馏数据过滤</td><td>标量 RM + 人工抽检</td><td>GenRM 精筛层</td><td>单一 judge 无校准全自动</td></tr>
+<tr><td>DPO 偏好对标注</td><td>GenRM + §8.2 全协议</td><td>标量 RM（量大时）</td><td>同族模型自评</td></tr>
+<tr><td>评测 / 报告</td><td>人工 + LC 控长 judge 协议</td><td>—</td><td>把 judge 分数当 ground truth 精读</td></tr>
+</tbody>
+</table>
+
+<h3>11.2 上线前检查清单</h3>
+<div class="callout callout-tip">
+<strong>训 RM（标量）</strong>
+□ 偏好数据过了噪声分析（§4.2）　□ 同 prompt 比较对同 batch（§2.2）　□ 只训 1 epoch + epoch 末选点（§2.3）　□ held-out 准确率对照人类一致率解读　□ 校准曲线已画、单看过高分区（§2.4）　□ 长度配平或解耦　□ 对抗负例（截断/扰动）已加入　□ RM-Bench 风格鲁棒性过线
+</div>
+<div class="callout callout-tip">
+<strong>训 judge / GenRM</strong>
+□ 截断负例增强（Master-RM，§8.3）　□ swap-and-average 内建于服务层　□ 非同族 judge 或多 judge 混合　□ rubric 含 prescriptive 防 hack 条目　□ 人工 meta-eval 得到本场景一致率基线
+</div>
+<div class="callout callout-tip">
+<strong>接入 RL</strong>
+□ reward 归一化 + 有界化（§10.1）　□ gold RM 重打分监控在跑（§3.2）　□ BoN 探针定期人工抽检　□ KL 面板含 reward-vs-√KL 线性度　□ 可验证子任务已分流 verifier　□ RM/rubric 的迭代重训节奏已排期（§4.3）
+</div>
+
+<h3>11.3 开放问题（2026-06 视角）</h3>
+<ul>
+  <li><strong>GenRM 的对抗鲁棒性没有理论保障：</strong>Master-RM 式数据增强是补丁不是证明；token 空间与语义空间的攻击此消彼长，对抗训练进入 RM 标准流程后的均衡点未知。</li>
+  <li><strong>评判-生成联合优化的稳定性：</strong>V4/K2 把 judge 和 policy 绑在同一模型/同一 loop 里，self-preference 漂移的长期动力学（judge 跟着 policy 一起偏）缺少公开研究；Rubric-ARM 的交替优化是一个起点。</li>
+  <li><strong>RM 评测的 Goodhart 循环：</strong>RewardBench 2 修复了 v1 的泄漏，但只要榜单影响选型，v2 也会走向饱和——「评测必须跟着使用方式走」（PPE 方法论）能否产品化为持续滚动的私有 proxy 评测，是工程问题更是生态问题。</li>
+  <li><strong>个性化与多元偏好：</strong>BT 假设单一全局偏好序，而真实用户偏好异质；稀疏 MoE RM（2606.04284）的可解释专家是一条路，但「给谁对齐」的规格问题超出技术本身。</li>
+  <li><strong>价值函数统一（TCRM）与 GenRM 路线会合流吗：</strong>一边把标量 RM 变成逐 token 价值函数，一边把 RM 变成推理者；两者分别压缩了「时间维」与「推理维」的信息瓶颈，统一框架尚缺。</li>
+</ul>
+
+
+
+<!-- ============== References ============== -->
+<h2 class="section ref" id="refs">参考文献</h2>
+<p class="small">全部 arXiv 编号与数字结论于 2026-06-12 联网核实。</p>
+<ul>
+  <li>Christiano et al., <em>Deep Reinforcement Learning from Human Preferences</em>, 2017. <a href="https://arxiv.org/abs/1706.03741">arXiv:1706.03741</a></li>
+  <li>Stiennon et al., <em>Learning to Summarize from Human Feedback</em>, 2020. <a href="https://arxiv.org/abs/2009.01325">arXiv:2009.01325</a></li>
+  <li>Ouyang et al., <em>Training Language Models to Follow Instructions with Human Feedback</em> (InstructGPT), 2022. <a href="https://arxiv.org/abs/2203.02155">arXiv:2203.02155</a></li>
+  <li>Bai et al., <em>Training a Helpful and Harmless Assistant with RLHF</em> (HH-RLHF), 2022. <a href="https://arxiv.org/abs/2204.05862">arXiv:2204.05862</a></li>
+  <li>Bai et al., <em>Constitutional AI: Harmlessness from AI Feedback</em>, 2022. <a href="https://arxiv.org/abs/2212.08073">arXiv:2212.08073</a></li>
+  <li>Gao, Schulman, Hilton, <em>Scaling Laws for Reward Model Overoptimization</em>, 2022. <a href="https://arxiv.org/abs/2210.10760">arXiv:2210.10760</a></li>
+  <li>Uesato et al., <em>Solving Math Word Problems with Process- and Outcome-Based Feedback</em>, 2022. <a href="https://arxiv.org/abs/2211.14275">arXiv:2211.14275</a></li>
+  <li>Lightman et al., <em>Let's Verify Step by Step</em>, 2023. <a href="https://arxiv.org/abs/2305.20050">arXiv:2305.20050</a></li>
+  <li>Rafailov et al., <em>Direct Preference Optimization: Your Language Model is Secretly a Reward Model</em>, 2023. <a href="https://arxiv.org/abs/2305.18290">arXiv:2305.18290</a></li>
+  <li>Touvron et al., <em>Llama 2: Open Foundation and Fine-Tuned Chat Models</em>, 2023. <a href="https://arxiv.org/abs/2307.09288">arXiv:2307.09288</a></li>
+  <li>Grattafiori et al., <em>The Llama 3 Herd of Models</em>, 2024. <a href="https://arxiv.org/abs/2407.21783">arXiv:2407.21783</a></li>
+  <li>Zheng et al., <em>Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena</em>, 2023. <a href="https://arxiv.org/abs/2306.05685">arXiv:2306.05685</a></li>
+  <li>Zhu, Jordan, Jiao, <em>Principled RL with Human Feedback from Pairwise or K-wise Comparisons</em>, 2023. <a href="https://arxiv.org/abs/2301.11270">arXiv:2301.11270</a></li>
+  <li>Singhal et al., <em>A Long Way to Go: Investigating Length Correlations in RLHF</em>, 2023. <a href="https://arxiv.org/abs/2310.03716">arXiv:2310.03716</a></li>
+  <li>Coste et al., <em>Reward Model Ensembles Help Mitigate Overoptimization</em>, 2023. <a href="https://arxiv.org/abs/2310.02743">arXiv:2310.02743</a></li>
+  <li>Wang et al., <em>Secrets of RLHF in Large Language Models Part II: Reward Modeling</em>, 2024. <a href="https://arxiv.org/abs/2401.06080">arXiv:2401.06080</a></li>
+  <li>Yuan et al., <em>Self-Rewarding Language Models</em>, 2024. <a href="https://arxiv.org/abs/2401.10020">arXiv:2401.10020</a></li>
+  <li>Chen et al., <em>ODIN: Disentangled Reward Mitigates Hacking in RLHF</em>, 2024. <a href="https://arxiv.org/abs/2402.07319">arXiv:2402.07319</a></li>
+  <li>Miao et al., <em>InfoRM: Mitigating Reward Hacking in RLHF via Information-Theoretic Reward Modeling</em>, 2024. <a href="https://arxiv.org/abs/2402.09345">arXiv:2402.09345</a></li>
+  <li>Lambert et al., <em>RewardBench: Evaluating Reward Models for Language Modeling</em>, 2024. <a href="https://arxiv.org/abs/2403.13787">arXiv:2403.13787</a></li>
+  <li>Dubois et al., <em>Length-Controlled AlpacaEval: A Simple Way to Debias Automatic Evaluators</em>, 2024. <a href="https://arxiv.org/abs/2404.04475">arXiv:2404.04475</a></li>
+  <li>Wang et al., <em>Interpretable Preferences via Multi-Objective Reward Modeling and Mixture-of-Experts</em> (ArmoRM), 2024. <a href="https://arxiv.org/abs/2406.12845">arXiv:2406.12845</a></li>
+  <li>Wang et al., <em>HelpSteer2: Open-source Dataset for Training Top-performing Reward Models</em>, 2024. <a href="https://arxiv.org/abs/2406.08673">arXiv:2406.08673</a></li>
+  <li>Kwa et al., <em>Catastrophic Goodhart: Regularizing RLHF with KL Divergence Does Not Mitigate Heavy-Tailed Reward Misspecification</em>, 2024. <a href="https://arxiv.org/abs/2407.14503">arXiv:2407.14503</a></li>
+  <li>Zhang et al., <em>Generative Verifiers: Reward Modeling as Next-Token Prediction</em>, 2024. <a href="https://arxiv.org/abs/2408.15240">arXiv:2408.15240</a></li>
+  <li>Ankner et al., <em>Critique-out-Loud Reward Models</em> (CLoud), 2024. <a href="https://arxiv.org/abs/2408.11791">arXiv:2408.11791</a></li>
+  <li>Wang et al., <em>Self-Taught Evaluators</em>, 2024. <a href="https://arxiv.org/abs/2408.02666">arXiv:2408.02666</a></li>
+  <li>Wang et al., <em>Math-Shepherd: Verify and Reinforce LLMs Step-by-step without Human Annotations</em>, 2023. <a href="https://arxiv.org/abs/2312.08935">arXiv:2312.08935</a></li>
+  <li>Liu et al., <em>Skywork-Reward: Bag of Tricks for Reward Modeling in LLMs</em>, 2024. <a href="https://arxiv.org/abs/2410.18451">arXiv:2410.18451</a></li>
+  <li>Frick et al., <em>How to Evaluate Reward Models for RLHF</em> (PPE), 2024. <a href="https://arxiv.org/abs/2410.14872">arXiv:2410.14872</a></li>
+  <li>Liu et al., <em>RM-Bench: Benchmarking Reward Models of Language Models with Subtlety and Style</em>, 2024. <a href="https://arxiv.org/abs/2410.16184">arXiv:2410.16184</a></li>
+  <li>Tan et al., <em>JudgeBench: A Benchmark for Evaluating LLM-based Judges</em>, 2024. <a href="https://arxiv.org/abs/2410.12784">arXiv:2410.12784</a></li>
+  <li>Zheng et al., <em>ProcessBench: Identifying Process Errors in Mathematical Reasoning</em>, 2024. <a href="https://arxiv.org/abs/2412.06559">arXiv:2412.06559</a></li>
+  <li>Song et al., <em>PRMBench: A Fine-grained and Challenging Benchmark for Process-Level Reward Models</em>, 2025. <a href="https://arxiv.org/abs/2501.03124">arXiv:2501.03124</a></li>
+  <li>DeepSeek-AI, <em>DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning</em>, 2025. <a href="https://arxiv.org/abs/2501.12948">arXiv:2501.12948</a></li>
+  <li>Fu et al., <em>Reward Shaping to Mitigate Reward Hacking in RLHF</em> (PAR), 2025. <a href="https://arxiv.org/abs/2502.18770">arXiv:2502.18770</a></li>
+  <li>Liu et al., <em>Inference-Time Scaling for Generalist Reward Modeling</em> (DeepSeek-GRM / SPCT), 2025. <a href="https://arxiv.org/abs/2504.02495">arXiv:2504.02495</a></li>
+  <li>Chen et al., <em>RM-R1: Reward Modeling as Reasoning</em>, 2025. <a href="https://arxiv.org/abs/2505.02387">arXiv:2505.02387</a></li>
+  <li>Malik et al., <em>RewardBench 2: Advancing Reward Model Evaluation</em>, 2025. <a href="https://arxiv.org/abs/2506.01937">arXiv:2506.01937</a></li>
+  <li>Liu et al., <em>Skywork-Reward-V2: Scaling Preference Data Curation via Human-AI Synergy</em>, 2025. <a href="https://arxiv.org/abs/2507.01352">arXiv:2507.01352</a></li>
+  <li>Zhao et al., <em>One Token to Fool LLM-as-a-Judge</em> (Master-RM), 2025. <a href="https://arxiv.org/abs/2507.08794">arXiv:2507.08794</a></li>
+  <li>Kimi Team, <em>Kimi K2: Open Agentic Intelligence</em>, 2025. <a href="https://arxiv.org/abs/2507.20534">arXiv:2507.20534</a></li>
+  <li>Gunjal et al., <em>Rubrics as Rewards: Reinforcement Learning Beyond Verifiable Domains</em>, 2025. <a href="https://arxiv.org/abs/2507.17746">arXiv:2507.17746</a></li>
+  <li>Viswanathan et al., <em>Checklists Are Better Than Reward Models For Aligning Language Models</em>, 2025. <a href="https://arxiv.org/abs/2507.18624">arXiv:2507.18624</a></li>
+  <li>Zheng et al., <em>A Survey of Process Reward Models: From Outcome Signals to Process Supervisions</em>, 2025. <a href="https://arxiv.org/abs/2510.08049">arXiv:2510.08049</a></li>
+  <li>MacDiarmid et al., <em>Natural Emergent Misalignment from Reward Hacking in Production RL</em>, 2025. <a href="https://arxiv.org/abs/2511.18397">arXiv:2511.18397</a></li>
+  <li>Hu et al., <em>Multimodal RewardBench 2: Evaluating Omni Reward Models for Interleaved Text and Image</em>, 2025. <a href="https://arxiv.org/abs/2512.16899">arXiv:2512.16899</a></li>
+  <li>NVIDIA, <em>Qwen3-Nemotron-235B-A22B-GenRM</em> 模型卡, 2025-12. <a href="https://huggingface.co/nvidia/Qwen3-Nemotron-235B-A22B-GenRM">huggingface.co/nvidia/Qwen3-Nemotron-235B-A22B-GenRM</a></li>
+  <li>Xu et al., <em>Alternating Reinforcement Learning for Rubric-Based Reward Modeling in Non-Verifiable LLM Post-Training</em> (Rubric-ARM), 2026. <a href="https://arxiv.org/abs/2602.01511">arXiv:2602.01511</a></li>
+  <li>Zhang et al., <em>Beyond Length Scaling: Synergizing Breadth and Depth for Generative Reward Models</em>, 2026. <a href="https://arxiv.org/abs/2603.01571">arXiv:2603.01571</a></li>
+  <li>Zhang et al., <em>Beyond Semantic Manipulation: Token-Space Attacks on Reward Models</em> (TOMPA), 2026. <a href="https://arxiv.org/abs/2604.02686">arXiv:2604.02686</a></li>
+  <li>Wang et al., <em>Reward Hacking in the Era of Large Models: Mechanisms, Emergent Misalignment, Challenges</em>, 2026. <a href="https://arxiv.org/abs/2604.13602">arXiv:2604.13602</a></li>
+  <li>Yang et al., <em>Quantifying and Mitigating Self-Preference Bias of LLM Judges</em>, 2026. <a href="https://arxiv.org/abs/2604.22891">arXiv:2604.22891</a></li>
+  <li>Nikulkov et al., <em>Reward Models Are Secretly Value Functions: Temporally Coherent Reward Modeling</em> (TCRM), 2026. <a href="https://arxiv.org/abs/2604.22981">arXiv:2604.22981</a></li>
+  <li>Yu et al., <em>Reinforcement Learning with Robust Rubric Rewards</em> (RLR³), 2026. <a href="https://arxiv.org/abs/2605.30244">arXiv:2605.30244</a></li>
+  <li>Wang et al., <em>Sparse Mixture-of-Experts Reward Models Learn Interpretable and Specialized Experts for Personalized Preference Modeling</em>, 2026. <a href="https://arxiv.org/abs/2606.04284">arXiv:2606.04284</a></li>
+  <li>Anthropic, <em>Claude's New Constitution</em>, 2026-01. <a href="https://www.anthropic.com/news/claude-new-constitution">anthropic.com/news/claude-new-constitution</a></li>
+  <li>Ai2, <em>Olmo 3</em>（全开放 SFT→DPO→RLVR 流水线）, 2025-11. <a href="https://allenai.org/blog/olmo3">allenai.org/blog/olmo3</a></li>
+  <li>DeepSeek-AI, <em>DeepSeek-V4 Model Card / Technical Documentation</em>, 2026-04. <a href="https://fe-static.deepseek.com/chat/transparency/deepseek-V4-model-card-EN.pdf">fe-static.deepseek.com (V4 model card)</a></li>
+  <li>Nathan Lambert, <em>RLHF Book — Reward Modeling</em>（持续更新）. <a href="https://rlhfbook.com/c/05-reward-models">rlhfbook.com/c/05-reward-models</a></li>
+  <li>Huang et al. (Hugging Face), <em>The N Implementation Details of RLHF with PPO</em>, 2023. <a href="https://huggingface.co/blog/the_n_implementation_details_of_rlhf_with_ppo">huggingface.co/blog</a></li>
+</ul>
+
+</div>
+</body>
+</html>

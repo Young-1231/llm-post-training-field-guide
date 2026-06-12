@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2026 旗舰后训练配方对照：GLM-5 / DeepSeek-V4 / Qwen3.5 / Kimi K2.5 / Gemini 3 / Opus 4.6</title>
+<meta name="description" content="2025Q4–2026H1 旗舰模型后训练配方系统对照：流水线顺序、奖励来源、异步基础设施、多智能体设计四轴分析，覆盖 GLM-5、DeepSeek-V4、Qwen3.5、Kimi K2 Thinking/K2.5、Gemini 3、Claude Opus 4.6 与 Olmo 3 Dolci、K2-V2、INTELLECT-3 等开放配方。">
+<script>
+  MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']]
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<style>
+  :root {
+    --bg: #fafaf7;
+    --fg: #1f2328;
+    --muted: #6e7781;
+    --accent: #0a5fb8;
+    --accent2: #b91c1c;
+    --warn: #b45309;
+    --ok: #15803d;
+    --code-bg: #f3f3ee;
+    --border: #d8d8d2;
+    --box-bg: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.75;
+    margin: 0;
+    padding: 0;
+    font-size: 16px;
+  }
+  .container {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 48px 28px 96px;
+  }
+  header.hero {
+    border-bottom: 2px solid var(--fg);
+    margin-bottom: 36px;
+    padding-bottom: 18px;
+  }
+  header.hero h1 {
+    font-size: 34px;
+    margin: 0 0 8px 0;
+    letter-spacing: -0.5px;
+  }
+  header.hero .subtitle {
+    color: var(--muted);
+    font-size: 16px;
+    margin: 4px 0;
+  }
+  nav.toc {
+    background: var(--box-bg);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    padding: 18px 24px;
+    border-radius: 6px;
+    margin-bottom: 40px;
+  }
+  nav.toc h2 {
+    margin: 0 0 10px 0;
+    font-size: 18px;
+    color: var(--accent);
+  }
+  nav.toc ol {
+    margin: 0;
+    padding-left: 20px;
+    columns: 2;
+    column-gap: 28px;
+  }
+  nav.toc ol li { margin: 4px 0; break-inside: avoid; }
+  nav.toc a { color: var(--fg); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); text-decoration: underline; }
+
+  h2.section {
+    font-size: 26px;
+    margin-top: 56px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+    color: var(--accent);
+  }
+  h3 {
+    font-size: 20px;
+    margin-top: 28px;
+    margin-bottom: 8px;
+  }
+  h4 {
+    font-size: 17px;
+    margin-top: 20px;
+    margin-bottom: 6px;
+    color: #2a3038;
+  }
+  p { margin: 10px 0; }
+  ul, ol { margin: 8px 0; padding-left: 24px; }
+  li { margin: 4px 0; }
+  code {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.92em;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  pre code { background: transparent; padding: 0; }
+
+  .callout {
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    border-left: 4px solid;
+    background: var(--box-bg);
+  }
+  .callout-warn { border-color: var(--warn); background: #fff8eb; }
+  .callout-tip { border-color: var(--ok); background: #effaf2; }
+  .callout-bug { border-color: var(--accent2); background: #fef2f2; }
+  .callout-info { border-color: var(--accent); background: #eff6ff; }
+  .callout strong { display: block; margin-bottom: 4px; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 14px 0;
+    font-size: 15px;
+    background: var(--box-bg);
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #f0efeb; font-weight: 600; }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    margin-right: 6px;
+    background: #e7e5dd;
+    color: #444;
+  }
+  .tag.bug { background: #fee2e2; color: #991b1b; }
+  .tag.fix { background: #dcfce7; color: #166534; }
+  .tag.alg { background: #dbeafe; color: #1e40af; }
+  .tag.axis { background: #ede9fe; color: #5b21b6; }
+
+  .formula-box {
+    background: var(--box-bg);
+    border: 1px dashed var(--border);
+    padding: 12px 16px;
+    margin: 14px 0;
+    border-radius: 6px;
+    overflow-x: auto;
+  }
+  .ref {
+    background: var(--box-bg);
+    border-top: 2px solid var(--border);
+    margin-top: 48px;
+    padding-top: 20px;
+    font-size: 14.5px;
+  }
+  .ref ul { padding-left: 22px; }
+  .ref li { margin: 6px 0; }
+  .ref a { color: var(--accent); word-break: break-all; }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 14px 0;
+  }
+  @media (max-width: 720px) {
+    nav.toc ol { columns: 1; }
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+  .small { font-size: 14px; color: var(--muted); }
+  blockquote {
+    border-left: 4px solid var(--border);
+    padding: 4px 16px;
+    color: var(--muted);
+    margin: 14px 0;
+    background: var(--box-bg);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header class="hero">
+  <h1>2026 旗舰后训练配方对照</h1>
+  <div class="subtitle">Frontier Post-Training Recipes 2026：GLM-5 / DeepSeek-V4 / Qwen3.5 / Kimi K2 Thinking &amp; K2.5 / Gemini 3 / Claude Opus 4.6 / Olmo 3 Dolci / K2-V2 / INTELLECT-3</div>
+  <div class="subtitle small"><a href="llm-post-training-master.html">← 返回总纲（LLM Post-Training 全景综述）</a> · 一句话定位：把 2025Q4–2026H1 各家旗舰技术报告中的后训练配方拆成「流水线顺序 / 奖励来源 / 异步基础设施 / 多智能体与思考效率」四个可对照的轴，给出机制、数字与实操结论 · 更新于 2026-06-12</div>
+</header>
+
+<nav class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><a href="#sec-1">总览：2025Q4–2026H1 时间线与格局</a></li>
+    <li><a href="#sec-2">四轴对照框架与总对照表</a></li>
+    <li><a href="#sec-3">GLM-5：顺序 RL 流水线与 slime</a></li>
+    <li><a href="#sec-4">DeepSeek-V4：OPD 替代混合 RL</a></li>
+    <li><a href="#sec-5">Qwen3.5 与 Qwen3-Coder-Next</a></li>
+    <li><a href="#sec-6">Kimi K2 Thinking → K2.5：Agent Swarm</a></li>
+    <li><a href="#sec-7">Gemini 3 / Opus 4.6：思考效率训练化、parallel thinking 与 2026 春夏动态</a></li>
+    <li><a href="#sec-8">开放数据配方：Olmo 3 Dolci / K2-V2 / INTELLECT-3 / Smol Playbook</a></li>
+    <li><a href="#sec-9">横切方法论：RL Scaling、OPD 经济学、训推一致性、mid-training 闭环</a></li>
+    <li><a href="#sec-10">实操指南：决策树、检查清单与速查表</a></li>
+    <li><a href="#conclusion">结语</a></li>
+    <li><a href="#refs">参考文献</a></li>
+  </ol>
+</nav>
+
+<p class="small">本文是后训练知识库的 2026 增量专题，与 <a href="llm-post-training-master.html">全景综述</a>（方法谱系）、<a href="derivations.html">原理推导</a>（PPO/GRPO/DPO 公式）、<a href="rl-pitfalls-survey.html">实战坑点综述</a>（reward hacking / entropy collapse / KL 去留）、<a href="multi-turn-tool-use.html">多轮工具使用专题</a> 互为补充：那几份回答「方法是什么、为什么、会怎么坏」，本文回答「2026 年各家旗舰实际是怎么训的、互相之间差在哪、你该抄哪一段」。所有 arXiv 编号、技术报告结论与基准数字均在 2026-06-12 重新逐条核对过一手来源；无法核实的传闻（参数规模小道消息、未发布模型）一律不收录。</p>
+
+<!-- ============== Section 1 ============== -->
+<h2 class="section" id="sec-1">1. 总览：2025Q4–2026H1 时间线与格局</h2>
+
+<p>2025 年 Q4 到 2026 年 H1 是后训练领域自 DeepSeek-R1（2025-01）以来变化最密集的三个季度。如果说 2025 上半年的主旋律是「把 GRPO 跑稳」（DAPO 四件套、训推一致性、entropy 管理——详见 <a href="rl-pitfalls-survey.html">坑点综述</a>），那么这三个季度的主旋律变成了三件事：</p>
+
+<ol>
+  <li><strong>RL 从「一锅炖」走向「结构化」。</strong>没有任何一家旗舰还在用单阶段混合 RL：GLM-5 用严格顺序的三段 RL 流水线，DeepSeek-V4 干脆把多领域混合 RL 整个替换成「领域 specialist 各自 RL + on-policy distillation 合并」，Qwen3-Coder-Next 在 80B-A3B 的小激活模型上复刻了同样的「专家分训 + 蒸馏回收」结构。多任务 RL 奖励互相打架的问题，被各家用不同的结构化手段绕开了。</li>
+  <li><strong>On-policy distillation（OPD）升格为与 RL 并列的后训练支柱。</strong>Thinking Machines 在 2025-10 复现了 Qwen3 的蒸馏配方、并把「约 1/10 RL 成本拿到更高分数」（Qwen3 报告 Table 21 的对照）确立为标准引用，DeepSeek-V4 在 2026-04 把 OPD 推到「全面替代混合 RL」的位置，GLM-5 用它做跨阶段防遗忘（cross-stage distillation），THUNLP 在 2026-04 给出了 OPD 成败的机理条件。</li>
+  <li><strong>「思考」本身成为被训练的对象。</strong>Gemini 3 在 RL 中对 thought 加 length penalty、Claude Opus 4.6 把思考深度做成模型自调的 adaptive thinking、Kimi K2.5 给并行 agent 体系设计了防「假并行」的奖励——思考预算、思考效率、思考的并行结构，全部从推理时超参变成了训练目标。</li>
+  </ol>
+
+<h3>1.1 时间线（均为本次核实过的一手发布）</h3>
+
+<table>
+<thead><tr><th>时间</th><th>发布</th><th>对后训练的意义</th></tr></thead>
+<tbody>
+<tr><td>2025-10</td><td><strong>ScaleRL</strong>（Meta 等，arXiv:2510.13786）</td><td>40 万+ GPU-hours 的系统性 RL scaling 研究：RL 的算力-性能曲线是 sigmoid 而非 power law，配方选择应看「渐近天花板 A」而非短期斜率（§9.1）。</td></tr>
+<tr><td>2025-10</td><td><strong>On-Policy Distillation</strong>（Thinking Machines 博客）</td><td>OPD = on-policy 采样 + 稠密 per-token 奖励；复现 Qwen3 蒸馏配方，比 RL 快 7–10 倍、总算力省 50–100 倍（§9.2）。</td></tr>
+<tr><td>2025-10</td><td><strong>Defeating the Training-Inference Mismatch via FP16</strong>（Sea AI Lab，arXiv:2510.26788）</td><td>BF16 舍入误差破坏训推一致性是 RL 崩溃的系统级根因，改回 FP16 即可消除（§9.3）。</td></tr>
+<tr><td>2025-11</td><td><strong>Kimi K2 Thinking</strong>（Moonshot）</td><td>1T/32B 激活 MoE，INT4 量化感知训练（QAT）与 200–300 步连续工具调用共存的开源 thinking agent（§6.1）。</td></tr>
+<tr><td>2025-11</td><td><strong>Gemini 3 Pro</strong>（Google DeepMind：Model Card + Frontier Safety Framework Report）</td><td>FSF 报告的 CoT legibility 附录（注意：不在 Model Card 里）披露：SFT 与 RL 直接施加在 thought traces 上、RL 对 thoughts 加 length penalty、其余奖励基本不读 thoughts（§7.1）。</td></tr>
+<tr><td>2025-11</td><td><strong>Olmo 3 + Dolci 套件</strong>（Ai2，arXiv:2512.13961）</td><td>7B/32B 全开放 model flow；Dolci 提供 SFT / DPO / RLVR 三阶段各自的开放数据混合（§8.1）。</td></tr>
+<tr><td>2025-12</td><td><strong>K2-V2</strong>（LLM360，arXiv:2512.06201）</td><td>「360 度开放」的推理增强底座：训练全历史 + 数据配方全公开，越级对标 Qwen 系（§8.2）。</td></tr>
+<tr><td>2025-12</td><td><strong>On the Interplay of Pre-Training, Mid-Training, and RL</strong>（arXiv:2512.07783）</td><td>受控实验证明：RL 只有在预训练留有 headroom、且 RL 数据落在能力边缘时才产生真实增益；固定算力下 mid-training 显著优于纯 RL（§9.4）。</td></tr>
+<tr><td>2025-12</td><td><strong>INTELLECT-3</strong>（Prime Intellect，arXiv:2512.16144）</td><td>106B/12B 激活，基于 GLM-4.5-Air-Base 做 SFT+RL；prime-rl 异步框架扩到 512 张 H200，验证社区环境生态路线（§8.3）。</td></tr>
+<tr><td>2026-02</td><td><strong>Kimi K2.5</strong>（Moonshot，arXiv:2602.02276）</td><td>Agent Swarm：只训 orchestrator、sub-agent 用冻结中间 checkpoint；critical-steps 奖励防假并行；多模态联合训练的一组反直觉发现（§6.2）。</td></tr>
+<tr><td>2026-02</td><td><strong>Claude Opus 4.6</strong>（Anthropic）</td><td>Adaptive thinking + 四档 effort（low/medium/high/max，默认 high）：思考深度由模型自行校准；context compaction 与 agent teams（§7.2）。</td></tr>
+<tr><td>2026-02</td><td><strong>ReMiT</strong>（arXiv:2602.03075）</td><td>用 RL 后模型的推理先验反向加权 mid-training token，pretrain→RL→mid-train 迭代闭环，10 个预训练基准平均 +3%（§9.4）。</td></tr>
+<tr><td>2026-02</td><td><strong>Qwen3.5-397B-A17B</strong>（阿里）</td><td>「在几乎所有能构造的 RL 任务与环境上扩 RL」：million-scale agent 环境，课程按难度与泛化性组织；Gated DeltaNet 线性注意力 + 稀疏 MoE（§5.1）。</td></tr>
+<tr><td>2026-02</td><td><strong>GLM-5</strong>（智谱，arXiv:2602.15763）</td><td>744B/40B 激活；顺序 RL 流水线 Reasoning→Agentic→General + 跨阶段 OPD 防遗忘；slime 异步 RL 基础设施全披露（§3）。</td></tr>
+<tr><td>2026-02</td><td><strong>Gemini 3.1 Pro</strong>（Google DeepMind）</td><td>Gemini 3 的点版本（02-19）：model card 声明 "based on Gemini 3 Pro"，训练细节沿用 3 Pro——即 thought-trace 训练框架未变（§7.5）。</td></tr>
+<tr><td>2026-03</td><td><strong>Qwen3-Coder-Next</strong>（arXiv:2603.00729）</td><td>80B 总参/3B 激活达到 10–20 倍激活参数模型的 agentic coding 水平：「数据与环境工程红利大于参数红利」的标志案例（§5.2）。</td></tr>
+<tr><td>2026-04</td><td><strong>Rethinking On-Policy Distillation</strong>(THUNLP，arXiv:2604.13016)</td><td>OPD 成败两条件：师生 thinking pattern 兼容 + teacher 提供学生分布外的真实新能力（§9.2）。</td></tr>
+<tr><td>2026-04</td><td><strong>DeepSeek-V4 技术报告</strong>（DeepSeek）</td><td>后训练流水线最激进的改写：4 领域 specialist（各自 SFT+GRPO）→ 10+ teacher 全词表 logit OPD 合并；rubric-guided GRM 取代标量 RM（§4）。</td></tr>
+<tr><td>2026-04</td><td><strong>Kimi K2.6</strong>（Moonshot，开源）</td><td>开源 agentic coding 追平闭源旗舰档（04-20）：SWE-bench Pro 58.6%，首个领跑该榜的开源权重模型；工具调用基准近乎翻倍（§7.5）。</td></tr>
+<tr><td>2026-05</td><td><strong>Diagnosing Training-Inference Mismatch</strong>（arXiv:2605.14220）</td><td>零失配诊断设置（VeXact）证明：token 级微小数值分歧本身即可独立导致训练崩溃，失配是一阶因素而非噪声（§9.3）。</td></tr>
+<tr><td>2026-05</td><td><strong>Anthropic：Dreaming 与 Claude Opus 4.8</strong></td><td>dev day（05-06）发布 Dreaming：离线整理 agent 会话与 memory、跨 session 自我改进——continual learning 的产品侧形态；Opus 4.8（05-28）默认 1M 上下文（§7.5）。</td></tr>
+<tr><td>2026-06</td><td><strong>Claude Fable 5</strong>（Anthropic）</td><td>首个公开的 Mythos-class 模型（06-09）：同一模型按安全分类器层拆成 Fable 5 / Mythos 5 两个产品发布（§7.5）。</td></tr>
+</tbody>
+</table>
+
+<div class="callout callout-info">
+<strong>怎么读这张时间线</strong>
+注意三条暗线：① 2025-10 的三篇（ScaleRL / OPD / FP16）是方法论铺垫，2026 年的旗舰配方几乎都能在其中找到源头——GLM-5 的 IcePop 对应 FP16 那条线，DeepSeek-V4 的 OPD 对应 Thinking Machines 那条线；② 开放阵营（Olmo 3、K2-V2、INTELLECT-3）集中在 2025-11/12 发布，首次做到「数据 + 训练历史 + RL 环境」三者同时开放；③ 2026-02 是闭源/开源旗舰的密集交火期，五家（Kimi、Anthropic、阿里、智谱、Google）在同一个月内发布，且配方分化明显大于 2025 年；2026-04 之后旗舰迭代仍在继续（K2.6、Opus 4.8、Fable 5），但方法披露粒度回落，速记见 §7.5。
+</div>
+
+<h3>1.2 格局判断：配方收敛了什么、分化了什么</h3>
+
+<p><strong>已收敛（所有旗舰一致）的部分</strong>，可以放心当作 2026 年的默认实践：</p>
+<ul>
+  <li><strong>异步、解耦的 RL 基础设施。</strong>GLM-5 的 slime、Qwen3.5 的全解耦训推架构（端到端提速 3–5 倍）、Prime Intellect 的 prime-rl、ScaleRL 的 PipelineRL——generation 与 training 分池并行已是共识，rollout 长尾不再允许拖死整批。</li>
+  <li><strong>训推一致性作为一阶问题对待。</strong>GLM-5 在 Reasoning RL 里内置 IcePop 处理失配；ScaleRL 把 FP32 logits head 列为配方组件；FP16 论文与 VeXact 诊断把「先修数值一致性，再谈算法」变成行业纪律。</li>
+  <li><strong>混合奖励体系。</strong>纯 rule-based 或纯 RM 都已退场：GLM-5 General RL 同时用规则、ORM 与生成式 GRM；DeepSeek-V4 用 rubric-guided GRM 处理难验证任务；Gemini 3 用多步推理 RL + 不读 thought 的奖励。</li>
+  <li><strong>SFT→（偏好）→RLVR 的阶段骨架</strong>在开放阵营被 Olmo 3 以 Dolci 套件「数据级」固化：每个阶段有独立的数据混合，可单独复现。</li>
+</ul>
+
+<p><strong>仍在分化（值得跟踪押注）的部分：</strong></p>
+<table>
+<thead><tr><th>分歧点</th><th>路线 A</th><th>路线 B</th><th>本文判断</th></tr></thead>
+<tbody>
+<tr><td>多领域能力如何合并</td><td>顺序 RL 流水线 + 跨阶段蒸馏（GLM-5）</td><td>并行 specialist + OPD 合并（DeepSeek-V4、Qwen3-Coder-Next）</td><td>B 在工程上更解耦、可并行迭代，正在变成多数派；A 在阶段间正迁移（推理→agent）上有独特收益。详见 §2.1。</td></tr>
+<tr><td>注意力架构与 RL 的耦合</td><td>线性/混合注意力换吞吐（Qwen3.5 Gated DeltaNet、Qwen3-Next）</td><td>全注意力 + 稀疏化（GLM-5 用 DSA、MiniMax M2 退回 full attention）</td><td>未决。RL 长轨迹训练放大了两条路线的差异，复杂多跳推理上 efficient attention 是否吃亏仍是开放问题。</td></tr>
+<tr><td>多智能体训练</td><td>只训 orchestrator、冻结 sub-agent（Kimi K2.5）</td><td>产品层组合单 agent（Claude Code agent teams）</td><td>K2.5 证明「把多智能体信用分配退化为单策略」可训且收益大（BrowseComp +17.8 个百分点）；全联合训练目前无人敢碰。</td></tr>
+<tr><td>思考效率</td><td>训练期：thought length penalty（Gemini 3）</td><td>训练 + 接口：adaptive thinking / effort 档（Opus 4.6）</td><td>两者会合流：思考预算正在从推理时超参变成「被训练的能力」，见 §7。</td></tr>
+</tbody>
+</table>
+
+<div class="callout callout-tip">
+<strong>给时间紧张读者的三句话</strong>
+① 如果你在做多领域后训练，2026 年的默认答案是「specialist 分训 + OPD 合并」而不是调混合 RL 的奖励权重（§4、§9.2）。② 如果你的 RL 训练不稳，先查训推数值一致性（FP16/IcePop/VeXact 这条线，§9.3），再查算法。③ 如果你预算有限，ScaleRL 的结论是把算力给更大的 base 而不是给小模型堆步数，且用 sigmoid 外推先估天花板再开跑（§9.1）。
+</div>
+
+<!-- ============== Section 2 ============== -->
+<h2 class="section" id="sec-2">2. 四轴对照框架与总对照表</h2>
+
+<p>各家技术报告的章节组织、术语体系差异极大（同一个词如 "annealing"、"mid-training"、"agentic RL" 在不同报告里含义不同），直接逐篇读很难对照。本文把所有配方拆到四个正交的轴上，每个轴对应一个工程决策：</p>
+
+<table>
+<thead><tr><th>轴</th><th>核心问题</th><th>2026 年的选项空间</th></tr></thead>
+<tbody>
+<tr><td><span class="tag axis">轴一</span><strong>流水线顺序</strong></td><td>多领域/多目标能力按什么结构注入？阶段间遗忘怎么办？</td><td>顺序流水线（GLM-5）/ 并行 specialist + 蒸馏合并（DeepSeek-V4、Qwen3-Coder-Next）/ 单一大 RL 阶段 + 环境课程（Qwen3.5）/ 线性 SFT→DPO→RLVR（Olmo 3）</td></tr>
+<tr><td><span class="tag axis">轴二</span><strong>奖励来源</strong></td><td>奖励信号从哪来？难验证任务怎么打分？</td><td>规则 verifier / 领域 judge model（GLM-5 Reasoning RL）/ ORM+GRM 混合（GLM-5 General RL）/ rubric-guided GRM（DeepSeek-V4）/ teacher logits 即稠密奖励（OPD）/ 结构性奖励：thought length penalty（Gemini 3）、critical-steps + 退火辅助奖励（K2.5）</td></tr>
+<tr><td><span class="tag axis">轴三</span><strong>异步架构与训推一致性</strong></td><td>generation/training 怎么解耦？数值失配怎么治？</td><td>slime（TITO、FP8+MTP、心跳容错）/ prime-rl / PipelineRL（容忍 k=8 步 off-policy）/ 全解耦 + FP8 端到端（Qwen3.5）；失配对策：FP16、FP32 logits head、IcePop、双边 IS 截断</td></tr>
+<tr><td><span class="tag axis">轴四</span><strong>多智能体与思考效率</strong></td><td>并行 agent 怎么训？思考预算谁来定？</td><td>orchestrator-only RL + 冻结 sub-agent（K2.5）/ 产品层 agent teams（Claude Code）/ 解码层 native parallel thinking（ParaThinker，§7.4）；思考效率：length penalty（Gemini 3）/ adaptive thinking + effort 档（Opus 4.6）/ interleaved thinking 保留铁律（MiniMax M2 数据）</td></tr>
+</tbody>
+</table>
+
+<h3>2.1 轴一：流水线顺序——「打架」问题的三种解法</h3>
+
+<p>多领域 RL 的根本矛盾：不同领域的奖励信号在同一个策略上互相干扰（数学要长推理、对话要短回复、agent 要工具调用格式），混在一锅里训，要么互相拖累，要么按出现频率「赢者通吃」。2026 年的三种结构化解法：</p>
+
+<h4>解法一：顺序流水线 + 跨阶段蒸馏（GLM-5）</h4>
+<p>严格按 Reasoning RL → Agentic RL → General RL 的顺序训练，每个阶段只优化一类目标。顺序的逻辑是依赖关系：agent 能力建立在推理能力之上，对齐/通用质量最后做（避免被前序大梯度阶段冲掉）。代价是灾难性遗忘——GLM-5 的对策是在最后用 on-policy distillation「快速恢复早期 SFT 与 RL 阶段习得的技能」（原文：swiftly recover the skills acquired in earlier SFT and RL stages）。本质上这是把 OPD 当作流水线的「黏合剂」。</p>
+
+<h4>解法二：并行 specialist + 蒸馏合并（DeepSeek-V4、Qwen3-Coder-Next）</h4>
+<p>每个领域独立训一个 specialist（各自 SFT + GRPO，奖励/数据完全领域内闭环），最后用 on-policy distillation 把 10+ 个 teacher 合并进单一学生。打架问题被转化为「教师合并」问题——而 OPD 的逆向 KL 目标对此天然友好：学生在自己的分布上采样，每个 teacher 只在自己擅长的 prompt 域上提供监督。Qwen3-Coder-Next 在编码域内部复刻了同样的结构（SWE / QA / Web 开发 / UX 四类专家分训后蒸回单模型）。</p>
+
+<h4>解法三：单一大 RL 阶段 + 环境课程（Qwen3.5）</h4>
+<p>不做显式阶段切分，而是「在几乎所有能构造的 RL 任务与环境上扩 RL」（原文：extensive scaling of virtually all RL tasks and environments），靠环境课程的难度与泛化性排序来管理干扰。这条路线对环境工程与基础设施要求最高（million-scale agent 环境、全解耦训推、3–5 倍端到端加速），实际上是把「打架」问题外包给了课程设计。</p>
+
+<div class="callout callout-warn">
+<strong>选型提醒</strong>
+解法二最容易被中小团队低估的隐藏成本是<strong>蒸馏基础设施</strong>：DeepSeek-V4 为了全词表 logit 蒸馏专门做了 teacher 隐层缓存 + 按 teacher 索引排序样本 + 自定义 KL kernel 三件事（§4.3）。如果只能做 top-k logits 或黑盒采样蒸馏，合并质量会显著打折——此时解法一（顺序 + 末端 OPD 修复）反而更稳。
+</div>
+
+<h3>2.2 轴二：奖励来源——从「verifier vs RM」到奖励组合学</h3>
+
+<p>2025 年的叙事是「可验证奖励 vs 奖励模型」二选一；2026 年旗舰的实际做法是按任务可验证性分层组合：</p>
+
+<table>
+<thead><tr><th>层</th><th>任务类型</th><th>2026 主流做法</th><th>代表</th></tr></thead>
+<tbody>
+<tr><td>L1</td><td>严格可验证（数学答案、单测）</td><td>规则 verifier，但已不裸用——配 overlong shaping、防 hack 审计</td><td>所有家；DAPO 四件套仍是基线</td></tr>
+<tr><td>L2</td><td>弱可验证（推理过程质量、科学题）</td><td>领域 judge model 给 outcome reward</td><td>GLM-5 Reasoning RL（数学/科学/代码/工具推理四域 judge）</td></tr>
+<tr><td>L3</td><td>难验证（写作、对话、情商）</td><td>规则 + ORM + 生成式 GRM 混合；rubric-guided GRM 取代标量 RM</td><td>GLM-5 General RL（三维分解：基础正确性/情商/任务质量）；DeepSeek-V4</td></tr>
+<tr><td>L4</td><td>结构/效率目标</td><td>把「怎么想、想多久、怎么并行」写进奖励</td><td>Gemini 3 thought length penalty；K2.5 critical-steps + r_parallel/r_finish</td></tr>
+</tbody>
+</table>
+
+<p>值得单独点出的两个 2026 年新事物：</p>
+<ul>
+  <li><strong>Rubric-guided GRM（DeepSeek-V4）</strong>：让生成式 RM 按显式 rubric 逐条评估再给分，取代标量 RM 处理难验证任务，降低对大规模人类偏好标注的依赖。这与 master 文档中 2024 年代的「BT 模型标量 RM」已是两代差距。</li>
+  <li><strong>退火的辅助奖励（K2.5）</strong>：r_parallel（防串行坍缩）与 r_finish（防假并行）这类「行为塑形」奖励在训练过程中退火到零——塑形奖励只用来引导早期探索，最终策略只对真实目标负责。这是对 reward shaping 引入新 hacking 面的经典缓解（参见<a href="rl-pitfalls-survey.html">坑点综述 §1</a>），首次在旗舰报告中被工程化。</li>
+</ul>
+
+<h3>2.3 轴三：异步架构与训推一致性</h3>
+<p>这一轴的详细机制放在各模型章节与 §9.3，此处给一个对照速览：</p>
+
+<table>
+<thead><tr><th>系统</th><th>解耦方式</th><th>一致性对策</th><th>披露的关键数字</th></tr></thead>
+<tbody>
+<tr><td>slime（GLM-5）</td><td>generation/training 全异步解耦，可定制 rollout</td><td>TITO（token-in-token-out）网关保证动作精确对应；双边 IS 截断 $[1-\varepsilon_\ell,\,1+\varepsilon_h]$；IcePop</td><td>FP8 rollout + MTP 治长尾；心跳容错；DP-aware 路由复用 KV-cache</td></tr>
+<tr><td>Qwen3.5 训练栈</td><td>训推完全解耦 + 动态负载均衡 + 细粒度故障恢复</td><td>FP8 端到端 + 投机解码</td><td>端到端 3–5 倍加速</td></tr>
+<tr><td>PipelineRL（ScaleRL 采用）</td><td>流式 pipeline，容忍 off-policyness</td><td>k=8 步 off-policy 上限 + CISPO 截断 IS + FP32 logits head</td><td>FP32 logits 使渐近 pass rate 0.52→0.61</td></tr>
+<tr><td>prime-rl（INTELLECT-3）</td><td>开源异步 RL，单机到数千 GPU</td><td>—（框架层）</td><td>实际扩到 512×H200</td></tr>
+</tbody>
+</table>
+
+<h3>2.4 轴四：多智能体与思考效率</h3>
+<p>详见 §6.2（K2.5 Agent Swarm）与 §7（Gemini 3 / Opus 4.6 / MiniMax M2 数据 / parallel thinking）。一句话框架：<strong>多智能体的训练问题被 K2.5 用「冻结 sub-agent」降维成单策略问题；思考效率问题被 Gemini/Anthropic 从两端（奖励端 / 接口端）同时训练化；思考的并行结构则有任务分解层（多智能体）与解码层（native parallel thinking）两条平行的训练化路线（§7.4）。</strong></p>
+
+<h3>2.5 总对照表</h3>
+
+<table>
+<thead><tr><th></th><th>GLM-5</th><th>DeepSeek-V4</th><th>Qwen3.5</th><th>Kimi K2.5</th><th>Gemini 3 Pro</th><th>Claude Opus 4.6</th></tr></thead>
+<tbody>
+<tr><td><strong>规模</strong></td><td>744B / 40B 激活，256 专家</td><td>Pro 1.6T / 49B 激活；Flash 284B</td><td>397B / 17B 激活</td><td>未完整披露（K2 系 1T / 32B 激活）</td><td>未披露</td><td>未披露</td></tr>
+<tr><td><strong>预训练规模</strong></td><td>28.5T tokens + DSA 稀疏注意力</td><td>Pro 33T / Flash 32T tokens，百万 token 上下文</td><td>Gated DeltaNet + MoE（线性:全注意力 ≈ 3:1）</td><td>文本-视觉联合预训练</td><td>未披露</td><td>未披露</td></tr>
+<tr><td><strong>轴一：流水线</strong></td><td>顺序：Reasoning RL → Agentic RL → General RL + 跨阶段 OPD</td><td>并行：4 领域 specialist（SFT+GRPO）→ 10+ teacher OPD 合并</td><td>单一大 RL：million-scale 环境 + 难度/泛化课程</td><td>联合预训练 → zero-vision SFT → 联合 RL → Agent Swarm RL</td><td>SFT + RL 直接施加于 thought traces</td><td>未完整披露（adaptive thinking 为后训练产物）</td></tr>
+<tr><td><strong>轴二：奖励</strong></td><td>L2 领域 judge → agentic verifier → L3 规则+ORM+GRM 三维混合</td><td>specialist 域内奖励；合并期 teacher logits；rubric-guided GRM</td><td>难验证任务奖励未详披露；课程按泛化性选任务</td><td>critical-steps + r_parallel/r_finish（退火）</td><td>多目标加权 + thought length penalty；奖励基本不读 thought</td><td>未披露</td></tr>
+<tr><td><strong>轴三：infra</strong></td><td>slime：TITO、FP8+MTP、双边 IS、IcePop</td><td>teacher 隐层缓存 + 自定义全词表 KL kernel</td><td>全解耦 + FP8 端到端，3–5 倍加速</td><td>sub-agent/orchestrator 推理实例比例动态调整</td><td>未披露</td><td>未披露</td></tr>
+<tr><td><strong>轴四：多智能体/思考</strong></td><td>—</td><td>—</td><td>原生多模态 agent，多轮无断点交互</td><td>orchestrator-only RL，冻结 sub-agent，3–4.5 倍提速</td><td>Deep Think 模式；高效推理被训进模型</td><td>adaptive thinking；effort 四档默认 high；context compaction；agent teams</td></tr>
+<tr><td><strong>代表性数字</strong></td><td>SWE-bench Verified 77.8%；Terminal-Bench 2.0 56.2%；Vending-Bench 2 开源第一（期末余额 4,432 美元）</td><td>—（报告侧重机制；见 §4）</td><td>Tau2-Bench 86.7（次于 Opus 91.6）；BFCL-V4 72.9</td><td>BrowseComp 60.6→78.4；WideSearch 72.7→79.0</td><td>—（model card 不含逐项消融）</td><td>SWE-bench Verified 80.9%（GLM-5 报告对比引用）</td></tr>
+</tbody>
+</table>
+
+<p class="small">注：「未披露」表示一手来源（技术报告/model card/官方博客）中无对应信息；本文不转引无法溯源的第三方猜测。</p>
+
+<!-- ============== Section 3 ============== -->
+<h2 class="section" id="sec-3">3. GLM-5：顺序 RL 流水线与 slime 异步基础设施</h2>
+
+<p>GLM-5（智谱，arXiv:2602.15763，2026-02）是 2026 上半年信息披露最完整的旗舰技术报告，也是「顺序 RL 流水线」路线的代表作。从 GLM-4.5 的 355B/32B 激活扩到 <strong>744B 总参 / 40B 激活 / 256 专家</strong>，预训练 28.5T tokens，用 DSA（DeepSeek Sparse Attention）把长序列训练/推理成本降低 1.5–2 倍。副标题 "from Vibe Coding to Agentic Engineering" 概括了它的产品定位：从片段式代码生成转向完整工程任务。</p>
+
+<h3>3.1 三段顺序 RL 流水线</h3>
+
+<p>后训练主干是严格顺序的三段 RL（原文：starting with Reasoning RL, followed by Agentic RL, and finishing with General RL），每段的任务域、奖励与算法修正都不同：</p>
+
+<table>
+<thead><tr><th>阶段</th><th>任务域</th><th>奖励来源</th><th>算法/工程要点</th></tr></thead>
+<tbody>
+<tr><td><strong>① Reasoning RL</strong></td><td>数学、科学、代码、tool-integrated reasoning 四域</td><td>领域专属 judge model 给 outcome reward</td><td>GRPO 基座 + <strong>IcePop</strong> 处理训推失配（见 3.3）</td></tr>
+<tr><td><strong>② Agentic RL</strong></td><td>长程工具调用 / 软件工程任务</td><td>任务级 verifier</td><td>全异步解耦 infra；TITO 网关；双边 IS 截断；DP-aware 路由</td></tr>
+<tr><td><strong>③ General RL</strong></td><td>通用对话/写作/对齐</td><td>规则 + ORM + 生成式 GRM 混合</td><td>目标三维分解：基础正确性、情商（emotional intelligence）、任务专属质量</td></tr>
+</tbody>
+</table>
+
+<p>三段之后还有一个常被读者忽略但至关重要的第四步：<strong>On-Policy Cross-Stage Distillation</strong>。顺序流水线天然有「后面阶段冲掉前面阶段」的遗忘问题，GLM-5 的解法是在最后用 on-policy distillation 把早期 SFT 与 RL 阶段的技能「快速恢复」回来。注意这里 OPD 的用法与 DeepSeek-V4 不同：V4 用 OPD 做<strong>合并</strong>（多个 specialist → 一个学生），GLM-5 用 OPD 做<strong>修复</strong>（当前策略向早期 checkpoint 学回丢掉的能力）。同一个工具，在轴一上是两种完全不同的角色。</p>
+
+<div class="callout callout-tip">
+<strong>为什么是这个顺序？</strong>
+Reasoning 在前：长推理能力是 agentic 行为的底座（工具调用之间的规划与反思全是推理）。Agentic 居中：它的奖励最稀疏、轨迹最长，需要前一阶段攒下的推理先验，也需要在通用对齐「磨平」模型之前完成。General 在后：对齐与风格目标的梯度相对温和，放最后不会破坏前两段的硬能力，反过来若放前面则会被硬任务的大梯度冲掉。这个顺序与「先难后易、先窄后宽」的直觉一致，也与 <a href="llm-post-training-master.html">master 文档</a>中 Qwen3 两段式（先推理后通用）的逻辑同源，GLM-5 把它推广到了三段。
+</div>
+
+<h3>3.2 Agentic RL 的工程细节：TITO 与双边 IS</h3>
+
+<p>Agentic RL 是三段中工程难度最高的：轨迹长（多轮工具调用）、GPU 空转严重（等环境返回）、训推两侧的 tokenization/采样细节极易失配。GLM-5 披露的对策值得逐条记录：</p>
+
+<ul>
+  <li><strong>全异步解耦</strong>：推理引擎与训练引擎分离，rollout 的长尾不阻塞训练（原文：massive-scale exploration of agent trajectories without synchronization bottlenecks）。</li>
+  <li><strong>TITO（Token-in-Token-out）网关</strong>：环境交互全程以 token 为接口，保证训练时回放的动作序列与 rollout 时的动作<strong>逐 token 精确对应</strong>。这直接消灭了 <a href="multi-turn-tool-use.html">多轮工具使用专题</a>里反复强调的一类 bug：工具结果重新 tokenize / 模板重渲染导致的 token 漂移。</li>
+  <li><strong>直接双边重要性采样（direct double-sided importance sampling）</strong>：token 级 ratio 截断在 $[1-\varepsilon_\ell,\ 1+\varepsilon_h]$，上下界解耦设置。这是 DAPO clip-higher 思想（上界放宽保探索）与异步 off-policy 修正的合流——下界 $\varepsilon_\ell$ 控制 stale 样本的负梯度幅度，上界 $\varepsilon_h$ 控制探索激励。</li>
+  <li><strong>DP-aware 路由</strong>：把同一对话的后续轮次路由到持有其 KV-cache 的数据并行分片，最大化 KV 复用——多轮 agent 任务的 prefill 成本是吞吐杀手，这一条是针对性优化。</li>
+</ul>
+
+<h3>3.3 IcePop：训推失配的「冷处理」</h3>
+
+<p>GLM-5 在 Reasoning RL 中内置了名为 <strong>IcePop</strong> 的机制来处理训练-推理失配（training-inference mismatch）。结合 §9.3 的脉络看，它的意义在于：继 2025-10 的 FP16 论文把失配确立为一阶问题之后，<strong>旗舰模型首次把失配处理写进了主配方而非附录</strong>。GLM-5 同时在 infra 层（TITO、FP8 rollout 的数值管理）与算法层（IcePop + 双边截断）双管齐下——这正是 <a href="rl-pitfalls-survey.html">坑点综述</a>所主张的「先修后端正确性，再加算法修正」排查纪律在生产系统中的形态。</p>
+
+<h3>3.4 slime：异步 RL 基础设施</h3>
+
+<p>slime 是 GLM-5 配套开源的异步 RL 框架，设计目标可以概括为「把 rollout 当作一等公民」：</p>
+<ul>
+  <li><strong>可定制 rollout</strong>：rollout 逻辑（多轮、工具、sandbox）从训练循环中解耦出来，支持任意 agent 框架接入；</li>
+  <li><strong>长尾治理</strong>：FP8 推理 + MTP（multi-token prediction）投机解码压缩超长轨迹的生成时间——rollout 长尾（个别超长轨迹拖死整批）是 agentic RL 的头号吞吐瓶颈；</li>
+  <li><strong>心跳驱动的容错</strong>：数千 GPU 规模下 rollout worker 的故障是常态而非异常，心跳机制保证单点故障不传播。</li>
+</ul>
+
+<h3>3.5 结果与解读</h3>
+
+<table>
+<thead><tr><th>基准</th><th>GLM-5</th><th>参照</th></tr></thead>
+<tbody>
+<tr><td>SWE-bench Verified</td><td>77.8%</td><td>超过 Gemini 3 Pro，逼近 Claude Opus 4.6 的 80.9%</td></tr>
+<tr><td>Terminal-Bench 2.0</td><td>56.2%</td><td>—</td></tr>
+<tr><td>Vending-Bench 2</td><td>开源第一（期末余额 4,432 美元）</td><td>长程经营类 agent 基准</td></tr>
+<tr><td>LMArena</td><td>文本与代码双榜开源第一</td><td>发布时点</td></tr>
+</tbody>
+</table>
+
+<div class="callout callout-info">
+<strong>该抄什么</strong>
+对多数团队，GLM-5 配方里迁移成本最低、收益最确定的三件：① TITO 式 token 级接口纪律（任何规模都适用，纯正确性收益）；② 双边 IS 截断替代单一 clip（异步训练必备）；③ 末端 cross-stage OPD 修复遗忘（比「把旧数据混回去重训」便宜得多）。顺序三段流水线本身则需要量力而行——它隐含「每段都有独立的奖励基建」这个前提。
+</div>
+
+<!-- ============== Section 4 ============== -->
+<h2 class="section" id="sec-4">4. DeepSeek-V4：用 On-Policy Distillation 替代混合 RL</h2>
+
+<p>DeepSeek-V4（技术报告 2026-04，副标题 <em>Towards Highly Efficient Million-Token Context Intelligence</em>；权重随后在 HuggingFace 开源）是 2026 上半年对后训练流水线最激进的一次改写。规模：<strong>V4-Pro 1.6T 总参 / 49B 激活</strong>（每 token 激活参数为当前公开模型最高档），<strong>V4-Flash 284B</strong>；预训练 Pro 33T / Flash 32T tokens（分拆数字据技术报告；V3 为 14.8T 的两倍以上），数据侧刻意加重长文档与 agentic 执行轨迹，面向百万 token 上下文。</p>
+
+<h3>4.1 动机：混合 RL 的「打架」死结</h3>
+
+<p>DeepSeek 自家路线的演化是理解 V4 的最佳注脚：</p>
+<ul>
+  <li><strong>R1-Zero（2025-01）</strong>：跳过 SFT 直接对 base 做大规模 RL——证明了可行性，但语言混杂、可读性差，两代之后这条「纯 RL」支线被放弃；</li>
+  <li><strong>V3.2 时代</strong>：多领域混合 RL 阶段——按 Labonne 对报告的梳理，这一设计导致了 <strong>reward hacking 与能力漂移（capability drift）</strong>：不同领域的奖励在同一策略上互相干扰，调权重是无止境的鼹鼠游戏；</li>
+  <li><strong>V4（2026-04）</strong>：彻底放弃统一 RL 阶段，改为「specialist 分训 + OPD 合并」。</li>
+</ul>
+
+<h3>4.2 两阶段配方：specialist → OPD 合并</h3>
+
+<h4>阶段一：四领域 specialist 各自闭环</h4>
+<p>数学、代码、agentic 任务、指令跟随四个领域各训一个 specialist：每个 specialist 从 SFT 起步，随后用领域内 prompt 与领域内奖励信号跑 GRPO。两个细节值得注意：</p>
+<ul>
+  <li><strong>奖励模型就是 actor 自己</strong>（报告原意：无独立奖励模型，specialist 在 RL 过程中自身习得评分能力）——这把「训一个独立 RM 再被 hack」的经典链路换成了自评估结构；</li>
+  <li>specialist 之间完全解耦：数据、奖励、超参、迭代节奏互不干扰，团队可以并行推进。这是组织工程学意义上的收益，与算法收益同样重要。</li>
+</ul>
+
+<h4>阶段二：10+ teacher 全词表 OPD 合并</h4>
+<p>合并阶段的结构是标准 OPD（参见 §9.2 的完整推导脉络）：<strong>学生自己采样 rollout，十多个 teacher 对学生轨迹逐 token 打分，逆向 KL 驱动更新</strong>：</p>
+
+<div class="formula-box">
+$$ \mathcal{L}_{\text{OPD}}(\theta)\;=\;\mathbb{E}_{x\sim\mathcal{D},\; y\sim\pi_\theta(\cdot\mid x)}\Big[\;\sum_{t} D_{\mathrm{KL}}\big(\pi_\theta(\cdot\mid x, y_{&lt;t})\;\big\|\;\pi_{\text{teacher}(x)}(\cdot\mid x, y_{&lt;t})\big)\Big] $$
+</div>
+
+<p>其中 $\text{teacher}(x)$ 按 prompt 的领域路由到对应 specialist。逆向 KL（学生分布在前）是 mode-seeking 的：学生只需在<strong>自己会走到的状态上</strong>贴近教师，不必覆盖教师的全部行为模式——这正是「多教师合并不打架」的数学原因：每个 teacher 只在自己领域的 prompt 上提供监督，学生在各领域分别向各 teacher 收敛，互相之间没有共享的冲突梯度。</p>
+
+<h3>4.3 全词表 logit 蒸馏的基础设施</h3>
+
+<p>V4 强调用<strong>全词表（full-vocabulary）logit 蒸馏</strong>：在每个位置对整个词表计算精确 KL，而非 top-k 近似或采样估计。报告的理由是梯度更稳、知识迁移更忠实；代价是必须传输或重建教师的完整 logit 向量。为此 V4 做了三件工程事：</p>
+<ol>
+  <li><strong>缓存 teacher 隐层、即时重建 logits</strong>——存隐层而非 logits（隐层维度远小于词表维度），用教师的 LM head 在消费端即时重建完整分布；</li>
+  <li><strong>按 teacher 索引排序训练样本</strong>——同一 micro-batch 内的样本来自同一 teacher，避免在一个 batch 里同时驻留多个教师的权重/缓存；</li>
+  <li><strong>自定义 kernel 计算精确 KL</strong>——全词表 KL 在 1.6T 模型 + 百万上下文的设定下是真实算力项，必须 fuse。</li>
+</ol>
+
+<div class="callout callout-warn">
+<strong>复刻警告</strong>
+「specialist + OPD 合并」的论文叙事很优雅，但它的可行性建立在上述蒸馏基建之上。如果你的栈只能做 top-k logits（教师 API 不开放全词表）或只能黑盒采样，请先读 §9.2 的 THUNLP 成败条件再决定：教师与学生 thinking pattern 不兼容、或教师并未提供学生分布外的真实新能力时，OPD 分数会涨但能力不迁移。黑盒条件下，GLM-5 式「末端 OPD 修复」比 V4 式「全量 OPD 合并」更现实。
+</div>
+
+<h3>4.4 Rubric-guided GRM：难验证任务的奖励层</h3>
+
+<p>V4 的另一个明确选择：用 <strong>rubric-guided Generative Reward Model</strong> 取代标量 RM 处理难验证任务。机制上，GRM 不输出一个标量，而是按显式 rubric（任务专属的评估准则清单）逐条生成评估再汇总打分。相对标量 RM 的三点优势：</p>
+<ul>
+  <li>rubric 是可读、可审计、可迭代的——奖励被 hack 时能定位到具体条目；</li>
+  <li>评估过程本身是生成式推理，能复用主模型的推理能力（与 RM-R1 / DeepSeek-GRM 一脉的 2025 年 GenRM 研究合流）；</li>
+  <li>大幅降低对大规模人类偏好标注的依赖——rubric 由少量专家写成，泛化由 GRM 承担。</li>
+</ul>
+
+<h3>4.5 V4 配方的含义</h3>
+
+<p>把 V4 放回四轴框架：它在<strong>轴一</strong>上给出了「打架问题」的最彻底解法（连「阶段顺序怎么排」的问题都消掉了——specialist 无所谓顺序）；在<strong>轴二</strong>上把奖励来源从「RM/verifier」整体上移到了「teacher 分布」（合并期的监督信号就是教师 logits，密度是每 token 全词表）；代价集中在<strong>轴三</strong>（蒸馏基建）。它与 ScaleRL 的结论（§9.1）拼起来是 2026 年最重要的预算公式：<strong>RL 的钱花在 specialist 上（窄域、可验证、天花板高），合并的钱花在 OPD 上（成本约为 RL 的 1/10 量级）</strong>。</p>
+
+
+<!-- ============== Section 5 ============== -->
+<h2 class="section" id="sec-5">5. Qwen3.5 与 Qwen3-Coder-Next：million-agent 环境与「数据工程红利」</h2>
+
+<h3>5.1 Qwen3.5-397B-A17B：把 RL 扩到所有能构造的环境上</h3>
+
+<p>Qwen3.5（2026-02，旗舰 397B 总参 / 17B 激活，副标题 <em>Towards Native Multimodal Agents</em>）在轴一上选择了与 GLM-5、DeepSeek-V4 都不同的第三条路：不做显式的阶段切分或 specialist 分训，而是<strong>单一大 RL 阶段 + 极致的环境工程</strong>。官方博客的两句关键表述：</p>
+<ul>
+  <li>「对几乎所有 RL 任务与环境做了广泛扩展」（extensive scaling of virtually all RL tasks and environments）；</li>
+  <li>环境与任务的选取标准是<strong>提升难度与泛化性，而非优化特定榜单指标</strong>——支撑设施是 million-scale 的 agent scaffolds 与环境。</li>
+</ul>
+
+<p>这条路线的实质是把「多任务打架」问题外包给<strong>课程设计</strong>：当任务分布足够宽、难度梯度足够平滑时，单策略可以在不分阶段的情况下吸收多领域能力。它对两件事的要求远超另两条路线：</p>
+<ol>
+  <li><strong>环境供给</strong>：million-scale 环境意味着环境的构造、验证、难度标定本身是一条生产线（行业所称「环境工程」岗位的由来，参见 <a href="multi-turn-tool-use.html">多轮工具使用专题</a>中的环境章节）；</li>
+  <li><strong>基础设施吞吐</strong>：Qwen3.5 披露了完全解耦的训推架构（动态负载均衡 + 细粒度故障恢复），FP8 端到端训练 + 投机解码，<strong>端到端 3–5 倍加速</strong>。没有这个量级的吞吐，million-scale 环境只是口号。</li>
+</ol>
+
+<p>架构上 Qwen3.5 押注线性注意力：<strong>Gated DeltaNet</strong>（线性注意力变体，源自 Mamba2 的门控衰减 + delta 规则）与全注意力层约 3:1 交替，配稀疏 MoE。这与 MiniMax M2 团队「工业级场景 efficient attention 仍打不过 full attention」的反共识结论（§7.3）形成了 2026 年最鲜明的架构对赌——RL 长轨迹训练会放大两条路线在多跳推理上的差异，值得持续跟踪。</p>
+
+<p>结果侧（官方披露口径）：<strong>Tau2-Bench 86.7</strong>（仅次于 Claude Opus 的 91.6）、<strong>BFCL-V4 72.9</strong>；多模态侧采用早期文本-视觉融合，原生支持多轮 agent 工作流（无框架级断点的多轮交互）。</p>
+
+<div class="callout callout-info">
+<strong>三条路线的本质对比（轴一收口）</strong>
+GLM-5：用<strong>时间</strong>隔离干扰（顺序阶段）；DeepSeek-V4：用<strong>参数</strong>隔离干扰（specialist 分身）；Qwen3.5：不隔离，用<strong>课程与规模</strong>稀释干扰。三者的隐含前提依次是：阶段间正迁移 &gt; 遗忘损失；蒸馏保真度足够高；环境分布足够宽。你的场景满足哪条前提，就抄哪家。
+</div>
+
+<h3>5.2 Qwen3-Coder-Next：3B 激活打 10–20 倍激活参数的对手</h3>
+
+<p>Qwen3-Coder-Next（arXiv:2603.00729，2026-03）是「数据与环境工程红利大于参数红利」的标志性案例：基于 Qwen3-Next-80B-A3B-Base（<strong>80B 总参 / 3B 激活</strong>，混合注意力 + MoE），在 agentic coding 上达到了「激活参数 10–20 倍于它的模型」的可比水平——SWE-Bench Verified 在 SWE-Agent scaffold 下<strong>超过 70%</strong>，SWE-Bench-Pro 与 10–20 倍激活参数的模型相当。</p>
+
+<p>它的流水线是 DeepSeek-V4 结构在单一领域（编码）内部的「分形复刻」：</p>
+<ol>
+  <li><strong>Continued pretraining</strong>：在 Qwen3-Next base 上继续预训练（大规模可执行任务合成与环境交互数据）；</li>
+  <li><strong>SFT</strong>：高质量 agentic coding 数据；</li>
+  <li><strong>领域内 specialist 分训</strong>：软件工程工作流、QA、Web 开发、UX 导向编码等多个专家模型分别强化；</li>
+  <li><strong>蒸馏回收</strong>：把各专家能力蒸回单一统一模型。</li>
+</ol>
+
+<p>训练重点放在长程行为质量上：long-horizon 推理、复杂工具使用、<strong>从执行失败中恢复</strong>（recovery from execution failures）——最后一项是 agentic coding 模型的实战分水岭，纯模仿学习极难覆盖（失败-恢复轨迹在人类数据中天然稀缺），必须靠环境内 RL 与任务合成补足。</p>
+
+<div class="callout callout-tip">
+<strong>为什么这个案例重要</strong>
+2025 年的隐含共识是「agentic 能力 ≈ 大激活参数」。Coder-Next 用 3B 激活证明：当(a)可执行任务合成管线、(b)环境交互规模、(c)specialist→蒸馏结构三者到位时，激活参数可以缩一个数量级。对部署侧（本地 agent、端侧推理）这是路线级利好；对训练侧，它把竞争焦点进一步推向数据与环境工程——和 Qwen3.5 的 million-scale 环境叙事同一逻辑、不同尺度。
+</div>
+
+
+<!-- ============== Section 6 ============== -->
+<h2 class="section" id="sec-6">6. Kimi K2 Thinking → K2.5：INT4 QAT、长程工具链与 Agent Swarm</h2>
+
+<h3>6.1 K2 Thinking：低精度与长程 agent 能力可以共存</h3>
+
+<p>Kimi K2 Thinking（Moonshot，2025-11，开源权重）的两个关键事实在发布时都属反直觉：</p>
+<ul>
+  <li><strong>INT4 量化感知训练（QAT）</strong>：在微调阶段就用低精度算术做前向（权重保持全精度主副本），使最终的 INT4 量化几乎无损。结果：模型文件从 K2 Instruct 的约 1TB 压到 <strong>594GB</strong>，输出速度约翻倍；</li>
+  <li><strong>200–300 步连续工具调用</strong>无人工干预——1T 总参 / 32B 激活的 MoE 在 INT4 下保持长程 agent 行为的稳定性。</li>
+</ul>
+
+<p>这两件事的共存回答了一个此前悬而未决的问题：<strong>长程 agentic 行为是否对数值精度敏感？</strong>答案是「推理精度可以压到 INT4，前提是训练阶段就感知量化」。注意它与 §9.3 训推一致性主题的微妙关系：FP16 论文反对的是「训练 BF16 / 推理另一套数值」的<strong>失配</strong>；QAT 的做法恰恰是把推理端的数值约束<strong>前置进训练</strong>，二者是同一原则（训推所见一致）的两种实现。</p>
+
+<h3>6.2 K2.5 与 Agent Swarm：把多智能体 RL 退化为单策略问题</h3>
+
+<p>Kimi K2.5（arXiv:2602.02276，2026-02，副标题 <em>Visual Agentic Intelligence</em>）的后训练贡献集中在两块：多模态联合训练的一组反直觉发现（6.3），以及 <strong>Agent Swarm</strong>——目前唯一在旗舰规模上跑通的多智能体 RL 训练方案。</p>
+
+<h4>核心设计：只训 orchestrator</h4>
+<p>多智能体联合 RL 的理论困难是组合爆炸的信用分配（哪个 sub-agent 的哪步动作导致了最终成败）。K2.5 的解法是釜底抽薪：</p>
+<ul>
+  <li><strong>sub-agent 全部冻结</strong>，取自训练过程中的固定中间 checkpoint（fixed intermediate policy checkpoints），并可按负载动态调整 sub-agent 与 orchestrator 的推理实例配比；</li>
+  <li>冻结后，sub-agent 的输出被视为<strong>环境观测而非可微决策点</strong>（原文：treating their outputs as environmental observations rather than differentiable decision points）——多智能体问题在数学上退化为单策略 RL：orchestrator 是唯一的 policy，sub-agents 是环境动力学的一部分；</li>
+  <li>orchestrator 学的是任务分解、并行派发、结果整合——agent swarm 由它动态创建（dynamically creates specialized frozen subagents），而非预定义角色。</li>
+</ul>
+
+<h4>奖励设计：critical steps 与防假并行</h4>
+<p>如果只奖励任务成功，orchestrator 会退化成串行调用（最稳）或形式上的「假并行」（fan-out 后不真正利用并行结果）。K2.5 的奖励有两层结构：</p>
+
+<div class="formula-box">
+<p style="margin:4px 0"><strong>效率项：critical steps 而非总步数。</strong>对一条含主线与并行段的轨迹，</p>
+$$ S_{\text{critical}} \;=\; \sum_{\text{stages}} \Big( S_{\text{main}} + \max_{i} S_{\text{sub},i} \Big) $$
+<p style="margin:4px 0" class="small">即主线步数加每个并行段中<strong>最慢</strong>子 agent 的步数——惩罚关键路径而非总工作量，直接激励「把可并行的事真正并行掉」。</p>
+</div>
+
+<ul>
+  <li><strong>辅助塑形奖励，且退火到零</strong>：$r_{\text{parallel}}$ 防止策略坍缩回纯串行，$r_{\text{finish}}$ 防止假并行（派发了并行任务却不等待/不利用结果）。两者的系数在训练过程中退火至零——塑形只用于引导早期探索，最终策略只对「任务成功 + 关键路径成本」负责。这是 reward shaping 防 hacking 的教科书式做法（对照 <a href="rl-pitfalls-survey.html">坑点综述 §1.3</a>：塑形项常引入新的 hacking 面，「乘法门或退火」优于永久加法分量）。</li>
+</ul>
+
+<h4>结果</h4>
+<table>
+<thead><tr><th>基准</th><th>单 agent 基线</th><th>Agent Swarm</th><th>增益</th></tr></thead>
+<tbody>
+<tr><td>BrowseComp</td><td>60.6%</td><td>78.4%</td><td>+17.8 个百分点</td></tr>
+<tr><td>WideSearch</td><td>72.7%</td><td>79.0%</td><td>+6.3 个百分点</td></tr>
+<tr><td>执行时间</td><td>—</td><td>—</td><td>3–4.5 倍提速</td></tr>
+</tbody>
+</table>
+
+<div class="callout callout-tip">
+<strong>实操启示：多智能体训练的「最小可行配方」</strong>
+K2.5 给出的范式可以直接套用：① sub-agent 不要训，用你已有的最强（或专长各异的中间）checkpoint 冻结充当；② policy 只有 orchestrator 一个，信用分配退化为标准单策略 RL，verl/slime 等现有框架无需改动核心；③ 奖励 = 任务成功 + 关键路径成本 + 可退火的反坍缩塑形项；④ 监控并行度指标（派发数、等待利用率），防止两个方向的退化。代价要诚实：sub-agent 冻结意味着它们的错误模式无法被纠正，上限由「orchestrator 调度能力 × sub-agent 既有能力」决定。
+</div>
+
+<h3>6.3 多模态联合训练的三个反直觉发现</h3>
+
+<p>K2.5 报告中三个与 2025 年社区默认做法相反的实证结论，做多模态后训练的团队应当记录：</p>
+<ol>
+  <li><strong>Early fusion + 低视觉占比 &gt; late fusion + 高占比</strong>：固定视觉+文本总 token 预算下，从头联合训练（early fusion）配 10%:90% 的视觉:文本比例，全面优于 50%:50%（原文：early fusion with a lower vision ratio yields better results given a fixed total vision-text token budget）；</li>
+  <li><strong>Zero-vision SFT</strong>：纯文本 SFT 数据即可激活视觉 agentic 能力（text-only SFT data alone activates the visual, agentic capabilities）——指令跟随与 agent 行为模式是跨模态共享的，不必为视觉单独造 SFT 数据；</li>
+  <li><strong>视觉 RL 反哺纯文本基准</strong>：视觉 RL 改善了模型校准（calibration），在「貌似需要视觉 grounding」的文本查询上降低不确定性——MMLU-Pro +1.7%、GPQA +2.1%。</li>
+</ol>
+<p>三条合起来的含义：<strong>跨模态正迁移在 2026 年已是可主动利用的调参维度</strong>，而非需要规避的干扰项。预算紧张时，优先做 early fusion 的联合预训练，后训练阶段大胆复用纯文本管线。</p>
+
+
+<!-- ============== Section 7 ============== -->
+<h2 class="section" id="sec-7">7. Gemini 3 与 Claude Opus 4.6：思考效率的训练化、parallel thinking 与 2026 春夏动态</h2>
+
+<p>闭源旗舰的披露粒度远低于开源技术报告，但 Gemini 3 Pro 的 Frontier Safety Framework Report（2025-11）与 Anthropic 的 Opus 4.6 发布材料（2026-02）仍各自给出了一条明确的方法论信号，且方向一致：<strong>思考预算从推理时超参变成被训练的对象</strong>。本章把两者与 MiniMax M2 的公开消融数据、native parallel thinking 训练路线（§7.4）以及 2026 春夏的旗舰后续动态（§7.5）放在一起，构成轴四「思考效率与思考结构」的完整图景。</p>
+
+<h3>7.1 Gemini 3：thought traces 上的 SFT 与 RL</h3>
+
+<p>Gemini 3 Pro 的《Frontier Safety Framework Report》（Google DeepMind，2025-11，"Addendum: Chain-of-Thought legibility" 一节）给出了关于后训练的三条可核实陈述。注意出处：这三条<strong>不在</strong>同期发布的 Model Card 里——按 Model Card PDF 去核证会落空，FSF 报告才是一手来源：</p>
+<ol>
+  <li><strong>SFT 与 RL 直接施加在 thought traces 上</strong>，且这些思考轨迹由 reasoning 模型生成、而非人写——人类标注员写不出高质量长推理轨迹，这一点自 s1/R1 蒸馏时代起已是共识，Gemini 3 把它制度化为数据生产方式；</li>
+  <li><strong>RL 阶段对 thoughts 施加 length penalty</strong>，目的是教模型「高效推理」（reason efficiently）——overthinking 不再只是推理时用 budget 截断来治，而是直接写进奖励；</li>
+  <li><strong>除少数例外，其余奖励的计算不读 thoughts</strong>（with some minor exceptions, other rewards are computed without reference to the thoughts）。</li>
+</ol>
+
+<div class="callout callout-info">
+<strong>第三条为什么重要：CoT 可监控性的保卫战</strong>
+对 thought 内容施加优化压力，会教模型把真实推理藏到「面向奖励的表演性 CoT」之后（obfuscated reasoning），摧毁 CoT 作为安全监控通道的价值——这是 2025 年 CoT 监控文献的核心警告（monitorability tax）。Gemini 3 的设计是一种折中：<strong>对 thought 只罚长度（内容中立的压力），不对 thought 内容打分</strong>。length penalty 当然也是一种优化压力，但它不指向任何语义方向。事实上 FSF 报告正是在 CoT 可监控性的语境下（引 Korbak et al., 2025）披露这三条的，并给出量化口径：99.98% 的思考轨迹 appear comprehensible、99.85% appear informative of the model's output（Emmons et al. 的两个指标），与上一代 Gemini 相比无下降。各家在「思考效率 vs CoT 可监控性」上的取舍，预计是 2026 下半年安全与能力之争的具体战场。
+</div>
+
+<p>产品形态上，Gemini 3 配 Deep Think 模式（更高思考预算档），与下述 Opus 4.6 的 effort 体系属同一产品语言：思考深度分档暴露给用户/开发者。</p>
+
+<h3>7.2 Claude Opus 4.6：adaptive thinking 与 effort 档</h3>
+
+<p>Opus 4.6（2026-02）把同一问题从接口端做了训练化：</p>
+<ul>
+  <li><strong>Adaptive thinking</strong>：模型自行判断「何时值得深想」（原文：Claude can decide when deeper reasoning would be helpful）——校准「思考与否/思考多深」的决策本身是后训练习得的能力，而非外部路由器；</li>
+  <li><strong>Effort 四档</strong>：low / medium / high（默认）/ max，替代旧的二元 extended-thinking 开关。默认 high 下模型「在有用时使用扩展思考」，官方明确建议：若发现模型 overthinking，把 effort 从 high 降到 medium；</li>
+  <li><strong>Agent 配套</strong>：context compaction（beta，接近上下文阈值时自动总结旧上下文，使长任务不撞上限）与 Claude Code 的 agent teams（多 agent 并行处理读密集型子任务）。</li>
+</ul>
+
+<p>对照轴四：Anthropic 选择「产品层组合单 agent」（agent teams）而非 K2.5 式「训练一个 orchestrator policy」。两条路线的张力值得记录——前者无需多智能体训练基建、即插即用，后者把协同行为内化进权重（BrowseComp +17.8 个百分点的来源）。目前没有公开证据表明哪条路线在同等基线上更优，但 K2.5 是唯一给出了训练方案的。</p>
+
+<h3>7.3 MiniMax M2 的消融数据：interleaved thinking 的保留铁律</h3>
+
+<p>思考效率轴上最硬核的公开数字来自 MiniMax M2（230B 总参 / 约 10B 激活）官方博客的对照实验：interleaved thinking（思考穿插在多轮工具调用全程）模式下，<strong>跨轮保留 vs 丢弃历史 thinking 状态</strong>的差异：</p>
+
+<table>
+<thead><tr><th>基准</th><th>保留 thinking 历史</th><th>丢弃</th><th>相对损失（以丢弃后数值为分母）</th></tr></thead>
+<tbody>
+<tr><td>SWE-bench Verified</td><td>69.4</td><td>67.2</td><td>−3.3%</td></tr>
+<tr><td>Tau²-Bench</td><td>87.0</td><td>64.0</td><td>−35.9%</td></tr>
+<tr><td>BrowseComp</td><td>44.0</td><td>31.4</td><td>−40.1%</td></tr>
+<tr><td>GAIA</td><td>75.7</td><td>67.9</td><td>−11.5%</td></tr>
+<tr><td>xBench</td><td>72.0</td><td>66.0</td><td>−9.1%</td></tr>
+</tbody>
+</table>
+
+<p>规律清晰：任务的长程性越强（BrowseComp 的多跳搜索、Tau² 的多轮约束追踪），丢弃 thinking 历史的代价越惨重——模型跨轮携带的计划、假设、约束与中间结论是可靠性的骨架，丢弃后出现状态漂移、自我纠错能力衰减。</p>
+
+<div class="callout callout-bug">
+<strong>部署铁律（高频生产事故）</strong>
+凡是训练时见过 interleaved thinking 的模型，<strong>推理侧绝不能在多轮对话/工具循环中丢弃历史 think 块</strong>。常见事故形态：agent 框架为省 token 把上一轮 thinking 从 context 里剪掉、网关中间件统一剥离 reasoning 字段、上下文压缩策略优先丢 think 块。任何一条都能让 BrowseComp 类任务静默掉 40%。排查入口：对比同一任务「带/不带历史 think 块」的成功率，再查你的框架与网关配置。与 Opus 4.6 的 context compaction 对照读：压缩可以做，但要由<strong>被训练过的总结机制</strong>完成，而不是粗暴剪切。
+</div>
+
+<p>M2 团队同期另一个反共识工程结论：工业级场景下 efficient attention 仍打不过 full attention（复杂多跳推理有可测缺口）——与 Qwen3.5 押注 Gated DeltaNet 形成正面路线对立（见 §5.1）。</p>
+
+<h3>7.4 Native parallel thinking：思考的并行结构（解码层路线）</h3>
+
+<p>轴四所说的「思考的并行结构」有两个层级，不能混为一谈：K2.5 Agent Swarm 的并行发生在<strong>任务分解层</strong>（多个模型实例、orchestrator 调度，§6.2）；parallel thinking 路线的并行则发生在<strong>单模型解码层</strong>——同一个模型并行展开多条推理路径，再自行综合。后者的训练化代表是 <strong>ParaThinker</strong>（arXiv:2509.04475，2025-09）：</p>
+<ul>
+  <li><strong>动机：串行 CoT 的 Tunnel Vision</strong>。继续加长单条思考链的收益递减，根因不是模型能力不够，而是早期不完美的推理步骤会把模型锁死在次优路径上——test-time compute 沿「深度」这一个维度扩展撞上了结构性瓶颈；</li>
+  <li><strong>机制：native 的端到端并行</strong>。训练模型同时生成多条互异的推理路径，最后由模型自己把多路径融合为单一答案——并行性由此被确立为继深度之后 test-time scaling 的<strong>第二个维度</strong>，且是被训练进权重的能力而非外部 scaffold；</li>
+  <li><strong>数字</strong>：8 条并行路径使 1.5B 模型平均 +12.3%、7B 模型 +7.5%，延迟仅增加 7.1%（并行路径解码对 GPU 吞吐友好）——「小模型靠并行结构越级」是该路线的核心卖点。</li>
+</ul>
+
+<p>2026-04 的对照研究（<em>Understanding Performance Gap Between Parallel and Sequential Sampling in Large Reasoning Models</em>，arXiv:2604.05868）补上了机理：在 Qwen3、DeepSeek-R1、Gemini 2.5 等多个模型家族与数学/编码任务上，并行采样一致优于串行 refinement；消融把差距主因定位在<strong>串行模式 conditioning on 先前答案导致的探索不足</strong>，而非聚合算子或上下文长度——与 Tunnel Vision 的诊断互相印证。</p>
+
+<p>把两个层级放回轴四对照：产品上各家的 Deep Think / heavy 档（§7.1）是这条路线的推理时形态（并行采样 + 选择/综合），ParaThinker 则把并行写进权重。这组关系与多智能体轴上「K2.5 训练 orchestrator vs Claude 产品层 agent teams」（§7.2）同构：<strong>一条训练化、一条系统化，2026 年中两条都未分出胜负</strong>。对从业者的入手建议也对称：已有强模型时先做推理时并行（成本低、即插即用），自训模型且目标是小激活/端侧时再考虑 ParaThinker 式 native 训练。</p>
+
+<h3>7.5 2026 春夏旗舰后续动态速记（截至 2026-06）</h3>
+
+<p>2026-02 之后旗舰迭代未停，但后训练方法的披露粒度普遍回落到产品发布材料级别。截至本文更新（2026-06-12），值得记录的三组动态：</p>
+<ul>
+  <li><strong>Gemini 3.1 Pro（Google DeepMind，2026-02-19）</strong>：Gemini 3 的点版本，model card 明确声明 "based on Gemini 3 Pro"、训练细节整体沿用 3 Pro——即 §7.1 的 thought-trace SFT/RL + length penalty 框架经受了一个点版本周期未被替换；官方口径 ARC-AGI-2 77.1%（约为 3 Pro 31.1% 的 2.5 倍）。</li>
+  <li><strong>Kimi K2.6（Moonshot，2026-04-20，开源权重）</strong>：开源阵营在 agentic coding 上追平闭源旗舰档的标志事件——SWE-bench Pro 58.6%（超 Opus 4.6 约 5 个百分点，首个领跑该榜的开源权重模型）；工具调用基准近乎翻倍（Toolathlon 27.8→50.0、MCPMark 29.5→55.9）。公开口径下其 RL 配方延续 K2 Thinking 路线（§6.1），未见方法论级新披露。</li>
+  <li><strong>Anthropic 三连（2026-05/06）</strong>：dev day（05-06）发布 <strong>Dreaming</strong>（research preview）——定期离线扫描 agent 会话与 memory 存储、提炼模式、消解矛盾、写回整理后的记忆，让 agent 跨 session 改进，是 continual learning 的产品侧渐进实现（这条主线本知识库尚无专题承接，见 §10.4）；<strong>Opus 4.8</strong>（05-28）默认 1M 上下文 + 128K 最大输出、延续 adaptive thinking，社区共识定位是「务实增量」；<strong>Claude Fable 5</strong>（06-09）为 Anthropic 首个公开的 Mythos-class 模型，部分基准比 Opus 4.8 高 10 个百分点以上，发布方式本身就是后训练相关动态——同一模型按安全分类器层拆成 Fable 5（公开）与 Mythos 5（受限）两个产品。三者的后训练细节披露均有限，本文不作超出官方与可靠二手口径的推断。</li>
+</ul>
+
+
+<!-- ============== Section 8 ============== -->
+<h2 class="section" id="sec-8">8. 开放数据配方：Olmo 3 Dolci、K2-V2、INTELLECT-3 与 Smol Playbook</h2>
+
+<p>旗舰对照如果只看闭源与半开源（开权重不开数据），从业者能「抄」的其实有限。2025-11 到 2025-12 的三连发（Olmo 3、K2-V2、INTELLECT-3）首次把<strong>数据混合、训练历史、RL 环境</strong>三者同时开放，加上 HuggingFace 的 Smol Training Playbook 把工程细节书面化，开放阵营第一次提供了可端到端复现的后训练参考实现。</p>
+
+<h3>8.1 Olmo 3 与 Dolci 套件：阶段化数据混合的「参考答案」</h3>
+
+<p>Olmo 3（Ai2，2025-11 发布，arXiv:2512.13961，7B 与 32B dense，65K 上下文）的核心概念是 <strong>model flow</strong>：开放的不是一个权重快照，而是完整生命周期——每个阶段、每个 checkpoint、每个数据点及其依赖关系。后训练侧的交付物是 <strong>Dolci 套件</strong>：</p>
+
+<table>
+<thead><tr><th>组件</th><th>对应阶段</th><th>内容定位</th></tr></thead>
+<tbody>
+<tr><td>Dolci Think SFT</td><td>SFT</td><td>含长 thinking traces 的合成样本，覆盖数学、代码、指令跟随、通用对话</td></tr>
+<tr><td>Dolci Think DPO</td><td>偏好优化</td><td>高质量对比（contrastive）数据</td></tr>
+<tr><td>Dolci Think RL</td><td>RLVR</td><td>面向 RLVR 的高难度 prompt 集</td></tr>
+</tbody>
+</table>
+
+<p>三个要点：</p>
+<ul>
+  <li><strong>每个阶段有独立的数据混合</strong>——这把「SFT→DPO→RLVR 三阶段骨架」从论文叙述落实为可下载、可消融的工件。想验证「我的 DPO 数据质量是不是瓶颈」，Dolci 是现成的对照组；</li>
+  <li>旗舰 <strong>Olmo 3-Think 32B</strong> 是迄今最强的「完全开放」（数据+权重+流程）thinking 模型——注意「完全开放」与「开权重」（如 GLM-5、K2.5）是两个级别的可复现性；</li>
+  <li>对照 G34 的知识断档背景：在 2025-11 之前，开放阵营最完整的后训练数据参考还是 Tülu 3（2024-11）；Dolci 把参考答案升级到了 reasoning/RLVR 时代。</li>
+</ul>
+
+<h3>8.2 K2-V2：360 度开放的推理增强底座</h3>
+
+<p>K2-V2（LLM360，arXiv:2512.06201，2025-12）的口号是「360-open」：开放模型权重、<strong>完整训练历史</strong>（中间 checkpoint 序列）、<strong>全部训练数据与配比</strong>及 LLM360 工件链。配方上的关键词是<strong>主动注入</strong>：在（预）训练过程中前置注入领域知识、推理、长上下文与工具使用能力，目标是做一个「为后续推理适配而生」的优质底座。结果口径：同尺寸档最具竞争力，超过 Qwen2.5-72B、逼近 Qwen3-235B。</p>
+
+<p>它回答的问题与 §9.4（mid-training 闭环）直接相关：<strong>推理能力的先验应该在底座阶段注入多少？</strong>K2-V2 的存在让这个问题第一次可以用全开放工件做受控实验——你可以从它的任意中间 checkpoint 分叉，测试自己的 mid-training/后训练假设。</p>
+
+<h3>8.3 INTELLECT-3：社区环境生态的可行性证明</h3>
+
+<p>INTELLECT-3（Prime Intellect，arXiv:2512.16144，2025-12）：<strong>106B 总参 / 12B 激活</strong> MoE，基于 GLM-4.5-Air-Base 做 SFT + RL，同尺寸档数学/代码/科学/推理 SOTA，超过许多更大的前沿模型。两个结构性意义：</p>
+<ul>
+  <li><strong>RL 数据引擎是社区化的 Environments Hub</strong>——对冲「环境即护城河」格局（大实验室重金自建/收购专有环境并封锁）的最有力实证；</li>
+  <li>配套开源 <strong>prime-rl</strong> 异步 RL 框架：单节点到数千 GPU 无缝扩展，本次训练实际用到 512 张 H200。连同模型与全套 infra stack 开源。</li>
+</ul>
+
+<p>对从业者：INTELLECT-3 + prime-rl + Environments Hub 是目前自建 agentic RL 管线时<strong>许可证与复现性最干净的全套起点</strong>；它也证明了「拿别家开源 base（GLM-4.5-Air）做自己的 RL」这条路在旗舰口径下成立。</p>
+
+<h3>8.4 Smol Training Playbook：把 know-how 书面化</h3>
+
+<p>HuggingFace 的 <em>The Smol Training Playbook</em>（HF Space，配合 SmolLM3-3B 实践）是把「训练小而强的模型」的全程 know-how 书面化的工程手册，后训练章覆盖 SFT / DPO / GRPO。两个值得单独记录的实操细节：</p>
+<ul>
+  <li><strong>Completion-only / assistant-only loss</strong>：SFT 只对 completion（或 assistant 轮）计损失，prompt token 不进 loss。在 TRL 生态的标准实现里，assistant-only loss 要求 chat template 内嵌 <code>{% generation %}</code> / <code>{% endgeneration %}</code> 标记（SmolLM3-3B 的模板是参考实现）——多轮数据上漏配这一步，loss 会被大量 prompt/工具输出 token 稀释，是高频低级错误（对照 <a href="rl-pitfalls-survey.html">坑点综述</a>数据相关章节）；</li>
+  <li><strong>混合推理（hybrid reasoning）模板纪律</strong>：SmolLM3 同一模型支持 think/no-think 双模式，playbook 强调双模式数据必须在模板层严格分流——同一个模板槽位里混入两种行为模式的数据，模型会在两种模式间出现行为串扰。</li>
+</ul>
+
+<div class="callout callout-tip">
+<strong>开放配方怎么用：三个典型场景</strong>
+① <strong>做数据消融</strong>：用 Olmo 3 的固定流程换上你的数据 vs Dolci 基线，归因干净；② <strong>做 mid-training 研究</strong>：从 K2-V2 的中间 checkpoint 分叉；③ <strong>做 agentic RL</strong>：INTELLECT-3 配方（开源 base + prime-rl + Environments Hub 环境）起步，再按 §3/§6 的旗舰技巧增量加固。三条路径都不需要从零造数据或环境。
+</div>
+
+
+<!-- ============== Section 9 ============== -->
+<h2 class="section" id="sec-9">9. 横切方法论：RL Scaling、OPD 经济学、训推一致性与 mid-training 闭环</h2>
+
+<p>本章抽出四条贯穿所有旗舰配方的方法论主线，给出机制、公式与可引用的消融数字。它们是理解「为什么 2026 年的配方长这样」的底层原因。</p>
+
+<h3>9.1 ScaleRL：RL 算力的 sigmoid 定律</h3>
+
+<p>ScaleRL（Meta 等，arXiv:2510.13786，2025-10，总实验量超过 40 万 GPU-hours）做了 RL 领域第一个系统性 scaling 研究，核心发现是 RL 的算力-性能关系<strong>不是 power law，而是 sigmoid</strong>：</p>
+
+<div class="formula-box">
+$$ R_C - R_0 \;=\; \frac{A - R_0}{1 + \left( C_{\text{mid}} / C \right)^{B}} $$
+<p class="small" style="margin:4px 0">$R_C$：算力 $C$ 时的性能；$R_0$：起点；$A$：<strong>渐近天花板</strong>；$B$：算力效率指数（曲线陡峭度）；$C_{\text{mid}}$：达到一半总增益的算力点。</p>
+</div>
+
+<p>这个函数形式的实践含义比公式本身重要：</p>
+<ul>
+  <li><strong>可以用早期训练段外推天花板</strong>：拟合 $A$、$B$、$C_{\text{mid}}$ 三参数后外推——论文用一次 10 万 GPU-hours 的 8B 长跑验证了外推与实测紧密吻合。RL 调参从「跑完才知道」变成可预测工程；</li>
+  <li><strong>大多数配方选择只改效率（B、C_mid），不改天花板（A）</strong>：损失聚合方式、advantage 归一化、课程、off-policy 算法等主要调制 compute efficiency。例外是会改 $A$ 的少数几项：FP32 logits head（渐近 pass rate <strong>0.52→0.61</strong>）、损失类型（CISPO/GSPO 的渐近性能大幅高于 DAPO）、更长的生成长度（14k→32k 降低早期效率但持续抬高渐近线）；</li>
+  <li><strong>「先快后矮」陷阱</strong>：小算力下领先的配方常常天花板更低——选配方必须按外推的 $A$ 而非短期斜率；</li>
+  <li><strong>同等 RL 算力给更大的 base</strong>：17B×16 MoE（Scout）只用 <strong>1/6 的 RL 算力</strong>即超过 8B dense 的渐近性能。预算决策上，RL 算力优先投给更大的底座，而不是给小模型堆步数。</li>
+</ul>
+
+<p>ScaleRL 配方本身（八组件）可当作 2026 年的异步 RLVR 起点清单：PipelineRL 式流式异步（容忍 <strong>k=8</strong> 步 off-policyness）、强制截断式长度控制（注入 <code>&lt;/think&gt;</code>）、<strong>FP32 logits head</strong>、<strong>CISPO</strong> 截断重要性采样损失、prompt 级损失聚合、batch 级 advantage 归一化、零方差 prompt 过滤、no-positive-resampling（通过率 ≥0.9 的 prompt 从课程中剔除）。与 DAPO 四件套的关系：DAPO 解决的是「单次训练跑崩」（entropy collapse、长度偏差），ScaleRL 解决的是「算力怎么花」——两者层级不同、可以叠加，但损失函数上 ScaleRL 的消融明确显示 CISPO/GSPO 渐近性能优于 DAPO。</p>
+
+<div class="callout callout-warn">
+<strong>与 RLVR 边界之争的关系</strong>
+pass@k 阵营（arXiv:2504.13837，NeurIPS 2025 Oral）证明常规 RLVR 训练在大 k 下 pass@k 反而低于 base model（RL 压缩采样分布而非创造新能力）；ProRL（arXiv:2505.24864）证明延长 RL（KL 控制 + reference reset + 多样任务）能产生 base model 任意采样都到不了的新策略。sigmoid 定律给这场争论提供了量化语言：<strong>短程 RL 在爬 $C_{\text{mid}}$ 之前的段落，主要是 elicitation；天花板 $A$ 才是能力边界问题，它由任务分布、底座 headroom（见 §9.4）与配方中少数「改 A 的选择」决定。</strong>争论焦点已从「是否」转向「代价曲线」。
+</div>
+
+<h3>9.2 OPD 经济学：为什么人人都在用 on-policy distillation</h3>
+
+<p>OPD 的机制一句话：<strong>学生采样，教师逐 token 打分，逆向 KL 更新</strong>（公式见 §4.2）。Thinking Machines 博客（2025-10）给出的定位框架已成标准引用：</p>
+
+<table>
+<thead><tr><th>方法</th><th>采样</th><th>监督信号</th></tr></thead>
+<tbody>
+<tr><td>SFT / 蒸馏（off-policy）</td><td>off-policy（教师/数据分布）</td><td>稠密（每 token）</td></tr>
+<tr><td>RL</td><td>on-policy</td><td>稀疏（episode 级）</td></tr>
+<tr><td><strong>OPD</strong></td><td><strong>on-policy</strong></td><td><strong>稠密（每 token 全分布）</strong></td></tr>
+</tbody>
+</table>
+
+<p>on-policy 解决「训练分布 = 部署分布」（学生在自己会犯错的状态上获得纠正），稠密信号解决样本效率。代价是需要一个教师——所以 OPD 不能替代「从无到有」的 RL（教师的能力上限就是学生的上限），但在所有「能力已存在于某个模型中」的场景（合并、压缩、修复、个性化）中全面优于 RL 与 SFT。</p>
+
+<h4>成本数字（Qwen3 Technical Report Table 21，Thinking Machines 博客转引；Qwen3-8B 学生，AIME'24）</h4>
+<table>
+<thead><tr><th>方法</th><th>成本</th><th>AIME'24</th></tr></thead>
+<tbody>
+<tr><td>Off-policy 蒸馏（初始化）</td><td>未披露</td><td>55.0%</td></tr>
+<tr><td>+ RL</td><td>17,920 GPU-hours</td><td>67.6%</td></tr>
+<tr><td><strong>+ OPD</strong></td><td><strong>1,800 GPU-hours</strong></td><td><strong>74.4%</strong></td></tr>
+</tbody>
+</table>
+<p class="small">表中三行均出自 Qwen3 Technical Report（arXiv:2505.09388）Table 21：RL 与 OPD 从<strong>同一个 off-policy 蒸馏初始化（55.0%）</strong>出发对比，OPD 以约 1/10 的 GPU-hours 拿到比 RL 高 6.8 个百分点的分数。Thinking Machines 的自有复现是<strong>另一组实验，数字不可与上表混读</strong>：Qwen3-8B-Base 学生在 40 万条教师样本上全参 SFT 得 60%，再以 Qwen3-32B 为教师做约 150 步 OPD（7.7 万 prompt × 4 采样）升至 70%；按「达到教师水平的速度」计，OPD 比 RL 快 7–10 倍，叠加 batch/上下文因素总算力差距可达 50–100 倍。另一个被低估的用例是<strong>能力修复</strong>：在内部文档上微调使 IF-eval 从 85% 掉到 45%，一轮 OPD（向微调前的自己学）恢复到 83%，同时保住新知识（内部 QA 18%→41%）——这正是 GLM-5 cross-stage distillation 的用法（§3.1）。</p>
+
+<h4>成败条件（THUNLP，arXiv:2604.13016，2026-04）</h4>
+<p>OPD 不是免费午餐，THUNLP 的机理研究给出两个必要条件与一组可操作判据：</p>
+<ol>
+  <li><strong>师生 thinking pattern 兼容</strong>：成功的 OPD 表现为师生在「共享 token 集」（集中 97%–99% 概率质量）上的渐进对齐；pattern 不兼容时学生在表面 token 上对齐而能力不迁移；</li>
+  <li><strong>教师必须提供学生训练分布之外的真实新能力</strong>——否则蒸馏分数会涨、泛化不变。</li>
+</ol>
+<p>失败时的两个恢复策略：off-policy 冷启动（先用教师轨迹做一段 SFT 把 pattern 拉近）、teacher-aligned prompt selection（只在教师真正占优的 prompt 域上做 OPD）。</p>
+
+<div class="callout callout-info">
+<strong>OPD 在 2026 年配方中的三种角色（汇总）</strong>
+① <strong>合并器</strong>：DeepSeek-V4（10+ specialist → 学生）、Qwen3-Coder-Next（4 类编码专家 → 单模型）；② <strong>修复器</strong>：GLM-5 cross-stage distillation（找回被后续阶段冲掉的技能）、Thinking Machines 的个性化后能力恢复；③ <strong>压缩器</strong>：大教师 → 小学生的经典蒸馏，但用 on-policy 形式规避分布漂移。识别你的场景属于哪种角色，决定了教师选择与 prompt 域设计。
+</div>
+
+<h3>9.3 训推一致性：从「玄学崩溃」到一阶工程问题</h3>
+
+<p>这条线在 2025-10 到 2026-05 之间完成了从发现到工程化的闭环，三篇/处一手来源：</p>
+<ol>
+  <li><strong>FP16 论文</strong>（Sea AI Lab，arXiv:2510.26788）：RL 微调中训练引擎与推理引擎在<strong>相同权重</strong>下对同一序列给出不同 token 概率，根因是 BF16 的大舍入误差破坏两侧一致性；把训练与 rollout 都改回 FP16（动态范围小但尾数精度高）即可消除失配——改动只有几行代码。结论：优先改精度，而不是堆算法补丁；</li>
+  <li><strong>VeXact 诊断</strong>（arXiv:2605.14220，2026-05）：构造「零失配」对照设置，证明<strong>token 级的微小数值分歧本身就能独立导致训练崩溃</strong>——失配改变了有效优化问题（你以为在优化 on-policy 目标，实际在优化一个有偏目标），必须当一阶因素而非良性噪声对待；</li>
+  <li><strong>生产系统的吸收</strong>：GLM-5 把失配处理（IcePop + TITO + 双边 IS 截断）写进主配方（§3.2–3.3）；ScaleRL 把 FP32 logits head 列为八组件之一且消融显示它直接抬高渐近天花板（0.52→0.61）——logits/softmax 处的精度是失配的最敏感点。</li>
+</ol>
+
+<div class="callout callout-bug">
+<strong>排查纪律（合并自三处来源 + <a href="rl-pitfalls-survey.html">坑点综述</a>）</strong>
+RL 训练不稳时按此顺序排查，不要跳步：① 对齐两侧 logprob：同权重、同序列，训练引擎与推理引擎的 per-token logprob 差应接近 0，监控序列级 log-ratio 漂移；② 检查精度配置：BF16 rollout 是首要嫌疑，试 FP16 或至少 FP32 logits head；③ 检查 token 级一致性：模板重渲染、工具输出重新 tokenize（GLM-5 用 TITO 根治的那类 bug）；④ 以上都干净之后，才轮到 IS 修正（token-level TIS / 双边截断 / 序列级）与算法超参。顺序反了的典型症状：加了 IS 修正后「看起来稳了」，但其实在带偏目标上收敛，分数天花板莫名偏低。
+</div>
+
+<h3>9.4 Mid-training 闭环：RL 增益的上游决定论</h3>
+
+<p>2025-12 到 2026-02 的两篇论文把「RL 效果由上游决定」从经验谈变成了受控结论：</p>
+<ul>
+  <li><strong>Interplay 研究</strong>（Zhang/Neubig/Yue，arXiv:2512.07783）：受控实验框架下，<strong>RL 只有当预训练留有足够 headroom、且 RL 数据落在模型「能力边缘」（edge of competence）时才产生真实能力增益</strong>；固定算力下「预训练+mid-training」显著优于「纯堆 RL」；过程级奖励减少 reward hacking、提升推理保真度。这解释了为什么不同底座上同一 RL 配方结果天差地别——你看到的「RL 不 work」很多时候是底座没有留出可激发的余量；</li>
+  <li><strong>ReMiT</strong>（arXiv:2602.03075，2026-02）：把单向流水线变成闭环——用 RL 调优后模型的推理先验<strong>动态加权 mid-training（退火期）的 token</strong>，优先注入对推理关键的 token，形成 pretrain → RL → mid-train 的迭代演化。数字：10 个预训练基准平均 +3%，且增益在整个后训练流程中保持 2% 以上。</li>
+</ul>
+
+<p>与旗舰配方的连线：K2-V2 的「主动注入推理先验」（§8.2）、Qwen3-Coder-Next 的 continued pretraining 阶段（§5.2）、DeepSeek-V4 加重 agentic 执行轨迹的预训练数据（§4），都是同一判断的不同实现——<strong>2026 年后训练效果的上限，越来越多地在退火期就被决定了</strong>。读技术报告时注意各家对 "mid-training" 的操作化差异极大，不要假设术语同义。</p>
+
+<div class="callout callout-tip">
+<strong>预算分配的 2026 版答案（综合 §9.1 + §9.4）</strong>
+固定总算力下的优先级：① 底座是否留有目标能力的 headroom（没有就先做 mid-training/continued pretraining，而不是硬上 RL）；② RL 算力给更大的底座而非更多步数；③ RL 数据按「能力边缘」选难度（全对/全错的 prompt 都是浪费，对应 ScaleRL 的零方差过滤与 no-positive-resampling）；④ 能力合并/修复/压缩一律用 OPD，不要用 RL 重训。
+</div>
+
+
+<!-- ============== Section 10 ============== -->
+<h2 class="section" id="sec-10">10. 实操指南：决策树、检查清单与速查表</h2>
+
+<p>本章把前九章的结论压缩成可直接执行的工件。每一条都标注了出处章节，便于回溯机制与数字。</p>
+
+<h3>10.1 决策树：这一笔后训练预算该花在哪？</h3>
+
+<pre><code>Q1. 目标能力在某个现有模型（含你自己的 specialist / 旧 checkpoint）里已经存在吗？
+ ├─ 是 → 用 OPD（§9.2）。再问角色：
+ │    ├─ 多个 specialist 要合并        → V4 式全量 OPD 合并（需全词表蒸馏基建，§4.3）
+ │    ├─ 流水线后期冲掉了早期能力      → GLM-5 式末端 cross-stage OPD 修复（§3.1）
+ │    └─ 大模型能力装进小模型/低激活   → OPD 压缩（Coder-Next 路径，§5.2）
+ │    ⚠ 先验证 THUNLP 两条件：thinking pattern 兼容 + 教师有分布外新能力；
+ │      不满足 → 先 off-policy 冷启动或换教师（§9.2）
+ └─ 否（能力需要从环境中学出来）→ 继续 Q2
+
+Q2. 底座对该能力留有 headroom 吗？（小规模 RL 探针：edge-of-competence
+    难度的数据上能否看到非平凡增益，§9.4）
+ ├─ 否 → 钱花在 mid-training / continued pretraining 注入先验（ReMiT、
+ │       K2-V2、Interplay 的结论，§8.2/§9.4），不要硬上 RL
+ └─ 是 → 上 RL。再问结构：
+      ├─ 单领域、可验证        → ScaleRL 八组件起步（§9.1）+ DAPO 防崩件
+      ├─ 多领域               → specialist 分训 + OPD 合并（§4）；
+      │                          没有蒸馏基建 → 顺序流水线 + 末端 OPD（§3）
+      ├─ 长程 agentic         → 异步解耦 infra 是前置条件（slime/prime-rl，
+      │                          §3.4/§8.3）；token 级接口纪律（TITO，§3.2）
+      └─ 多智能体             → 只训 orchestrator，冻结 sub-agent，
+                                 critical-steps 奖励 + 退火塑形（K2.5，§6.2）</code></pre>
+
+<h3>10.2 检查清单</h3>
+
+<h4>A. RL 开跑前（一致性与数据）</h4>
+<ul>
+  <li>□ 同权重同序列下，训练/推理两引擎 per-token logprob 已对齐，序列级 log-ratio 漂移有监控面板（§9.3）</li>
+  <li>□ 精度方案明确：FP16 全程，或 BF16 + FP32 logits head；不裸跑 BF16（§9.3）</li>
+  <li>□ 多轮/工具轨迹走 token 级接口，无模板重渲染、无工具输出重 tokenize（§3.2）</li>
+  <li>□ prompt 集做过难度标定：剔除零方差（全对/全错）prompt；通过率 ≥0.9 的从课程中移除（§9.1）</li>
+  <li>□ 训练前用 sigmoid 外推估过天花板与预算（早期段拟合 A/B/C_mid，§9.1）</li>
+</ul>
+
+<h4>B. 奖励设计（按 §2.2 四层逐层过）</h4>
+<ul>
+  <li>□ 可验证任务：verifier 经过对抗审计（hardcode 测例、boxed 多答案、格式 hack——<a href="rl-pitfalls-survey.html">坑点综述 §1</a>）</li>
+  <li>□ 难验证任务：rubric-guided GRM 优先于裸标量 RM；rubric 条目可读、可审计（§4.4）</li>
+  <li>□ 所有塑形奖励都有退火或门控计划，不留永久加法分量（K2.5 先例，§6.2）</li>
+  <li>□ 思考效率若进奖励，只用内容中立的压力（长度），不对 thought 内容打分（Gemini 3 的折中，§7.1）</li>
+</ul>
+
+<h4>C. 多阶段流水线</h4>
+<ul>
+  <li>□ 阶段顺序有依赖论证（推理→agentic→通用的 GLM-5 逻辑，§3.1），不是历史惯性</li>
+  <li>□ 每个阶段结束时对<strong>前序所有阶段</strong>的核心评测回归（遗忘监控）</li>
+  <li>□ 末端预留 cross-stage OPD 修复预算（约为单阶段 RL 的 1/10 量级，§9.2）</li>
+</ul>
+
+<h4>D. 部署与推理侧</h4>
+<ul>
+  <li>□ interleaved thinking 模型：多轮循环中历史 think 块全保留，框架/网关/压缩策略三处都查过（M2 数据：违者 BrowseComp −40.1%，§7.3）</li>
+  <li>□ 上下文压缩用训练过的总结机制（context compaction 思路），不粗暴剪切（§7.2）</li>
+  <li>□ 低精度部署计划若是 INT4 档，训练侧应有 QAT 而非纯事后量化（K2 Thinking 先例，§6.1）</li>
+</ul>
+
+<h3>10.3 速查表：2026 异步 RLVR 默认配置</h3>
+
+<table>
+<thead><tr><th>配置项</th><th>2026 默认值</th><th>出处</th></tr></thead>
+<tbody>
+<tr><td>异步度</td><td>PipelineRL 式流式，off-policyness 上限 k≈8 步</td><td>ScaleRL（§9.1）</td></tr>
+<tr><td>损失类型</td><td>CISPO 或 GSPO（MoE 必选 GSPO 系；两者渐近性能优于 DAPO 损失）</td><td>ScaleRL 消融；GSPO 论文（§9.1）</td></tr>
+<tr><td>IS 截断</td><td>双边解耦 $[1-\varepsilon_\ell,\,1+\varepsilon_h]$，上界放宽保探索</td><td>GLM-5（§3.2）；DAPO clip-higher 思想</td></tr>
+<tr><td>logits 精度</td><td>FP32 head（或全程 FP16）</td><td>ScaleRL：A 0.52→0.61；FP16 论文（§9.3）</td></tr>
+<tr><td>损失聚合</td><td>prompt 级平均</td><td>ScaleRL（§9.1）</td></tr>
+<tr><td>advantage 归一化</td><td>batch 级</td><td>ScaleRL（§9.1）；归一化之辩详见 <a href="rl-pitfalls-survey.html">坑点综述 §4</a></td></tr>
+<tr><td>课程维护</td><td>零方差过滤 + 通过率 ≥0.9 剔除；按 edge-of-competence 补难例</td><td>ScaleRL；Interplay（§9.4）</td></tr>
+<tr><td>长度控制</td><td>强制截断（注入 <code>&lt;/think&gt;</code>）+ overlong shaping</td><td>ScaleRL；DAPO</td></tr>
+<tr><td>rollout 长尾</td><td>FP8 推理 + 投机解码/MTP；心跳容错</td><td>slime / Qwen3.5（§3.4/§5.1）</td></tr>
+<tr><td>KL 项</td><td>RLVR/agentic 默认不加；长程 RL（千步级）改用 KL 控制 + reference reset</td><td>ProRL；KL 去留决策详见 <a href="rl-pitfalls-survey.html">坑点综述 §8</a></td></tr>
+<tr><td>监控红线</td><td>策略熵（坠落=探索死亡）；训推 log-ratio；per-stage 回归评测</td><td>§9.3；<a href="rl-pitfalls-survey.html">坑点综述 §5/§11</a></td></tr>
+</tbody>
+</table>
+
+<h3>10.4 与既有文档的接口</h3>
+<ul>
+  <li>GRPO/PPO/DPO 的公式与推导 → <a href="derivations.html">derivations.html</a>（本文出现的逆向 KL、IS 截断均有完整推导）</li>
+  <li>失败模式百科（reward hacking、entropy collapse、KL spike、数据坑）→ <a href="rl-pitfalls-survey.html">rl-pitfalls-survey.html</a></li>
+  <li>多轮工具使用的训练问题（mask、credit assignment、环境工程）→ <a href="multi-turn-tool-use.html">multi-turn-tool-use.html</a></li>
+  <li>训练框架选型（verl 等）→ <a href="rl-frameworks-survey.html">rl-frameworks-survey.html</a>；本文新增的 slime/prime-rl 是 2026 年的增量选项</li>
+  <li>方法谱系与历史脉络 → <a href="llm-post-training-master.html">llm-post-training-master.html</a></li>
+  <li><strong>已知空白（本知识库目前无文档承接）</strong>：experience / memory / continual learning 主线——Era of Experience 宣言（Silver &amp; Sutton，2025-04）、Agent Learning via Early Experience（arXiv:2510.08558）、SEAL 自生成更新框架（arXiv:2506.10943）、经验内化研究（arXiv:2606.04703：step-wise 注入经验显著优于 global 注入）、memory 层经验复用（arXiv:2604.27003：外部 memory 不消除 stability-plasticity 困境，只把瓶颈从参数更新搬到检索层），以及 Dwarkesh 与 Nathan Lambert 的 continual learning 叙事之争。本文按「旗舰配方对照」的定位只在 §7.5（Anthropic Dreaming）一笔带过；该主线应由后续独立专题承接，在此之前请直接读上列一手来源。</li>
+</ul>
+
+
+<h2 class="section" id="conclusion">结语</h2>
+<p>2025Q4–2026H1 的旗舰后训练配方告诉我们：后训练正在从「算法选型问题」变成「系统结构问题」。GRPO 还是那个 GRPO（DAPO 四件套依旧是单阶段基线），但决定最终模型质量的变量已经上移：流水线怎么排、奖励怎么分层、teacher 从哪来、异步与数值一致性怎么保证、思考预算交给谁。四轴框架下看，各家在轴三（infra 与一致性）上高度收敛，在轴一（流水线结构）上正在向「specialist + OPD 合并」收敛，而轴二（难验证任务的奖励）与轴四（多智能体、并行思考、思考效率）仍是 2026 下半年最值得跟踪的开放前沿；本文未展开的 experience / memory / continual learning 主线（已在 §10.4 标注为知识库的已知空白）则是下一块待补的拼图。</p>
+<p>对从业者，本文的全部内容可以压缩成一张行动卡：<strong>用 OPD 的眼光重新审视你流水线里每一个「合并」与「修复」环节；用 sigmoid 天花板的眼光审视每一笔 RL 算力；用 token 级一致性的眼光审视你的 rollout 栈；用「奖励分层 + 退火塑形」的眼光审视你的难验证任务。</strong>这四句话分别对应 §9.2、§9.1、§9.3 与 §2.2——也是 2026 年与 2025 年后训练实践的全部分野。</p>
+
+<h2 class="section ref" id="refs">参考文献</h2>
+<ul>
+  <li>GLM-5 Team (Zhipu AI), <em>GLM-5: from Vibe Coding to Agentic Engineering</em>, 2026. <a href="https://arxiv.org/abs/2602.15763">arXiv:2602.15763</a> · <a href="https://github.com/zai-org/GLM-5">github.com/zai-org/GLM-5</a></li>
+  <li>Kimi Team (Moonshot AI), <em>Kimi K2.5: Visual Agentic Intelligence</em>, 2026. <a href="https://arxiv.org/abs/2602.02276">arXiv:2602.02276</a></li>
+  <li>DeepSeek-AI, <em>DeepSeek-V4: Towards Highly Efficient Million-Token Context Intelligence</em>（技术报告，2026-04；权重见 HuggingFace deepseek-ai/DeepSeek-V4-Pro）。解读：Maxime Labonne, <em>DeepSeek V4: ten teachers, one student</em>. <a href="https://maximelabonne.substack.com/p/deepseek-v4-ten-teachers-one-student">maximelabonne.substack.com</a></li>
+  <li>Qwen Team, <em>Qwen3.5: Towards Native Multimodal Agents</em>, 2026. <a href="https://www.alibabacloud.com/blog/602894">alibabacloud.com/blog/602894</a> · <a href="https://huggingface.co/Qwen/Qwen3.5-397B-A17B">HF: Qwen/Qwen3.5-397B-A17B</a></li>
+  <li>Qwen Team, <em>Qwen3-Coder-Next Technical Report</em>, 2026. <a href="https://arxiv.org/abs/2603.00729">arXiv:2603.00729</a></li>
+  <li>Moonshot AI, <em>Kimi K2 Thinking</em>, 2025. <a href="https://huggingface.co/moonshotai/Kimi-K2-Thinking">HF: moonshotai/Kimi-K2-Thinking</a>；解读：DeepLearning.AI The Batch, <em>Kimi K2 Thinking Outperforms Proprietary Models...</em> <a href="https://www.deeplearning.ai/the-batch/kimi-k2-thinking-outperforms-proprietary-models-with-new-techniques-for-agentic-tool-use">deeplearning.ai</a></li>
+  <li>Google DeepMind, <em>Frontier Safety Framework Report: Gemini 3 Pro</em>, 2025-11. <a href="https://storage.googleapis.com/deepmind-media/gemini/gemini_3_pro_fsf_report.pdf">deepmind-media PDF</a>（§7.1 三条 thought 训练陈述的一手来源，见其 "Addendum: Chain-of-Thought legibility"）</li>
+  <li>Google DeepMind, <em>Gemini 3 Pro Model Card</em>, 2025-11. <a href="https://storage.googleapis.com/deepmind-media/Model-Cards/Gemini-3-Pro-Model-Card.pdf">deepmind-media PDF</a>（注意：不含 thought 训练披露，相关陈述见上条 FSF 报告）</li>
+  <li>Google DeepMind, <em>Gemini 3.1 Pro Model Card</em>, 2026-02. <a href="https://deepmind.google/models/model-cards/gemini-3-1-pro/">deepmind.google/models/model-cards/gemini-3-1-pro</a></li>
+  <li>Anthropic, <em>Claude Opus 4.6</em>, 2026-02. <a href="https://www.anthropic.com/news/claude-opus-4-6">anthropic.com/news/claude-opus-4-6</a></li>
+  <li>Anthropic, <em>Introducing Claude Opus 4.8</em>, 2026-05. <a href="https://www.anthropic.com/news/claude-opus-4-8">anthropic.com/news/claude-opus-4-8</a></li>
+  <li>Anthropic, <em>Claude Fable</em>, 2026-06. <a href="https://www.anthropic.com/claude/fable">anthropic.com/claude/fable</a>；安全后训练讨论：Interconnects, <em>Claude Fable 5 and new AI safety</em>. <a href="https://www.interconnects.ai/p/claude-fable-5-and-new-ai-safety">interconnects.ai</a></li>
+  <li>VentureBeat, <em>Anthropic introduces "dreaming," a system that lets AI agents learn from their own mistakes</em>, 2026-05. <a href="https://venturebeat.com/technology/anthropic-introduces-dreaming-a-system-that-lets-ai-agents-learn-from-their-own-mistakes">venturebeat.com</a></li>
+  <li>Moonshot AI, <em>Kimi K2.6</em>, 2026-04. <a href="https://huggingface.co/moonshotai/Kimi-K2.6">HF: moonshotai/Kimi-K2.6</a>；解读：Latent Space AINews, <em>Moonshot Kimi K2.6: the world's leading Open Model refreshes to catch up to Opus 4.6</em>. <a href="https://www.latent.space/p/ainews-moonshot-kimi-k26-the-worlds">latent.space</a></li>
+  <li>MiniMax, <em>Interleaved Thinking Unlocks Reliable MiniMax-M2 Agentic Capability</em>, 2025. <a href="https://www.minimax.io/news/why-is-interleaved-thinking-important-for-m2">minimax.io</a></li>
+  <li>Team Olmo (Ai2), <em>Olmo 3</em>, 2025. <a href="https://arxiv.org/abs/2512.13961">arXiv:2512.13961</a> · <a href="https://allenai.org/blog/olmo3">allenai.org/blog/olmo3</a></li>
+  <li>LLM360 / K2 Team, <em>K2-V2: A 360-Open, Reasoning-Enhanced LLM</em>, 2025. <a href="https://arxiv.org/abs/2512.06201">arXiv:2512.06201</a></li>
+  <li>Prime Intellect Team, <em>INTELLECT-3: Technical Report</em>, 2025. <a href="https://arxiv.org/abs/2512.16144">arXiv:2512.16144</a></li>
+  <li>HuggingFace, <em>The Smol Training Playbook</em>. <a href="https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook">HF Space: HuggingFaceTB/smol-training-playbook</a></li>
+  <li>Khatri, Madaan, Tiwari et al., <em>The Art of Scaling Reinforcement Learning Compute for LLMs</em>（ScaleRL）, 2025. <a href="https://arxiv.org/abs/2510.13786">arXiv:2510.13786</a></li>
+  <li>Thinking Machines Lab, <em>On-Policy Distillation</em>, 2025-10. <a href="https://thinkingmachines.ai/blog/on-policy-distillation/">thinkingmachines.ai/blog/on-policy-distillation</a></li>
+  <li>Qwen Team, <em>Qwen3 Technical Report</em>, 2025. <a href="https://arxiv.org/abs/2505.09388">arXiv:2505.09388</a>（§9.2 成本对照表 Table 21 的原始出处）</li>
+  <li>Wen, Su, Zhang et al., <em>ParaThinker: Native Parallel Thinking as a New Paradigm to Scale LLM Test-time Compute</em>, 2025. <a href="https://arxiv.org/abs/2509.04475">arXiv:2509.04475</a></li>
+  <li><em>Understanding Performance Gap Between Parallel and Sequential Sampling in Large Reasoning Models</em>, 2026. <a href="https://arxiv.org/abs/2604.05868">arXiv:2604.05868</a></li>
+  <li>THUNLP, <em>Rethinking On-Policy Distillation of Large Language Models: Phenomenology, Mechanism, and Recipe</em>, 2026. <a href="https://arxiv.org/abs/2604.13016">arXiv:2604.13016</a></li>
+  <li>Qi, Liu, Zhou, Pang, Du, Lee, Lin (Sea AI Lab), <em>Defeating the Training-Inference Mismatch via FP16</em>, 2025. <a href="https://arxiv.org/abs/2510.26788">arXiv:2510.26788</a></li>
+  <li>Zhong, Ling, Pi et al., <em>Diagnosing Training Inference Mismatch in LLM Reinforcement Learning</em>, 2026. <a href="https://arxiv.org/abs/2605.14220">arXiv:2605.14220</a></li>
+  <li>Huang, Qin, Yin et al., <em>ReMiT: RL-Guided Mid-Training for Iterative LLM Evolution</em>, 2026. <a href="https://arxiv.org/abs/2602.03075">arXiv:2602.03075</a></li>
+  <li>Zhang, Neubig, Yue, <em>On the Interplay of Pre-Training, Mid-Training, and RL on Reasoning Language Models</em>, 2025. <a href="https://arxiv.org/abs/2512.07783">arXiv:2512.07783</a></li>
+  <li>Yue, Chen, Lu et al., <em>Does Reinforcement Learning Really Incentivize Reasoning Capacity in LLMs Beyond the Base Model?</em>, NeurIPS 2025 Oral. <a href="https://arxiv.org/abs/2504.13837">arXiv:2504.13837</a></li>
+  <li>Liu, Diao et al. (NVIDIA), <em>ProRL: Prolonged Reinforcement Learning Expands Reasoning Boundaries in Large Language Models</em>, 2025. <a href="https://arxiv.org/abs/2505.24864">arXiv:2505.24864</a></li>
+  <li>Yu et al. (ByteDance Seed), <em>DAPO: An Open-Source LLM Reinforcement Learning System at Scale</em>, 2025. <a href="https://arxiv.org/abs/2503.14476">arXiv:2503.14476</a></li>
+  <li>Zheng et al. (Alibaba/Qwen), <em>Group Sequence Policy Optimization</em>（GSPO）, 2025. <a href="https://arxiv.org/abs/2507.18071">arXiv:2507.18071</a></li>
+  <li>DeepSeek-AI, <em>DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning</em>, 2025（亦发表于 Nature 645:633–638）. <a href="https://arxiv.org/abs/2501.12948">arXiv:2501.12948</a></li>
+  <li>Nathan Lambert, <em>RLHF Book</em>（持续更新）. <a href="https://rlhfbook.com">rlhfbook.com</a>；Interconnects, <em>Olmo 3: America's truly open reasoning models</em>. <a href="https://www.interconnects.ai/p/olmo-3-americas-truly-open-reasoning">interconnects.ai</a></li>
+  <li>§10.4 已知空白主线的一手来源：Silver &amp; Sutton, <em>Welcome to the Era of Experience</em>, 2025（<em>Designing an Intelligence</em>, MIT Press 章节）. <a href="https://storage.googleapis.com/deepmind-media/Era-of-Experience%20/The%20Era%20of%20Experience%20Paper.pdf">deepmind-media PDF</a>；Zhang, Chen, Liu et al., <em>Agent Learning via Early Experience</em>, 2025. <a href="https://arxiv.org/abs/2510.08558">arXiv:2510.08558</a>；Zweiger, Pari, Guo et al. (MIT), <em>Self-Adapting Language Models</em>（SEAL）, 2025. <a href="https://arxiv.org/abs/2506.10943">arXiv:2506.10943</a>；<em>Rethinking Continual Experience Internalization for Self-Evolving LLM Agents</em>, 2026. <a href="https://arxiv.org/abs/2606.04703">arXiv:2606.04703</a>；<em>When Continual Learning Moves to Memory: A Study of Experience Reuse in LLM Agents</em>, 2026. <a href="https://arxiv.org/abs/2604.27003">arXiv:2604.27003</a></li>
+  <li>llm-stats, <em>GLM-5: Zhipu AI's Agentic Engineering Breakthrough</em>, 2026. <a href="https://llm-stats.com/blog/research/glm-5-launch">llm-stats.com</a>（GLM-5 / Opus 4.6 基准数字交叉来源）</li>
+</ul>
+
+</div>
+</body>
+</html>

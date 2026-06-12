@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中文社区 LLM Post-Training 与 RL 精华资源综述（2024-2026）</title>
+<style>
+  :root {
+    --primary: #1a73e8;
+    --secondary: #5f6368;
+    --bg: #fafafa;
+    --card-bg: #ffffff;
+    --border: #e0e0e0;
+    --accent: #ff6f00;
+    --code-bg: #f1f3f4;
+    --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, sans-serif;
+    line-height: 1.75;
+    color: #202124;
+    background: var(--bg);
+    margin: 0;
+    padding: 0;
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+  header {
+    background: linear-gradient(135deg, #1a73e8 0%, #4285f4 50%, #34a853 100%);
+    color: white;
+    padding: 48px 32px;
+    border-radius: 12px;
+    margin-bottom: 32px;
+    box-shadow: var(--shadow);
+  }
+  header h1 { margin: 0 0 12px 0; font-size: 2.2em; font-weight: 700; }
+  header p { margin: 0; font-size: 1.05em; opacity: 0.95; }
+  header .meta { margin-top: 16px; font-size: 0.9em; opacity: 0.85; }
+  nav.toc {
+    background: var(--card-bg);
+    padding: 20px 24px;
+    border-radius: 10px;
+    margin-bottom: 32px;
+    box-shadow: var(--shadow);
+    border-left: 4px solid var(--primary);
+  }
+  nav.toc h2 { margin-top: 0; font-size: 1.15em; color: var(--primary); }
+  nav.toc ol { columns: 2; column-gap: 32px; padding-left: 20px; margin: 0; }
+  nav.toc li { margin-bottom: 6px; break-inside: avoid; }
+  nav.toc a { color: #202124; text-decoration: none; }
+  nav.toc a:hover { color: var(--primary); text-decoration: underline; }
+
+  section {
+    background: var(--card-bg);
+    border-radius: 10px;
+    padding: 28px 32px;
+    margin-bottom: 28px;
+    box-shadow: var(--shadow);
+  }
+  section h2 {
+    color: var(--primary);
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 12px;
+    margin-top: 0;
+    font-size: 1.6em;
+  }
+  section h3 {
+    color: #202124;
+    margin-top: 28px;
+    font-size: 1.15em;
+    padding-left: 12px;
+    border-left: 4px solid var(--accent);
+  }
+  .resource {
+    margin: 14px 0;
+    padding: 14px 18px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 3px solid var(--primary);
+  }
+  .resource .title { font-weight: 600; display: block; margin-bottom: 4px; }
+  .resource .title a { color: var(--primary); text-decoration: none; }
+  .resource .title a:hover { text-decoration: underline; }
+  .resource .desc { font-size: 0.95em; color: #3c4043; margin-top: 4px; }
+  .resource .source-tag {
+    display: inline-block;
+    font-size: 0.75em;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--code-bg);
+    color: var(--secondary);
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 0.72em;
+    padding: 1px 8px;
+    border-radius: 10px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .badge-hot { background: #fee; color: #c5221f; border: 1px solid #fcc; }
+  .badge-classic { background: #e8f0fe; color: #1967d2; border: 1px solid #c4d8f3; }
+  .badge-zh { background: #fef7e0; color: #b06000; border: 1px solid #f0d878; }
+  .intro {
+    padding: 12px 18px;
+    background: #fff8e1;
+    border-radius: 8px;
+    border-left: 4px solid var(--accent);
+    margin-bottom: 18px;
+    font-size: 0.97em;
+  }
+  footer {
+    text-align: center;
+    color: var(--secondary);
+    padding: 24px;
+    font-size: 0.9em;
+  }
+  code {
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.92em;
+    color: #ad1457;
+  }
+  ul.summary { margin: 10px 0; padding-left: 22px; }
+  ul.summary li { margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>中文社区 LLM Post-Training 与 RL 精华资源综述</h1>
+  <p>聚焦 2024-2026 年 RLHF、DPO、GRPO、DAPO、GSPO、Agentic RL 等核心议题，汇集知乎、博客、公众号、B 站、GitHub 等高质量内容。</p>
+  <div class="meta">整理时间：2026-06（含 2025Q4-2026H1 前沿补遗）· 选材原则：宁缺毋滥，只保留经过时间检验或具有清晰技术增量的资源。</div>
+</header>
+
+<nav class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li value="0"><a href="#local-kb">本知识库导航（10 份本地文档）</a></li>
+    <li><a href="#trends">大事记与脉络（2024-2026）</a></li>
+    <li><a href="#zhihu">知乎高质量文章与回答</a></li>
+    <li><a href="#suijianlin">苏剑林：科学空间</a></li>
+    <li><a href="#wechat">微信公众号优质内容</a></li>
+    <li><a href="#bilibili">B 站 / 视频教程</a></li>
+    <li><a href="#github">GitHub 优质中文资源</a></li>
+    <li><a href="#corp">企业技术博客</a></li>
+    <li><a href="#course">课程与系统化学习</a></li>
+    <li><a href="#book">中文教材与综述</a></li>
+    <li><a href="#path">推荐学习路径</a></li>
+  </ol>
+</nav>
+
+<section id="local-kb">
+  <h2>0. 本知识库导航（10 份本地文档）</h2>
+  <div class="intro">
+    本文是同一套后训练知识库的<strong>资源分册</strong>。全库共 10 份文档，均位于同一目录、可直接点击跳转；建议以<a href="llm-post-training-master.html">总纲</a>为入口，按"总纲 → 原理 → 专题 → 工程 → 资源"的顺序阅读。
+  </div>
+  <ul class="summary">
+    <li><a href="llm-post-training-master.html"><strong>llm-post-training-master.html</strong></a> — 总纲：RLHF → DPO → GRPO/RLVR → Agentic RL 的六年方法谱系全景，全库入口与索引；</li>
+    <li><a href="derivations.html"><strong>derivations.html</strong></a> — 核心方法原理推导：Policy Gradient → PPO → Bradley-Terry → DPO → GRPO → GSPO 的完整推导链；</li>
+    <li><a href="multi-turn-tool-use.html"><strong>multi-turn-tool-use.html</strong></a> — 多轮 Tool Use 深度专题：Agentic RL 的 POMDP 形式化、Token Mask 与 Credit Assignment；</li>
+    <li><a href="sft-data-engineering.html"><strong>sft-data-engineering.html</strong></a> — SFT 与数据工程：蒸馏、Mid-training、合成数据与去污染的从业者手册；</li>
+    <li><a href="reward-models.html"><strong>reward-models.html</strong></a> — 奖励模型：从 Bradley-Terry 标量 RM 到 PRM、GenRM 与 Rubric Reward 的训练、评测与攻防；</li>
+    <li><a href="eval-safety.html"><strong>eval-safety.html</strong></a> — 评估与安全后训练：从基准污染、judge 偏置到 Emergent Misalignment；</li>
+    <li><a href="frontier-recipes-2026.html"><strong>frontier-recipes-2026.html</strong></a> — 2026 旗舰后训练配方对照：GLM-5 / DeepSeek-V4 / Qwen3.5 / Kimi K2.5 / Gemini 3 等逐家拆解；</li>
+    <li><a href="rl-frameworks-survey.html"><strong>rl-frameworks-survey.html</strong></a> — 主流 RLHF / RL 训练框架系统综述与选型对照；</li>
+    <li><a href="rl-pitfalls-survey.html"><strong>rl-pitfalls-survey.html</strong></a> — RL 实战坑点综述：reward hacking、entropy/KL collapse、length bias 等问题与解决方案；</li>
+    <li><strong>zh-llm-post-training-resources.html</strong> — 本文：中文社区精华资源清单与推荐学习路径。</li>
+  </ul>
+</section>
+
+<section id="trends">
+  <h2>1. 大事记与脉络（2024-2026）</h2>
+  <div class="intro">
+    要理解 2024-2026 年中文社区围绕 LLM post-training 的讨论，先把握主线脉络：
+    <strong>PPO → DPO 简化路线 → DeepSeek-R1/GRPO 引爆推理模型 → DAPO/Dr. GRPO/GSPO 等改进 → Agentic RL 兴起 → RL scaling 可预测化与 on-policy 蒸馏（2025Q4 起）</strong>。
+    几乎所有精华内容都围绕这一演化展开。
+  </div>
+  <ul class="summary">
+    <li><strong>2024 上半年</strong>：DPO 因实现简洁取代部分 PPO 场景；Iterative DPO、RLOO 等"轻量化 RLHF"百花齐放（同一脉络的 REINFORCE++ 实际发布于 2025.01，arXiv:2501.03262，并不属于这一时期）。</li>
+    <li><strong>2024.02</strong>：DeepSeek-Math 论文首次提出 GRPO，去除 Value Model，组内相对优势估计。</li>
+    <li><strong>2025.01</strong>：DeepSeek-R1 与 R1-Zero 发布，验证纯 RL 激发推理能力，引爆中文社区"推理模型"讨论。</li>
+    <li><strong>2025.03</strong>：字节&清华开源 DAPO，提出 Clip-Higher、动态采样、token-level loss、Overlong Reward Shaping 四项改进。</li>
+    <li><strong>2025.07</strong>：阿里 Qwen 团队发布 GSPO 论文（arXiv:2507.18071），将优化粒度从 token 提升到 sequence，解决 MoE 训练崩溃问题；注意时序：论文晚于 Qwen3 首发（2025.04），官方表述是 GSPO 助力了"最新一批 Qwen3 模型"的改进。</li>
+    <li><strong>2025-2026</strong>：Agentic RL 成为新主战场，多轮工具使用、长 horizon、ToolRL/RAGEN/TORL 等方法密集涌现。</li>
+    <li><strong>2025.09</strong>：DeepSeek-R1 登上《Nature》封面，披露 R1 的 RL 后训练阶段成本约 29.4 万美元——该数字不含其所基于的 V3 base 模型约 560 万美元的预训练成本，引用时须区分口径。</li>
+    <li><strong>2025.10</strong>：Meta 等发布 ScaleRL（arXiv:2510.13786），40 万+ GPU-hours 实验确立 RL 算力-性能曲线为 sigmoid 形、可由小规模训练外推；同月 Thinking Machines 博客提出 on-policy distillation，以约 1/10 的 RL 算力达到同级数学推理性能。</li>
+    <li><strong>2025.11</strong>：月之暗面开源 Kimi K2 Thinking（单任务可连续调用工具 200-300 次）；Ai2 发布 Olmo 3，开放 SFT→DPO→RLVR 全流程与 Dolci 后训练数据套件。</li>
+    <li><strong>2025.12</strong>：Prime Intellect 发布 INTELLECT-3（106B-A12B，arXiv:2512.16144），验证"开源 RL 环境生态（Environments Hub）+ 异步 RL 框架（prime-rl）"的社区化路线。</li>
+    <li><strong>2026.02</strong>：开源旗舰密集发布——智谱 GLM-5（744B-A40B，arXiv:2602.15763，slime 异步 RL 基础设施）、月之暗面 Kimi K2.5（2026.01.27 发布模型、02 月出技术报告 arXiv:2602.02276，文本-视觉联合 RL 与 Agent Swarm）、阿里 Qwen3.5-397B-A17B（02.16 上线）。</li>
+    <li><strong>2026.04</strong>：DeepSeek-V4 技术报告发布：以 10+ 领域 specialist（各自 SFT+GRPO）经全词表 logit 蒸馏（on-policy distillation）合并为单一模型、替代混合 RL，并以 DSA 稀疏注意力支撑原生 1M 上下文。</li>
+  </ul>
+
+  <h3>1.1 前沿补遗：2025Q4-2026H1 技术报告与一手资源</h3>
+  <div class="intro">以下条目补齐 2025 年 10 月之后的进展。中文二手解读尚在沉淀，优先列一手技术报告与官方入口（链接已逐条核实）。</div>
+  <div class="resource">
+    <span class="title"><a href="https://arxiv.org/abs/2510.13786">The Art of Scaling Reinforcement Learning Compute for LLMs（ScaleRL）</a><span class="badge badge-hot">2025.10</span></span>
+    <div class="desc">Meta 等首个 40 万+ GPU-hours 级 RL scaling 系统研究：RL 算力-性能曲线是 sigmoid 形（非 power law），可用小规模训练段外推渐近上限；并发现损失聚合、课程等设计选择主要影响算力效率而非最终渐近性能。把 RL 调参从"炼丹"推向可预测工程。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://thinkingmachines.ai/blog/on-policy-distillation/">Thinking Machines：On-Policy Distillation</a><span class="badge badge-hot">2025.10</span></span>
+    <div class="desc">Kevin Lu 执笔：学生自己采样、教师逐 token 以反向 KL 打分，兼得 RL 的 on-policy 相关性与蒸馏的稠密监督。实测 Qwen3-8B-Base 在 AIME'24 达到 70% 仅需约 1800 GPU-hours（同效果 RL 需 17920），约 1/10 成本，是 2026 年 OPD 路线的起点。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://huggingface.co/moonshotai/Kimi-K2-Thinking">Kimi K2 Thinking（月之暗面，开源）</a><span class="badge badge-hot">2025.11</span></span>
+    <div class="desc">K2 系列的 thinking agent 版本：边推理边用工具，单任务可连续调用工具 200-300 次，在 HLE、BrowseComp 等基准上取得开源 SOTA。Kimi 开放平台（platform.kimi.com）有思考模型的官方中文使用文档。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://allenai.org/blog/olmo3">Olmo 3（Ai2）</a><span class="badge badge-hot">2025.11</span></span>
+    <div class="desc">7B/32B 全开放模型族（Base/Think/Instruct/RL Zero 多条路径），SFT→DPO→RLVR 三段后训练流水线连同 Dolci 数据套件全部开源，是目前最透明、最可复现的后训练参照系。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://arxiv.org/abs/2512.16144">INTELLECT-3 技术报告（Prime Intellect）</a><span class="badge badge-hot">2025.12</span></span>
+    <div class="desc">106B-A12B MoE，用开源 prime-rl 异步 RL 框架（单机扩到数千 GPU、RL 阶段 512 张 H200）+ 社区 Environments Hub 环境平台训练，数学/代码/科学/推理同尺寸领先，验证了"众包 RL 环境 + 异步 RL"对抗大厂环境垄断的路线。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://arxiv.org/abs/2602.15763">GLM-5: from Vibe Coding to Agentic Engineering（智谱）</a><span class="badge badge-hot">2026.02</span></span>
+    <div class="desc">744B-A40B 开源旗舰，完整披露后训练基础设施：自研 slime 异步 RL 框架将生成与训练解耦、配套异步 agent RL 算法，主打真实软件工程任务。代码与权重见 <a href="https://github.com/zai-org/GLM-5">GitHub（zai-org/GLM-5）</a>。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://arxiv.org/abs/2602.02276">Kimi K2.5: Visual Agentic Intelligence（月之暗面）</a><span class="badge badge-hot">2026.02</span></span>
+    <div class="desc">文本-视觉联合预训练 + "zero-vision SFT"（纯文本微调激活视觉推理）+ 文本-视觉联合 RL，两模态互相增益；Agent Swarm 自指挥并行编排框架把复杂任务分解给并发子代理，延迟最高降 4.5 倍。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://www.ithome.com/0/922/114.htm">Qwen3.5-397B-A17B 上线（IT之家中文报道）</a><span class="badge badge-zh">2026.02</span></span>
+    <div class="desc">2026.02.16 阿里上线 Qwen3.5-Plus 与 Qwen3.5-397B-A17B，后者定位"Qwen3.5 开源系列旗舰大语言模型"：397B 总参、每次前向仅激活 17B，主打推理、编程、智能体与多模态。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro">DeepSeek-V4 / V4-Pro（Hugging Face 模型页）</a><span class="badge badge-hot">2026.04</span></span>
+    <div class="desc">后训练流水线最激进的改写：数学/代码/agent/指令各领域独立训 specialist（各自 SFT+GRPO），再经全词表 logit 的 on-policy 蒸馏合并为单一学生模型，整体替代混合 RL；DSA 稀疏注意力支撑原生 1M 上下文。</div>
+  </div>
+</section>
+
+<section id="zhihu">
+  <h2>2. 知乎高质量文章与回答</h2>
+  <div class="intro">
+    知乎是中文 LLM 技术讨论的主战场。下列文章在原理推导、工程细节、横向对比上具有"教科书"价值。
+  </div>
+
+  <h3>2.1 算法演进与综述（必读入门）</h3>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/1973172156771898729">一文梳理 RLHF 进化史：从 PPO、DPO、GRPO 到 GSPO</a><span class="badge badge-hot">2025 热门</span></span>
+    <div class="desc">完整串起 RLHF 算法演化的总线索文章，把握"为什么从 token level 走向 sequence level"的关键转折，适合作为后续阅读的索引。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/20949520788">LLM 强化学习算法演进之路：MC → TD → Q-Learning → DQN → PG → AC → TRPO → PPO → DPO → GRPO</a></span>
+    <div class="desc">从经典 RL 到 LLM RL 的纵向脉络梳理，对没有 RL 背景的 NLP 同学补足前置知识非常有帮助。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/714364995">RLHF 及其变体 Iterative DPO/RLOO/GRPO/REINFORCE 算法和工程分析</a><span class="badge badge-classic">经典</span></span>
+    <div class="desc">2024 年最早系统比较各种"简化 RLHF"路线的文章，指出 Iterative DPO 训练速度是 PPO 的 3 倍以上，对工程选型有直接价值。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/1946231150822552323">PPO、DPO、GRPO 及其变体（Dr. GRPO、DAPO、GSPO、GMPO、GFPO、LitePPO）策略优化算法综述</a></span>
+    <div class="desc">2025 年最全的 RL 算法谱系图，涵盖几乎全部主流变体，适合做技术选型 reference。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/30201040247">全景解读 LLM 后训练技术</a></span>
+    <div class="desc">以 2025 年 2 月的 post-training 综述论文为蓝本的中文导读，串联 SFT / Reward Modeling / RLHF / RLAIF / Reasoning RL 全链路。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/987052830">工业界主流大语言模型后训练（Post-Training）技术总结</a></span>
+    <div class="desc">汇总 Llama 3、Qwen 2、Baichuan 2 等模型的真实 post-training 配方，重点是数据合成与拒绝采样的实战经验。</div>
+  </div>
+
+  <h3>2.2 DeepSeek-R1 / GRPO 专题（2025 核心议题）</h3>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/21046265072">详解 DeepSeek-R1 核心强化学习算法：GRPO</a><span class="badge badge-hot">高赞</span></span>
+    <div class="desc">从原理到伪代码完整拆解 GRPO，配组内归一化的计算过程示例，社区引用最多的解读之一。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/19744278380">DeepSeek-R1 技术报告全文翻译与解读</a></span>
+    <div class="desc">完整技术报告中文化，附带关键节点的实现细节注释，可作为论文阅读对照本。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/20676735628">DeepSeek-R1-Zero 与 R1 技术详解 && GRPO 训练方法</a></span>
+    <div class="desc">特别强调 R1-Zero 在 AIME 2024 上从 15.6% 涨到 71% 的训练动态，对"纯 RL 是否够用"这个问题有深入讨论。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/25985130568">揭开 DeepSeek-R1 的神秘面纱：GRPO 核心技术详解</a></span>
+    <div class="desc">用比较直观的方式讲清"为什么去掉 Critic、怎么估计 advantage、与 PPO 的关键差异"，新手友好。</div>
+  </div>
+
+  <h3>2.3 DAPO / GSPO / Dr. GRPO 改进算法</h3>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/1888687830710084683">DAPO：GRPO 的问题分析及四个改进策略</a><span class="badge badge-hot">2025</span></span>
+    <div class="desc">把 DAPO 的 Clip-Higher、动态采样、token-level loss、Overlong Reward Shaping 四点改进讲得最清楚的一篇。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/31157035727">DAPO：字节完整开源 RL 复现细节</a></span>
+    <div class="desc">官方角度的解读，对"为什么 GRPO 训练会熵塌缩、梯度消失"的工程化分析非常透彻。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/1933456555954664522">深度剖析 Qwen3 背后的 RLHF 新范式 —— GSPO</a></span>
+    <div class="desc">阿里 Qwen3 团队为什么放弃 GRPO 选择 GSPO？文章把"序列级 vs token 级"重要性比对得很清楚，是理解 MoE 训练崩溃的关键。<small>（时序提示：GSPO 论文 2025.07 发布，晚于 Qwen3 首发的 2025.04；官方表述是 GSPO 助力"最新一批 Qwen3 模型"的训练改进，并非首发版本即采用）</small></div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/1937513263362471465">GRPO 的进化之路：从 GRPO 走向 DAPO 和 GSPO</a></span>
+    <div class="desc">把三个算法放在同一框架下比较，配公式映射表，适合做面试或技术分享时的引用素材。</div>
+  </div>
+
+  <h3>2.4 Agentic RL 综述与前沿</h3>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/1985054130469888615">Agentic RL 全流程技术分析与总结（两万字）</a><span class="badge badge-hot">深度长文</span></span>
+    <div class="desc">2025 下半年最全面的 Agentic RL 中文综述之一，覆盖环境、奖励、多轮 rollout、infra 等多个维度。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/1946896052616663346">综述：基于 LLM 的智能体强化学习（Agentic RL）</a></span>
+    <div class="desc">系统总结 ALFWorld / WebArena / SWE-bench / OSWorld 等评测，结构清晰，是入门 Agentic RL 的导论级文章。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/1902381952998281700">2025 年大模型 Agent RL 训练多轮规划技术：TORL、ToolRL、RAGEN、OTC、SkyRL-v0、GiGPO、Tool-N1、ARTIST、ZeroTIR、GRPO</a></span>
+    <div class="desc">把当前所有主流 Agentic RL 方法横向对比，是技术选型决策的"必读清单"。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/2031679243713819973">Agentic RL 训练系统基础设施调研报告</a></span>
+    <div class="desc">从 infra 视角讲 Agentic RL 训练的工程挑战：变长轨迹、长上下文、环境延迟、千并发协调等，对要落地的团队尤其有价值。</div>
+  </div>
+
+  <h3>2.5 推理模型与 o1 复现</h3>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/13872128423">o1 复现的一点点心得（刘鹏飞团队）</a><span class="badge badge-classic">里程碑</span></span>
+    <div class="desc">上海交大 GAIR 实验室的世界首个 o1 复现报告，对"思维链合成"的方法论讨论极具启发性。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/20336729439">迈向大型推理模型：大语言模型强化推理综述</a></span>
+    <div class="desc">系统梳理 LRM（Large Reasoning Model）的研究脉络，从 CoT、Search、RL 三条主线展开。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/22978147852">大语言模型 RLHF 全链路揭秘：从策略梯度、PPO、GAE 到 DPO 的实战指南</a></span>
+    <div class="desc">面向实战的算法推导文章，把 GAE 这种容易被忽略但极重要的细节讲得很扎实。</div>
+  </div>
+
+  <h4>其他值得关注的作者与研究者（建议主动搜索其历史文章）</h4>
+  <ul>
+    <li><strong>张俊林</strong>：新浪/知乎，对 R1、GRPO、推理模型有系统解读</li>
+    <li><strong>李 rumor</strong>：微信公众号「李 rumor」，RLHF 入门必读源，DPO/PPO 实战经验</li>
+    <li><strong>王梦迪（Mengdi Wang）</strong>：普林斯顿大学教授，理论 RL 与 LLM 对齐方向的学术研究者（非中文社区博主，建议直接检索其论文与公开报告）</li>
+    <li><strong>何枝</strong>：RL 训练实战，特别是 reward model 相关</li>
+  </ul>
+</section>
+
+<section id="suijianlin">
+  <h2>3. 苏剑林：科学空间（kexue.fm）</h2>
+  <div class="intro">
+    苏剑林老师是中文 NLP 圈最有代表性的"数学推导型"博主，<a href="https://kexue.fm">kexue.fm</a> 是必备书签。
+    虽然他更多文章聚焦预训练侧（RoPE、Muon、MoE 等），但其优化与对齐方向的推导对 post-training 的理论理解极有帮助。
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://kexue.fm/">科学空间首页</a><span class="badge badge-zh">个人博客</span></span>
+    <div class="desc">主页时常更新，建议长期订阅 RSS。文章按"Transformer 升级之路"、"生成扩散模型漫谈"、"从动力学角度看优化"等系列组织。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://kexue.fm/archives/10739">Muon 续集：为什么我们选择尝试 Muon？</a></span>
+    <div class="desc">Muon 优化器在 Kimi K2 等模型中被采用，苏老师从优化原理推导，对训练侧选型有直接参考价值。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://kexue.fm/archives/10091">缓存与效果的极限拉扯：从 MHA、MQA、GQA 到 MLA</a></span>
+    <div class="desc">解析 MLA（DeepSeek 关键创新），是理解后续 R1 系列效率的前置阅读。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://kexue.fm/archives/10699">MoE 环游记：1、从几何意义出发</a></span>
+    <div class="desc">MoE 几何视角的推导，对理解 GSPO 为何在 MoE 上更稳定有间接帮助。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://kexue.fm/me.html">苏剑林的"时光"页（个人简介与历史文章）</a></span>
+    <div class="desc">想了解作者背景与精选历史好文的入口。建议使用站内搜索（kexue.fm 顶栏）查找"DPO"、"KL"、"对齐"等关键词，能找到大量数学口味的推导文。</div>
+  </div>
+</section>
+
+<section id="wechat">
+  <h2>4. 微信公众号优质内容</h2>
+  <div class="intro">公众号的优势在于"汇编 + 速递"，下面列出的几个号在 2024-2026 年间持续输出高质量内容。</div>
+
+  <h3>4.1 机器之心（jiqizhixin）</h3>
+  <div class="resource">
+    <span class="title"><a href="https://www.jiqizhixin.com/articles/2025-03-22-5">揭秘 DeepSeek R1-Zero 训练方式，GRPO 还有极简改进方案</a></span>
+    <div class="desc">介绍 Dr. GRPO（无偏 GRPO）的代表性中文文章，对训练 token 效率提升的解析很清晰。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://www.jiqizhixin.com/">机器之心官方站</a></span>
+    <div class="desc">建议关注其"硬核技术"系列与每日论文 highlight，几乎所有重要 RL/对齐论文当日都能看到中文速递。</div>
+  </div>
+
+  <h3>4.2 量子位（QbitAI）</h3>
+  <div class="resource">
+    <span class="title"><a href="https://www.qbitai.com/2025/09/333181.html">中国大模型首登 Nature 封面！DeepSeek 首次披露：R1 训练只花 200 万</a></span>
+    <div class="desc">DeepSeek-R1 登 Nature 封面时的代表性中文报道，包含训练成本、训练流程的新细节。<small>（标题中"200 万"为人民币口径，约 200 万人民币 ≈ 29.4 万美元，与本页时间线中的美元金额对应同一笔成本；注意该数字仅是 R1 的 RL 后训练阶段成本，不含 V3 base 约 560 万美元的预训练成本，"R1 训练只花 200 万"的说法易被误读为全部训练成本）</small></div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://www.qbitai.com/2025/03/262767.html">DeepSeek 同款 GRPO 训练大提速！魔搭开源全流程方案</a></span>
+    <div class="desc">介绍 ModelScope（魔搭）的 GRPO 训练加速方案，对工程实施有直接参考。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://www.qbitai.com/2025/03/266375.html">院士领衔万字长文：全面系统梳理多模态 LLM 对齐算法</a></span>
+    <div class="desc">多模态对齐综述的权威解读，弥补了多数 RLHF 文章只聚焦文本的缺陷。</div>
+  </div>
+
+  <h3>4.3 PaperWeekly</h3>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/paperweekly">PaperWeekly 知乎专栏</a><span class="badge badge-classic">老牌</span></span>
+    <div class="desc">论文速读 + 深度解读两条线，对 ICLR/NeurIPS 中关于 RLHF/对齐的工作几乎都有覆盖。</div>
+  </div>
+
+  <h3>4.4 中国人民大学 AI Box（"RUC AI Box"）</h3>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/635553325">大模型 LLM 综述：A Survey of Large Language Models</a><span class="badge badge-classic">引用经典</span></span>
+    <div class="desc">人大 AI Box 团队持续维护（arXiv:2303.18223，2026.03 已更新至 v19，全文 144 页），被引数以千计，目前国内学界最权威的 LLM 综述，post-training 章节是中文圈最系统的之一。</div>
+  </div>
+</section>
+
+<section id="bilibili">
+  <h2>5. B 站 / 视频教程</h2>
+  <div class="intro">视频形式更适合理解算法的"直觉"与"工程流程"，推荐如下系列。</div>
+
+  <h3>5.1 跟李沐学 AI</h3>
+  <div class="resource">
+    <span class="title"><a href="https://space.bilibili.com/1567748478/">"跟李沐学 AI" B 站主页</a><span class="badge badge-classic">必看</span></span>
+    <div class="desc">李沐的论文逐段精读系列，包含 Transformer、GPT、Llama 3.1 等大模型核心论文。对理解 RLHF 论文的"读法"本身也有启发。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://www.bilibili.com/video/BV1pu411o7BE/">Transformer 论文逐段精读【论文精读】</a></span>
+    <div class="desc">Transformer 论文的逐段讲解，post-training 一切的基石。</div>
+  </div>
+
+  <h3>5.2 CS336 中文字幕版（斯坦福从零搓大模型）</h3>
+  <div class="resource">
+    <span class="title"><a href="https://www.bilibili.com/video/BV1zW5yz1Eom/">斯坦福 CS336 Language Modeling from Scratch Spring 2025（中英字幕）</a><span class="badge badge-hot">2025 最新</span></span>
+    <div class="desc">B 站最完整的 CS336 中文字幕版（DeepSeek-R1 翻译），19 讲覆盖 tokenization → Transformer → MoE → 分布式训练 → Scaling Laws → SFT/RLHF/对齐，硬核教学。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://www.bilibili.com/video/BV13SV9zdEhX/">斯坦福 CS336：大模型从 0 到 1（中英双语另一版本）</a></span>
+    <div class="desc">备用版本，部分剪辑节奏不同，可作为对照学习。</div>
+  </div>
+
+  <h3>5.3 GRPO / R1 复现实战</h3>
+  <div class="resource">
+    <span class="title"><a href="https://www.bilibili.com/video/BV1KgpTzuELY/">【2025 最新】练完 36 个项目，搞定大模型强化学习！PPO/DAPO/GSPO 从零敲代码</a></span>
+    <div class="desc">面向工程师的"从零代码"系列，重点在动手而非理论，是少有的覆盖到 GSPO 的视频教程。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://www.bilibili.com/video/BV1tGGezxEGg/">DeepSeek-R1 复现踩坑系列 1：多机多卡环境下 GRPO 训练 32B 大模型的框架对比</a></span>
+    <div class="desc">"良睦路程序员" UP 主的实战系列，把 OpenRLHF / VeRL / TRL 等框架在真实多机多卡环境的差异讲得很细。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://www.bilibili.com/video/BV1wFNCehERn/">图解 DeepSeek 的 GRPO 原理 + Debug 形式阅读 GRPO 源码</a></span>
+    <div class="desc">配合 IDE 打断点的方式逐行讲解 GRPO 源码，对要二次开发的同学有帮助。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://www.bilibili.com/video/BV1BgA6euEwu/">【理论 + 实战】复现 DeepSeek R1 出圈算法，附代码 + PPT</a></span>
+    <div class="desc">理论 + 工程双线的复现讲解，配套 PPT 与代码，适合做团队内部分享的基底。</div>
+  </div>
+</section>
+
+<section id="github">
+  <h2>6. GitHub 优质中文资源</h2>
+  <div class="intro">
+    精选标准：中文文档完整 / 国人团队主导 / 在 RLHF 与 post-training 领域有真实生产价值。
+  </div>
+
+  <h3>6.1 训练框架</h3>
+  <div class="resource">
+    <span class="title"><a href="https://github.com/OpenRLHF/OpenRLHF">OpenRLHF</a><span class="badge badge-hot">必备</span></span>
+    <div class="desc">基于 Ray + vLLM 的高性能 RLHF 框架，支持 PPO / GRPO / Dr. GRPO / REINFORCE++ / RLOO 等一键切换，70B 以上模型可全量训练。<a href="https://github.com/OpenRLHF/OpenRLHF/blob/main/README_zh.md">中文 README</a> 完整。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://github.com/volcengine/verl">verl（火山引擎 / 字节）</a><span class="badge badge-hot">国内主流</span></span>
+    <div class="desc">字节火山引擎团队开源的 HybridFlow 论文实现，支持 SFT + RL 一体化 post-training，与 Megatron-LM / FSDP / vLLM / SGLang 等无缝集成。生产级稳定性好。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://github.com/OpenRLHF/OpenRLHF-M">OpenRLHF-M（多模态）</a></span>
+    <div class="desc">OpenRLHF 的多模态分支（社区驱动），专门面向 VLM 的 RLHF，与多个工业团队的实践场景相关。</div>
+  </div>
+
+  <h3>6.2 中文教程与课程项目</h3>
+  <div class="resource">
+    <span class="title"><a href="https://github.com/datawhalechina/happy-llm">datawhalechina/happy-llm</a><span class="badge badge-zh">中文教材</span></span>
+    <div class="desc">Datawhale 团队"从零开始构建大模型"教程，<a href="https://github.com/datawhalechina/happy-llm/blob/main/docs/chapter6/%E7%AC%AC%E5%85%AD%E7%AB%A0%20%E5%A4%A7%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E6%B5%81%E7%A8%8B%E5%AE%9E%E8%B7%B5.md">第六章</a> 完整覆盖 Pretrain → SFT → RLHF 训练流程实践。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://github.com/datawhalechina/self-llm">datawhalechina/self-llm</a><span class="badge badge-zh">中文教程</span></span>
+    <div class="desc">Datawhale 的「开源大模型食用指南」，面向中文用户的部署、推理、Lora 微调全流程实战教程，与 happy-llm（偏理论/从零构建）形成互补，self-llm 更偏「现成开源模型怎么用怎么调」。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://github.com/changyeyu/LLM-RL-Visualized">changyeyu/LLM-RL-Visualized</a><span class="badge badge-hot">高 Star</span></span>
+    <div class="desc">100+ 原创 LLM / RL 原理图，《大模型算法》作者出品，把 PPO / DPO / GRPO / DAPO 等公式视觉化，做 PPT/培训材料时极好用。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://github.com/jweihe/RLHF-book-Chinese">RLHF-book-Chinese（Nathan Lambert "RLHF Book" 中译）</a></span>
+    <div class="desc">Nathan Lambert 的 The RLHF Book 中文翻译版，覆盖指令调优、奖励模型、拒绝采样、RL 与直接对齐算法等关键技术。</div>
+  </div>
+
+  <h3>6.3 资源聚合与生态</h3>
+  <div class="resource">
+    <span class="title"><a href="https://github.com/HqWu-HITCS/Awesome-Chinese-LLM">Awesome-Chinese-LLM</a></span>
+    <div class="desc">中文开源大模型最完整的聚合清单（底座、垂直、数据、教程），post-training 资料章节定期更新。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://github.com/WangRongsheng/awesome-LLM-resources">awesome-LLM-resources（王荣胜）</a></span>
+    <div class="desc">"全世界最好的 LLM 资料总结"中文聚合，覆盖多模态、Agent、辅助编程、o1 模型、MCP 等，每月更新。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://github.com/shibing624/MedicalGPT">MedicalGPT</a></span>
+    <div class="desc">完整覆盖增量预训练 / SFT / RLHF（PPO） / DPO / ORPO / GRPO 训练脚本，是面向工程师的最佳"看代码学算法"项目。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://github.com/liguodongiot/llm-action">liguodongiot/llm-action</a></span>
+    <div class="desc">大模型实战经验集合，覆盖工程化、应用落地等主题，post-training 相关代码示例丰富。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://github.com/zhaochenyang20/Awesome-ML-SYS-Tutorial">Awesome-ML-SYS-Tutorial（赵晨阳）</a></span>
+    <div class="desc">面向"ML 系统"的中文教程合集，<a href="https://github.com/zhaochenyang20/Awesome-ML-SYS-Tutorial/blob/main/rlhf/verl/readme.md">VeRL 章节</a> 是中文圈解读 verl 框架最详细的笔记之一。</div>
+  </div>
+</section>
+
+<section id="corp">
+  <h2>7. 企业技术博客</h2>
+  <div class="intro">企业博客的价值在于"真实生产数据"与"无法在论文中看到的工程细节"。</div>
+
+  <h3>7.1 DeepSeek</h3>
+  <div class="resource">
+    <span class="title"><a href="https://github.com/deepseek-ai/DeepSeek-Math">DeepSeek-Math 项目主页</a><span class="badge badge-classic">GRPO 起源</span></span>
+    <div class="desc">GRPO 的"出生地"，建议配合 <a href="https://arxiv.org/abs/2402.03300">arXiv:2402.03300</a> 一起读，理解算法最初的设计动机。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://api-docs.deepseek.com/zh-cn/">DeepSeek API & 模型文档</a></span>
+    <div class="desc">官方中文文档，更新及时，对模型行为差异（V3 vs R1 vs R1-Zero）有清晰说明。</div>
+  </div>
+
+  <h3>7.2 字节 Seed / 豆包</h3>
+  <div class="resource">
+    <span class="title"><a href="https://seed.bytedance.com/">字节 Seed 团队官方博客</a><span class="badge badge-hot">英文为主</span></span>
+    <div class="desc">Doubao / Seed-Thinking / Seed-Coder 系列技术报告，包含 RL infra 的详细细节，对训练系统设计有借鉴价值。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/1894458400596796473">Seed-Thinking-v1.5 中文解读</a></span>
+    <div class="desc">字节豆包推理模型 200B 战胜 R1 的技术报告中文化，重点在多阶段 RFT + RL 迭代。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/1921244164831576370">Seed1.6 系列模型技术介绍</a></span>
+    <div class="desc">Seed 团队的 1.6 系列技术细节，对"多维 reward model 选最优"的设计描述较为详细。</div>
+  </div>
+
+  <h3>7.3 阿里通义 Qwen</h3>
+  <div class="resource">
+    <span class="title"><a href="https://developer.aliyun.com/article/1677225">GSPO 算法通过序列级优化解决 Qwen3 强化学习训练不稳定性</a></span>
+    <div class="desc">阿里云开发者社区的官方解读，是 GSPO 设计动机与稳定性结论的第一手中文资料。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://github.com/QwenLM/Qwen">Qwen 官方 GitHub</a></span>
+    <div class="desc">Qwen 系列预训练 / chat / Coder / Thinking 各分支模型，与论文配套发布的训练 recipe 有参考价值。</div>
+  </div>
+
+  <h3>7.4 面壁智能 MiniCPM</h3>
+  <div class="resource">
+    <span class="title"><a href="https://www.modelbest.cn/">面壁智能官网（含技术博客）</a></span>
+    <div class="desc">"风洞 2.0"超参搜索、InfLLM 稀疏注意力、CPM.cu 推理框架等原创技术分享，端侧 post-training 视角独特。</div>
+  </div>
+
+  <h3>7.5 月之暗面 Kimi</h3>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/1934240613139744215">月之暗面 Kimi K2 万亿参数模型技术报告深度解读</a></span>
+    <div class="desc">Kimi K2 的后训练以大规模 agentic 数据合成管线 + RLVR 与自评判（self-critique rubric）联合 RL 为亮点，是 2025 年最具创新性的 post-training 配方之一。<small>（注意：常被误归入后训练的 MuonClip 优化器（QK-clip 抑制 attention logit 爆炸）属于预训练阶段——K2 借此在 15.5T token 预训练中实现零 loss spike，并非 post-training 配方的一部分）</small></div>
+  </div>
+
+  <h3>7.6 小红书 RLHF 系统实践</h3>
+  <div class="resource">
+    <span class="title"><a href="https://www.infoq.cn/article/bwymaprn7if2acajjibd">从 0 到 1 构建 RLHF 系统 —— 小红书大模型团队的探索与实践</a><span class="badge badge-classic">工程经典</span></span>
+    <div class="desc">国内少有的"完整生产环境 RLHF 系统设计"中文长文，涵盖异构组网与同构组网架构权衡，对要做自研 RLHF 框架的团队是必读。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://www.infoq.cn/article/wxibbe5g2q0vxzmzme4a">小红书基于 PPO 的多模态大模型 RLHF 系统的设计与优化</a></span>
+    <div class="desc">续作，聚焦多模态场景下的 PPO 优化与性能调优，对 VLM RLHF 落地有直接参考。</div>
+  </div>
+
+  <h3>7.7 智源（BAAI）</h3>
+  <div class="resource">
+    <span class="title"><a href="https://hub.baai.ac.cn/view/45723">2025 智源大会议程：深度推理模型论坛</a></span>
+    <div class="desc">智源大会 2025 推理模型专场，演讲人覆盖国内主要厂商，是了解行业前沿动态的快速通道。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://hub.baai.ac.cn/view/43000">DeepSeek-R1 解读：纯强化学习，模型推理能力提升的新范式？</a></span>
+    <div class="desc">智源社区组织的多视角解读，比单一作者的文章更立体。</div>
+  </div>
+</section>
+
+<section id="course">
+  <h2>8. 课程与系统化学习</h2>
+
+  <h3>8.1 斯坦福 CS336（Language Models from Scratch）</h3>
+  <div class="resource">
+    <span class="title"><a href="https://stanford-cs336.github.io/spring2025/">CS336 官网（Spring 2025）</a><span class="badge badge-hot">推荐</span></span>
+    <div class="desc">从零搓大模型的硬核课程，19 讲覆盖 tokenization → Transformer → MoE → GPU 编程 → 分布式 → Scaling → 推理 → 评估 → 数据 → 对齐（SFT/RLHF）。所有材料公开。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/1920481840084550142">新鲜出炉！斯坦福 2025 CS336 课程全公开：从零开始搓大模型</a></span>
+    <div class="desc">CS336 课程的中文导读与重点章节摘要，是配合 B 站视频学习的好材料。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://www.zhouxin.space/notes/notes-on-cs336-lecture-1-overview-and-tokenization/">CS336 学习笔记之第一讲：总览与分词器（周鑫）</a></span>
+    <div class="desc">高质量中文学习笔记之一，对理解课程目标和路径帮助很大。</div>
+  </div>
+
+  <h3>8.2 斯坦福 CS224R（深度强化学习）</h3>
+  <div class="resource">
+    <span class="title"><a href="https://www.cnblogs.com/geekdoc/p/19775465">斯坦福 CS224R 深度强化学习中文笔记（全）</a></span>
+    <div class="desc">CS224R 涵盖模仿学习、策略梯度、AC、value-based、model-based、离线 RL、多任务/元 RL 以及"LLM 与机器人的 RL"。这份中文笔记完整覆盖。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://github.com/apachecn/stanford-cs234-notes-zh">斯坦福 CS234 强化学习中文讲义（apachecn）</a></span>
+    <div class="desc">CS234 中文翻译，作为补足经典 RL 基础的"前置教材"。</div>
+  </div>
+
+  <h3>8.3 普林斯顿 COS597G - Understanding Large Language Models（陈丹琦，Princeton, 2022）</h3>
+  <div class="resource">
+    <span class="title"><a href="https://www.cs.princeton.edu/courses/archive/fall22/cos597G/">普林斯顿 COS597G - Understanding Large Language Models（陈丹琦, Princeton, 2022）</a></span>
+    <div class="desc">陈丹琦老师的 LLM 课程，研究生水平，含 prompt 学习、RLHF、安全等专题，slides 公开。<small>（注：COS597R 是 597G 的后续更新版本）</small></div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://hub.baai.ac.cn/view/21108">智源对普林斯顿陈丹琦 LLM 课程的中文导读</a></span>
+    <div class="desc">课程中文化的入口，便于快速选择需要精读的章节。</div>
+  </div>
+
+  <h3>8.4 RLChina 暑期课等中文 RL 课程</h3>
+  <div class="resource">
+    <span class="title"><a href="http://rlchina.org/">RLChina（中国强化学习联盟）</a></span>
+    <div class="desc">每年一届的中文 RL 暑期课，邀请 20+ RL 学者，是国内 RL 入门最系统的中文课程系列。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="http://lmg.cipsc.org.cn/conference/cips-lmg2024/subForum/subForum11/index.html">CIPS-LMG 2024 分论坛十一：大模型深度推理</a></span>
+    <div class="desc">中文信息学会 2024 大模型论坛专题，对深度推理与 post-training 的中文学界讨论很有参考。</div>
+  </div>
+</section>
+
+<section id="book">
+  <h2>9. 中文教材与综述</h2>
+  <div class="resource">
+    <span class="title"><a href="https://intro-llm.github.io/">《大规模语言模型：从理论到实践》（张奇、桂韬、郑锐、黄萱菁）</a><span class="badge badge-hot">免费 PDF</span></span>
+    <div class="desc">复旦大学张奇团队编写，国内最系统的中文 LLM 教材。结构按"预训练 → SFT → 奖励建模 → 强化学习"四阶段组织，2025 年发布第二版（533 页）。<a href="https://intro-llm.github.io/chapter/LLM-TAP.pdf">PDF 下载</a>。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://alignmentsurvey.com/uploads/AI-Alignment-A-Comprehensive-Survey-CN.pdf">《人工智能对齐：全面性综述》中文版（吉嘉铭等，2024）</a></span>
+    <div class="desc">北京大学、腾讯等参与的对齐综述中文版，从 RICE（鲁棒、可解释、可控、伦理）原则出发，覆盖 800+ 文献。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://github.com/jweihe/RLHF-book-Chinese">Nathan Lambert "The RLHF Book" 中文翻译</a></span>
+    <div class="desc">英文版作者是 Allen AI 研究员、RLHF 领域代表人物之一。中文版翻译质量较高，适合作为 RLHF 自学的"主线教材"。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://rlhfbook.com/">The RLHF Book（英文原版，作为参考）</a></span>
+    <div class="desc">虽然是英文原版，但全书在线免费阅读，章节短小精悍，配合中文版交叉阅读体验最佳。</div>
+  </div>
+  <div class="resource">
+    <span class="title"><a href="https://zhuanlan.zhihu.com/p/14010493863">强化学习增强大语言模型技术全面综述（中文）</a></span>
+    <div class="desc">中文综述类长文，覆盖 RLHF、RLAIF、DPO 等的趋势与挑战。</div>
+  </div>
+</section>
+
+<section id="path">
+  <h2>10. 推荐学习路径</h2>
+  <div class="intro">下面给出一条"从 0 入门到能跑通自研 RLHF/GRPO"的中文路径，每个阶段都尽量使用前面提到的精华资源。</div>
+
+  <h3>阶段 1：补齐基础（1-2 周）</h3>
+  <ul class="summary">
+    <li>读张奇老师《大规模语言模型：从理论到实践》前 5 章，建立 LLM 全栈认知。</li>
+    <li>看 B 站李沐 Transformer 论文精读 + happy-llm 教程，跑通 SFT。</li>
+    <li>跟着 CS224R 中文笔记快速过一遍 RL 基础（策略梯度、PPO、value-based）。</li>
+  </ul>
+
+  <h3>阶段 2：RLHF 主线（2-3 周）</h3>
+  <ul class="summary">
+    <li>读 Nathan Lambert "RLHF Book" 中文版，建立完整术语系统。</li>
+    <li>精读知乎 <a href="https://zhuanlan.zhihu.com/p/22978147852">"RLHF 全链路揭秘"</a> + <a href="https://zhuanlan.zhihu.com/p/677607581">图解 PPO 系列</a>，对照 OpenRLHF 源码。</li>
+    <li>动手：用 OpenRLHF 或 verl 跑通 PPO + DPO 各一次，对比训练曲线。</li>
+  </ul>
+
+  <h3>阶段 3：推理模型与 GRPO（2-3 周）</h3>
+  <ul class="summary">
+    <li>读 DeepSeek-Math 原论文 + 知乎多篇中文解读，重点理解 GRPO 与 PPO 的差异。</li>
+    <li>读 DeepSeek-R1 技术报告中文版，关注冷启动 + 多阶段训练流程。</li>
+    <li>动手：用 verl 跑通 GRPO 训练（数学/代码任务），观察 entropy 与 reward 曲线。</li>
+  </ul>
+
+  <h3>阶段 4：前沿改进（持续）</h3>
+  <ul class="summary">
+    <li>跟踪 DAPO / Dr. GRPO / GSPO / LitePPO 等改进，在自己的训练任务上做对比实验。</li>
+    <li>读 Agentic RL 综述系列，把工具调用、长 horizon 等纳入训练管线。</li>
+    <li>订阅 kexue.fm、机器之心、量子位、PaperWeekly，每周固定时间扫读新论文。</li>
+  </ul>
+</section>
+
+<footer>
+  本综述基于 2024-2026 年中文社区可公开访问的资源整理，所有链接均来自 WebSearch 公开检索结果。<br>
+  若发现链接失效或资源更优替代，欢迎反馈更新。Last update: 2026-06.
+</footer>
+
+</div>
+</body>
+</html>

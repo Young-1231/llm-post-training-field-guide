@@ -1,0 +1,2160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SFT 与数据工程 · 蒸馏 / Mid-training / 合成数据 / 去污染 · 2026</title>
+<meta name="description" content="LLM 后训练数据工程深度专题：SFT 质量 vs 数量、训练工程（LoRA/packing/loss masking）、Rejection Sampling FT 谱系、知识蒸馏与 On-Policy Distillation、Mid-training 退火数据工程、现代合成数据管线、数据去污染与基准污染审计。" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Serif+SC:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['\\(','\\)'], ['$','$']],
+    displayMath: [['$$','$$'], ['\\[','\\]']],
+    processEscapes: true,
+    processEnvironments: true,
+    tags: 'none'
+  },
+  options: {
+    skipHtmlTags: ['script','noscript','style','textarea','pre','code'],
+    ignoreHtmlClass: 'mermaid|tex2jax_ignore'
+  },
+  chtml: { displayAlign: 'center' },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" id="MathJax-script" async></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.6/dist/mermaid.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css" />
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<style>
+/* =====================================================
+   设计系统：颜色 / 字体 / 间距 / 阴影（与 master 同一视觉体系）
+   ===================================================== */
+:root {
+  --bg-0:#0a0e1a; --bg-1:#0f1525; --bg-2:#151c2e; --bg-3:#1d2638;
+  --fg-0:#e6edf7; --fg-1:#b9c4d4; --fg-2:#8492a8; --fg-3:#5b6a82;
+  --acc-cyan:#4fd1c5; --acc-blue:#5b8def; --acc-purple:#a78bfa;
+  --acc-pink:#f48fb1; --acc-yellow:#ffd166; --acc-green:#7be39a;
+  --acc-orange:#ff9f6e; --acc-red:#ff6b8a;
+  --grad-1:linear-gradient(135deg,#5b8def 0%,#a78bfa 50%,#f48fb1 100%);
+  --grad-2:linear-gradient(135deg,#4fd1c5 0%,#5b8def 100%);
+  --grad-3:linear-gradient(135deg,#ffd166 0%,#ff9f6e 100%);
+  --grad-4:linear-gradient(135deg,#a78bfa 0%,#f48fb1 100%);
+  --grad-bg:radial-gradient(ellipse at top, rgba(91,141,239,.08), transparent 50%),
+            radial-gradient(ellipse at bottom right, rgba(167,139,250,.06), transparent 50%),
+            radial-gradient(ellipse at bottom left, rgba(79,209,197,.05), transparent 50%);
+  --border-soft:1px solid rgba(255,255,255,.07);
+  --border-mid:1px solid rgba(255,255,255,.12);
+  --shadow-soft:0 8px 32px rgba(0,0,0,.25);
+  --shadow-strong:0 20px 60px rgba(0,0,0,.4);
+  --r-sm:6px; --r-md:10px; --r-lg:16px; --r-xl:24px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-padding-top:80px}
+body{
+  font-family:'Inter','Noto Sans SC',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  background:var(--bg-0);
+  color:var(--fg-0);
+  line-height:1.75;
+  font-size:16px;
+  font-feature-settings:'cv11','ss01','ss03';
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  background-image:var(--grad-bg);
+  background-attachment:fixed;
+}
+::selection{background:rgba(91,141,239,.35);color:#fff}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:var(--bg-0)}
+::-webkit-scrollbar-thumb{background:var(--bg-3);border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:var(--fg-3)}
+
+/* 顶部导航 */
+.topnav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  background:rgba(10,14,26,.72);
+  border-bottom:var(--border-soft);
+}
+.topnav-inner{
+  max-width:1480px;margin:0 auto;
+  padding:14px 28px;
+  display:flex;align-items:center;justify-content:space-between;gap:24px;
+}
+.brand{display:flex;align-items:center;gap:12px;font-weight:700;font-size:1rem;color:var(--fg-0)}
+.brand-mark{
+  width:32px;height:32px;border-radius:8px;
+  background:var(--grad-3);
+  display:grid;place-items:center;color:#fff;font-weight:800;font-size:14px;
+  box-shadow:0 4px 16px rgba(255,159,110,.4);
+}
+.topnav-links{display:flex;gap:6px;font-size:.85rem;flex-wrap:wrap}
+.topnav-links a{
+  color:var(--fg-1);padding:6px 10px;border-radius:6px;
+  text-decoration:none;transition:.2s;
+}
+.topnav-links a:hover{background:rgba(255,255,255,.06);color:var(--fg-0)}
+.topnav-meta{display:flex;gap:8px;align-items:center;font-size:.8rem;color:var(--fg-2)}
+.badge-live{
+  background:rgba(123,227,154,.12);color:var(--acc-green);
+  padding:4px 10px;border-radius:12px;font-weight:600;font-size:.72rem;
+  border:1px solid rgba(123,227,154,.25);
+}
+
+/* Hero */
+.hero{
+  min-height:80vh;
+  display:flex;align-items:center;
+  position:relative;overflow:hidden;
+  padding:96px 28px 64px;
+}
+.hero::before{
+  content:'';position:absolute;inset:0;
+  background:
+    radial-gradient(circle at 25% 30%, rgba(255,209,102,.10), transparent 40%),
+    radial-gradient(circle at 75% 60%, rgba(167,139,250,.14), transparent 45%),
+    radial-gradient(circle at 50% 90%, rgba(79,209,197,.10), transparent 50%);
+  z-index:0;
+}
+.hero-content{position:relative;z-index:1;max-width:1320px;margin:0 auto;width:100%}
+.hero-tag{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:8px 16px;border-radius:24px;
+  background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.25);
+  font-size:.82rem;color:var(--acc-yellow);font-weight:500;
+  margin-bottom:24px;
+}
+.hero-tag::before{
+  content:'';width:8px;height:8px;border-radius:50%;background:var(--acc-yellow);
+  box-shadow:0 0 12px var(--acc-yellow);animation:pulse 2s infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
+.hero h1{
+  font-family:'Noto Serif SC','Inter',serif;
+  font-size:clamp(2.2rem,5vw,4.4rem);
+  line-height:1.12;font-weight:700;letter-spacing:-.02em;
+  margin-bottom:24px;
+}
+.hero h1 .grad{
+  background:var(--grad-3);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.hero p.lede{
+  font-size:clamp(1.05rem,1.4vw,1.3rem);
+  max-width:920px;color:var(--fg-1);
+  margin-bottom:40px;line-height:1.65;
+}
+.hero-stats{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:20px;margin-bottom:48px;max-width:980px;
+}
+.stat-card{
+  padding:20px 24px;
+  background:rgba(255,255,255,.025);
+  border:var(--border-soft);
+  border-radius:var(--r-lg);
+  backdrop-filter:blur(10px);
+}
+.stat-num{
+  font-size:2.4rem;font-weight:800;line-height:1;
+  background:var(--grad-2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  font-family:'JetBrains Mono',monospace;
+}
+.stat-label{color:var(--fg-2);font-size:.82rem;margin-top:6px}
+.hero-cta{display:flex;gap:14px;flex-wrap:wrap}
+.btn{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:13px 22px;border-radius:10px;
+  font-weight:600;text-decoration:none;
+  transition:.25s;font-size:.94rem;
+  border:1px solid transparent;
+}
+.btn-primary{background:var(--grad-3);color:#1a1408;box-shadow:0 8px 24px rgba(255,159,110,.35)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(255,159,110,.5)}
+.btn-ghost{background:rgba(255,255,255,.04);color:var(--fg-0);border-color:rgba(255,255,255,.12)}
+.btn-ghost:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.25)}
+
+/* 主版式 */
+.layout{
+  max-width:1480px;margin:0 auto;
+  display:grid;
+  grid-template-columns:280px minmax(0,1fr);
+  gap:48px;padding:0 28px;
+}
+@media (max-width:1100px){.layout{grid-template-columns:1fr}.sidebar{display:none}}
+.sidebar{
+  position:sticky;top:80px;height:calc(100vh - 96px);
+  overflow-y:auto;
+  padding:24px 0;
+}
+.sidebar h4{
+  font-size:.75rem;text-transform:uppercase;letter-spacing:.12em;
+  color:var(--fg-3);margin-bottom:14px;font-weight:700;
+}
+.sidebar ul{list-style:none}
+.sidebar ul li{margin-bottom:2px}
+.sidebar ul li a{
+  display:block;padding:7px 14px;
+  font-size:.86rem;color:var(--fg-2);
+  text-decoration:none;
+  border-radius:6px;
+  border-left:2px solid transparent;
+  transition:.18s;
+}
+.sidebar ul li a:hover{color:var(--fg-0);background:rgba(255,255,255,.04)}
+.sidebar ul li a.active{
+  color:var(--acc-cyan);
+  background:rgba(79,209,197,.07);
+  border-left-color:var(--acc-cyan);
+}
+.sidebar ul li ul{margin-left:14px;margin-top:2px;border-left:1px solid rgba(255,255,255,.06)}
+.sidebar ul li ul li a{font-size:.78rem;padding:5px 12px}
+
+/* 内容主区 */
+.content{padding:48px 0 96px;max-width:980px}
+.section{
+  margin-bottom:88px;
+  padding-top:24px;
+  scroll-margin-top:96px;
+}
+.section-head{margin-bottom:36px}
+.section-num{
+  display:inline-block;
+  font-family:'JetBrains Mono',monospace;font-size:.82rem;
+  color:var(--acc-cyan);font-weight:600;letter-spacing:.1em;
+  margin-bottom:10px;
+}
+.section-head h2{
+  font-family:'Noto Serif SC','Inter',serif;
+  font-size:clamp(2rem,3.2vw,2.8rem);
+  font-weight:700;
+  line-height:1.15;letter-spacing:-.015em;
+  margin-bottom:14px;
+}
+.section-head h2 .grad{background:var(--grad-1);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.section-lede{font-size:1.08rem;color:var(--fg-1);line-height:1.7;max-width:760px}
+.content h3{
+  font-family:'Noto Serif SC',serif;
+  font-size:1.6rem;font-weight:600;
+  margin:48px 0 18px;color:var(--fg-0);
+  padding-bottom:10px;border-bottom:1px dashed rgba(255,255,255,.1);
+}
+.content h4{
+  font-size:1.18rem;font-weight:600;
+  color:var(--acc-cyan);
+  margin:32px 0 12px;
+}
+.content h5{
+  font-size:1rem;font-weight:600;color:var(--acc-yellow);
+  margin:20px 0 8px;
+}
+.content p{margin:14px 0;color:var(--fg-1);line-height:1.85}
+.content p strong, .content li strong{color:var(--fg-0);font-weight:600}
+.content em{color:var(--fg-0);font-style:italic}
+.content ul, .content ol{margin:14px 0 14px 22px;color:var(--fg-1)}
+.content li{margin:6px 0;line-height:1.75}
+.content li::marker{color:var(--acc-cyan)}
+.content a{
+  color:var(--acc-cyan);text-decoration:none;
+  border-bottom:1px dotted rgba(79,209,197,.4);
+  transition:.18s;
+}
+.content a:hover{color:var(--acc-yellow);border-bottom-color:var(--acc-yellow)}
+.content code:not(.hljs){
+  font-family:'JetBrains Mono',monospace;
+  background:rgba(255,255,255,.06);
+  padding:2px 7px;border-radius:4px;
+  font-size:.88em;color:var(--acc-yellow);
+}
+.content pre{
+  margin:20px 0;border-radius:var(--r-md);
+  border:var(--border-soft);overflow-x:auto;
+  background:#0d1117;
+  font-size:.86rem;
+}
+.content pre code{padding:18px !important;display:block;line-height:1.6}
+
+/* 公式框 */
+.formula{
+  margin:20px 0;padding:18px 22px;
+  background:rgba(91,141,239,.06);
+  border-left:3px solid var(--acc-blue);
+  border-radius:var(--r-md);
+  overflow-x:auto;
+}
+.formula.boxed{
+  border:1px solid rgba(91,141,239,.3);
+  background:rgba(91,141,239,.04);
+}
+.formula-title{
+  font-family:'JetBrains Mono',monospace;
+  font-size:.75rem;color:var(--acc-blue);
+  text-transform:uppercase;letter-spacing:.1em;
+  margin-bottom:8px;font-weight:600;
+}
+
+/* Callout */
+.callout{
+  margin:24px 0;padding:18px 22px;
+  border-radius:var(--r-md);
+  border-left:4px solid var(--acc-blue);
+  background:rgba(91,141,239,.05);
+  position:relative;
+}
+.callout::before{
+  content:'';position:absolute;top:0;left:0;right:0;bottom:0;
+  background:linear-gradient(135deg,rgba(91,141,239,.04),transparent 60%);
+  border-radius:var(--r-md);pointer-events:none;
+}
+.callout-title{
+  font-weight:700;color:var(--acc-blue);margin-bottom:6px;
+  display:flex;align-items:center;gap:8px;
+}
+.callout-title::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor}
+.callout-body{position:relative;z-index:1}
+.callout.tip{border-left-color:var(--acc-green);background:rgba(123,227,154,.05)}
+.callout.tip .callout-title{color:var(--acc-green)}
+.callout.warn{border-left-color:var(--acc-orange);background:rgba(255,159,110,.05)}
+.callout.warn .callout-title{color:var(--acc-orange)}
+.callout.danger{border-left-color:var(--acc-red);background:rgba(255,107,138,.05)}
+.callout.danger .callout-title{color:var(--acc-red)}
+.callout.insight{border-left-color:var(--acc-purple);background:rgba(167,139,250,.05)}
+.callout.insight .callout-title{color:var(--acc-purple)}
+.callout.key{border-left-color:var(--acc-yellow);background:rgba(255,209,102,.05)}
+.callout.key .callout-title{color:var(--acc-yellow)}
+
+/* 表格 */
+.tbl-wrap{margin:24px 0;overflow-x:auto;border-radius:var(--r-md);border:var(--border-soft)}
+.content table{
+  width:100%;border-collapse:collapse;
+  font-size:.88rem;
+  background:rgba(255,255,255,.02);
+}
+.content thead{
+  background:linear-gradient(180deg,rgba(91,141,239,.12),rgba(91,141,239,.06));
+}
+.content thead th{
+  padding:12px 16px;
+  font-weight:600;color:var(--fg-0);text-align:left;
+  border-bottom:1px solid rgba(91,141,239,.3);
+  font-size:.84rem;
+}
+.content tbody td{
+  padding:11px 16px;color:var(--fg-1);
+  border-bottom:1px solid rgba(255,255,255,.05);
+}
+.content tbody tr:hover{background:rgba(255,255,255,.03)}
+.content tbody tr:last-child td{border-bottom:none}
+.content tbody code{font-size:.82em}
+.tbl-narrow td, .tbl-narrow th{padding:7px 12px;font-size:.82rem}
+
+/* 标签 */
+.tag{
+  display:inline-block;padding:2px 8px;border-radius:4px;
+  font-size:.72rem;font-weight:600;font-family:'JetBrains Mono',monospace;
+  background:rgba(255,255,255,.06);color:var(--fg-1);
+  margin:0 3px;
+}
+.tag-cyan{background:rgba(79,209,197,.15);color:var(--acc-cyan)}
+.tag-blue{background:rgba(91,141,239,.15);color:var(--acc-blue)}
+.tag-purple{background:rgba(167,139,250,.15);color:var(--acc-purple)}
+.tag-pink{background:rgba(244,143,177,.15);color:var(--acc-pink)}
+.tag-yellow{background:rgba(255,209,102,.15);color:var(--acc-yellow)}
+.tag-green{background:rgba(123,227,154,.15);color:var(--acc-green)}
+.tag-orange{background:rgba(255,159,110,.15);color:var(--acc-orange)}
+.tag-red{background:rgba(255,107,138,.15);color:var(--acc-red)}
+
+/* 卡片网格 */
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin:24px 0}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:24px 0}
+.card{
+  padding:20px;background:rgba(255,255,255,.03);
+  border:var(--border-soft);
+  border-radius:var(--r-md);
+  transition:.25s;
+}
+.card:hover{
+  transform:translateY(-2px);
+  border-color:rgba(91,141,239,.3);
+  box-shadow:0 8px 24px rgba(0,0,0,.2);
+}
+.card-title{font-weight:600;font-size:1rem;margin-bottom:8px;color:var(--fg-0)}
+.card-meta{font-size:.78rem;color:var(--fg-3);font-family:'JetBrains Mono',monospace;margin-bottom:8px}
+.card-body{font-size:.88rem;color:var(--fg-2);line-height:1.65}
+
+/* 时间线 */
+.timeline{position:relative;padding-left:32px;margin:30px 0}
+.timeline::before{
+  content:'';position:absolute;left:8px;top:0;bottom:0;width:2px;
+  background:linear-gradient(180deg,var(--acc-cyan) 0%,var(--acc-blue) 50%,var(--acc-purple) 100%);
+}
+.timeline-item{position:relative;margin-bottom:32px;padding-left:24px}
+.timeline-item::before{
+  content:'';position:absolute;left:-30px;top:6px;
+  width:16px;height:16px;border-radius:50%;
+  background:var(--bg-0);
+  border:3px solid var(--acc-cyan);
+  box-shadow:0 0 12px rgba(79,209,197,.4);
+}
+.timeline-date{
+  font-family:'JetBrains Mono',monospace;
+  font-size:.78rem;color:var(--acc-cyan);
+  font-weight:700;letter-spacing:.05em;
+  margin-bottom:6px;
+}
+.timeline-title{font-weight:600;color:var(--fg-0);margin-bottom:4px;font-size:1rem}
+.timeline-desc{color:var(--fg-2);font-size:.88rem;line-height:1.65}
+
+/* Mermaid 图 */
+.mermaid-wrap{
+  margin:28px 0;padding:24px;
+  background:rgba(255,255,255,.02);
+  border:var(--border-soft);
+  border-radius:var(--r-md);
+  overflow-x:auto;
+}
+.mermaid{display:flex;justify-content:center}
+
+/* Pseudocode */
+.algo-box{
+  margin:24px 0;
+  background:#0d1117;
+  border-radius:var(--r-md);
+  border:var(--border-soft);
+  overflow:hidden;
+}
+.algo-header{
+  padding:12px 18px;
+  background:rgba(91,141,239,.08);
+  border-bottom:var(--border-soft);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.algo-title{font-weight:600;font-size:.92rem;color:var(--fg-0)}
+.algo-tag{font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--acc-purple)}
+.algo-body{padding:18px;font-family:'JetBrains Mono',monospace;font-size:.84rem;line-height:1.75;color:var(--fg-1)}
+.algo-body .kw{color:var(--acc-pink);font-weight:600}
+.algo-body .var{color:var(--acc-cyan)}
+.algo-body .num{color:var(--acc-yellow)}
+.algo-body .cmt{color:var(--fg-3);font-style:italic}
+
+/* 引用块 */
+blockquote{
+  margin:24px 0;padding:18px 24px;
+  background:rgba(167,139,250,.05);
+  border-left:3px solid var(--acc-purple);
+  border-radius:var(--r-md);
+  font-style:italic;color:var(--fg-1);
+}
+blockquote cite{display:block;margin-top:10px;font-size:.84rem;color:var(--fg-3);font-style:normal}
+
+/* References */
+.refs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px;margin:18px 0}
+.ref-item{
+  padding:14px 16px;background:rgba(255,255,255,.02);
+  border:var(--border-soft);
+  border-radius:var(--r-sm);
+  font-size:.85rem;
+}
+.ref-arxiv{
+  font-family:'JetBrains Mono',monospace;font-weight:600;
+  color:var(--acc-cyan);font-size:.78rem;
+}
+.ref-title{color:var(--fg-0);margin:4px 0;font-weight:500}
+.ref-meta{color:var(--fg-3);font-size:.78rem}
+
+/* 浮动 TOC button (mobile) */
+.fab{
+  position:fixed;bottom:24px;right:24px;
+  width:50px;height:50px;border-radius:50%;
+  background:var(--grad-3);
+  display:none;align-items:center;justify-content:center;
+  color:#fff;font-size:18px;cursor:pointer;
+  box-shadow:0 8px 24px rgba(255,159,110,.4);
+  z-index:90;
+}
+@media (max-width:1100px){.fab{display:flex}}
+
+/* Footer */
+.footer{
+  border-top:var(--border-soft);
+  background:rgba(255,255,255,.015);
+  padding:48px 28px;margin-top:64px;
+}
+.footer-inner{max-width:1480px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:24px}
+.footer-text{color:var(--fg-3);font-size:.86rem}
+.footer-links{display:flex;gap:18px;font-size:.86rem}
+.footer-links a{color:var(--fg-2);text-decoration:none;transition:.18s}
+.footer-links a:hover{color:var(--acc-cyan)}
+
+@media print{
+  .sidebar,.topnav,.fab,.footer{display:none}
+  body{background:#fff;color:#000}
+  .content{padding:0}
+}
+</style>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<nav class="topnav">
+  <div class="topnav-inner">
+    <div class="brand">
+      <div class="brand-mark">DE</div>
+      <span>SFT &amp; Data Engineering · 深度专题</span>
+    </div>
+    <div class="topnav-links">
+      <a href="#sec-overview">概览</a>
+      <a href="#sec-quality">质量 vs 数量</a>
+      <a href="#sec-engineering">训练工程</a>
+      <a href="#sec-rft">RFT 谱系</a>
+      <a href="#sec-distill">蒸馏 / OPD</a>
+      <a href="#sec-midtraining">Mid-training</a>
+      <a href="#sec-synthetic">合成数据</a>
+      <a href="#sec-decontam">去污染</a>
+      <a href="llm-post-training-master.html" style="background:rgba(91,141,239,.12);color:var(--acc-blue);border:1px solid rgba(91,141,239,.3)">🗺️ 主综述</a>
+      <a href="derivations.html" style="background:rgba(255,209,102,.12);color:var(--acc-yellow);border:1px solid rgba(255,209,102,.3)">📐 原理推导</a>
+    </div>
+    <div class="topnav-meta">
+      <span class="badge-live">2026-06-12</span>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<header class="hero">
+  <div class="hero-content">
+    <div class="hero-tag">后训练数据工程深度专题 · 最后更新 2026-06-12</div>
+    <h1>SFT 与<span class="grad">数据工程</span><br/>蒸馏 · Mid-training · 合成数据 · 去污染</h1>
+    <p class="lede">
+      一句话定位：这是一份回答「<strong>下一个 token 的训练预算应该花在哪、用什么数据、怎么不被污染骗到</strong>」的从业者手册。
+      2025–2026 年的共识已经清晰——后训练的上限越来越不由算法决定，而由<strong>数据工程</strong>决定：
+      SFT 数据怎么混、Rejection Sampling 怎么做、蒸馏何时取代 RL、推理能力该在退火期还是 SFT 期注入、
+      合成数据管线怎么搭、以及评测分数里有多少是背出来的。本文与
+      <a href="llm-post-training-master.html" style="color:var(--acc-cyan)">主综述</a>、<a href="derivations.html" style="color:var(--acc-cyan)">原理推导</a>、<a href="rl-pitfalls-survey.html" style="color:var(--acc-cyan)">RL Pitfalls</a> 构成同一知识库。
+    </p>
+    <div class="hero-stats">
+      <div class="stat-card"><div class="stat-num">7</div><div class="stat-label">主题模块（蒸馏 / mid-training / RFT / 合成 / 去污染…）</div></div>
+      <div class="stat-card"><div class="stat-num">50+</div><div class="stat-label">关键论文，全部经 2026-06 联网核实</div></div>
+      <div class="stat-card"><div class="stat-num">40+</div><div class="stat-label">实操结论：超参 / 检查清单 / 决策树</div></div>
+      <div class="stat-card"><div class="stat-num">10+</div><div class="stat-label">对比表与机制图</div></div>
+    </div>
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="#sec-overview">开始阅读 →</a>
+      <a class="btn btn-ghost" href="#sec-references">参考文献</a>
+    </div>
+  </div>
+</header>
+
+<!-- 主布局 -->
+<div class="layout">
+
+  <!-- 侧边栏 -->
+  <aside class="sidebar">
+    <h4>目录 · Table of Contents</h4>
+    <ul id="toc">
+      <li><a href="#sec-overview">0 · 全景：数据决定上限</a></li>
+      <li><a href="#sec-quality">1 · 质量 vs 数量与数据混合</a>
+        <ul>
+          <li><a href="#sec-lima">1.1 LIMA 假说及其边界</a></li>
+          <li><a href="#sec-scale">1.2 能力注入的真实量级</a></li>
+          <li><a href="#sec-mixing">1.3 数据混合方法论</a></li>
+          <li><a href="#sec-selection">1.4 样本打分 → 配方搜索</a></li>
+        </ul>
+      </li>
+      <li><a href="#sec-engineering">2 · SFT 训练工程</a>
+        <ul>
+          <li><a href="#sec-hparams">2.1 超参经验值</a></li>
+          <li><a href="#sec-lora">2.2 LoRA 实战</a></li>
+          <li><a href="#sec-masking">2.3 Loss Masking 与模板</a></li>
+          <li><a href="#sec-packing">2.4 Packing 正确性</a></li>
+          <li><a href="#sec-vibetest">2.5 Vibe-test 文化</a></li>
+        </ul>
+      </li>
+      <li><a href="#sec-rft">3 · Rejection Sampling FT 谱系</a>
+        <ul>
+          <li><a href="#sec-star">3.1 STaR / RAFT 原型</a></li>
+          <li><a href="#sec-llama3-rs">3.2 Llama 3 工业级流程</a></li>
+          <li><a href="#sec-k2-agentic">3.3 Agentic 轨迹合成</a></li>
+          <li><a href="#sec-sft-rl-ratio">3.4 SFT:RL 算力配比</a></li>
+          <li><a href="#sec-sft-rl-interface">3.5 SFT 与 RL 的接口</a></li>
+        </ul>
+      </li>
+      <li><a href="#sec-distill">4 · 蒸馏与 On-Policy Distillation</a>
+        <ul>
+          <li><a href="#sec-kd-basics">4.1 KD 基础与 KL 方向</a></li>
+          <li><a href="#sec-gkd">4.2 GKD</a></li>
+          <li><a href="#sec-qwen3-distill">4.3 Qwen3 两阶段范式</a></li>
+          <li><a href="#sec-tm-opd">4.4 Thinking Machines OPD</a></li>
+          <li><a href="#sec-gad">4.5 黑盒蒸馏 GAD</a></li>
+          <li><a href="#sec-opd-conditions">4.6 成败条件与教师选择</a></li>
+          <li><a href="#sec-opd-industry">4.7 工业落地与决策</a></li>
+        </ul>
+      </li>
+      <li><a href="#sec-midtraining">5 · Mid-training 与退火数据</a>
+        <ul>
+          <li><a href="#sec-wsd">5.1 WSD 与 MiniCPM</a></li>
+          <li><a href="#sec-olmo">5.2 OLMo 系与 Llama 3 打法</a></li>
+          <li><a href="#sec-frontload">5.3 推理数据前置</a></li>
+          <li><a href="#sec-lr-curriculum">5.4 LR×课程交互陷阱</a></li>
+        </ul>
+      </li>
+      <li><a href="#sec-synthetic">6 · 现代合成数据管线</a>
+        <ul>
+          <li><a href="#sec-syn-history">6.1 谱系 2022→2026</a></li>
+          <li><a href="#sec-phi">6.2 Phi 系 textbook 路线</a></li>
+          <li><a href="#sec-magpie">6.3 Magpie 零种子提取</a></li>
+          <li><a href="#sec-nemotron">6.4 Nemotron 开放数据集</a></li>
+          <li><a href="#sec-dpg">6.5 DPG 闭环造数</a></li>
+        </ul>
+      </li>
+      <li><a href="#sec-decontam">7 · 去污染与污染审计</a>
+        <ul>
+          <li><a href="#sec-contam-types">7.1 污染类型学</a></li>
+          <li><a href="#sec-decontam-train">7.2 训练侧三层防线</a></li>
+          <li><a href="#sec-decontam-eval">7.3 评测侧审计</a></li>
+          <li><a href="#sec-stc">7.4 Search-time 污染</a></li>
+        </ul>
+      </li>
+      <li><a href="#sec-playbook">8 · 各家路线与决策框架</a></li>
+      <li><a href="#sec-references">附录 · 参考文献</a></li>
+    </ul>
+  </aside>
+
+  <!-- 主内容 -->
+  <main class="content">
+
+    <!-- ============================================================
+         0 · 全景
+         ============================================================ -->
+    <section id="sec-overview" class="section">
+      <div class="section-head">
+        <div class="section-num">SECTION 0</div>
+        <h2>全景：后训练的上限是<span class="grad">数据</span>给的</h2>
+        <p class="section-lede">
+          主综述以「算法」为轴（PPO → DPO → GRPO → Agentic RL）。本文换一根轴：把同一条流水线沿「数据」重新切开。
+          读完本节你会得到三个坐标系修正——流水线里多出一个 mid-training 阶段、蒸馏成为与 SFT/RL 并列的第三种原语、评测分数先问污染再谈结论。
+        </p>
+      </div>
+
+      <h3>0.1 流水线的重新切分：Pre / Mid / Post</h3>
+      <p>
+        <a href="llm-post-training-master.html">主综述 §0</a> 的经典流水线是
+        \( \text{Base} \to \text{SFT} \to \text{Preference} \to \text{RLVR} \to \text{Agentic RL} \)。
+        2024–2026 年的工业实践在 Base 与 SFT 之间插入了一个越来越重的阶段：<strong>mid-training（中期训练 / 退火数据工程）</strong>。
+        Mid-Training Survey (arXiv:2510.06826) 把它定义为预训练与任务微调之间的「退火式阶段」，沿三根轴展开：
+        <strong>数据分布迁移</strong>（上调 math/code/推理/指令数据）、<strong>学习率退火调度</strong>、<strong>长上下文扩展</strong>。
+      </p>
+
+      <div class="mermaid-wrap">
+<div class="mermaid">
+flowchart LR
+  A["🧠 Pre-training<br/>万亿 token · 多样性"] --> B["🔥 Mid-training<br/>LR 退火段 + 高质量数据<br/>(Dolmino / 退火混合)"]
+  B --> C["📚 SFT<br/>格式 + 冷启动<br/>(人工/合成/RFT/蒸馏数据)"]
+  C --> D["🎯 Preference<br/>DPO / RLHF"]
+  D --> E["⚡ RLVR / Agentic RL"]
+  E -.->|"on-policy 蒸馏量产小模型"| F["💎 模型家族"]
+  C -.->|"OPD: 第三种原语"| F
+  B -.->|"ReMiT: RL 反哺 mid-training"| B
+  style A fill:#1d2638,stroke:#5b6a82
+  style B fill:#1d2638,stroke:#ffd166
+  style C fill:#1d2638,stroke:#4fd1c5
+  style E fill:#1d2638,stroke:#f48fb1
+  style F fill:#1d2638,stroke:#7be39a
+</div>
+      </div>
+
+      <div class="callout key">
+        <div class="callout-title">为什么这层不懂就解释不了 RL 结果</div>
+        <div class="callout-body">
+          NVIDIA 的 Front-Loading Reasoning (arXiv:2510.03264) 证明：推理数据「前置」进预训练带来平均 <strong>+19%</strong> 的持久收益，
+          且<strong>后期 SFT 无法补救</strong>——even with more data。CMU 的受控实验 (arXiv:2512.07783) 进一步显示：
+          RL 只有在预训练留下足够 headroom、且 RL 数据打在模型能力边缘时才产生真实能力增益（pass@128 提升）。
+          换句话说：<strong>你在 RL 阶段看到的差异，很大一部分是 mid-training 注入的能力先验决定的</strong>。
+          两个 RLVR 配方对比实验若底座的退火数据不同，结论可能完全不可比。
+        </div>
+      </div>
+
+      <h3>0.2 三个坐标系修正</h3>
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-meta">修正 1 · 流水线</div>
+          <div class="card-title">🔥 Mid-training 是正式阶段</div>
+          <div class="card-body">MiniCPM 的 WSD 调度、OLMo 2 的 Dolmino、Llama 3 的 annealing、Olmo 3 的三阶段课程——「LR 快速衰减段换入高质量数据」已是各家共识打法（§5）。</div>
+        </div>
+        <div class="card">
+          <div class="card-meta">修正 2 · 原语</div>
+          <div class="card-title">⚗️ 蒸馏与 SFT/RL 并列</div>
+          <div class="card-body">On-policy distillation 以约 1/10 的 RL 成本达到同级推理性能（数字出自 Qwen3 报告 Table 21；Thinking Machines 的 self-distillation 实验以「梯度步少 7–10 倍、总算力省 50–100 倍」独立佐证同一量级），已是 Qwen3 / GLM-5 / DeepSeek-V4 共同支柱（§4）。</div>
+        </div>
+        <div class="card">
+          <div class="card-meta">修正 3 · 评测</div>
+          <div class="card-title">🕵️ 先问污染，再谈结论</div>
+          <div class="card-body">GSM1k 私有复测显示部分模型族系统性过拟合；带搜索的 agent 甚至会当场搜到基准答案（search-time contamination）。任何「涨分」结论先过 §7 的审计清单。</div>
+        </div>
+      </div>
+
+      <h3>0.3 本文的阅读路径</h3>
+      <p>
+        七章按「数据从哪来 → 怎么喂 → 喂给谁」组织：§1 先解决<strong>混什么</strong>（质量 vs 数量、配比方法论）；
+        §2 解决<strong>怎么喂不踩坑</strong>（超参/LoRA/masking/packing）；§3–§4 是两条最重要的数据生产线——
+        <strong>Rejection Sampling FT</strong>（自己当教师）与<strong>蒸馏</strong>（别人当教师）；
+        §5 把时间轴往前拉到 mid-training；§6 系统讲合成数据管线；§7 是贯穿一切的卫生纪律——去污染；
+        §8 收束为各家路线对照与决策树。
+      </p>
+      <div class="callout insight">
+        <div class="callout-title">与姊妹文档的分工</div>
+        <div class="callout-body">
+          RL 算法本身见<a href="llm-post-training-master.html">主综述</a>；SFT/DPO/GRPO 的逐步推导见 <a href="derivations.html">derivations</a>；
+          RL 训练崩溃的坑见 <a href="rl-pitfalls-survey.html">RL Pitfalls</a>；agentic 轨迹在多轮环境中的训练细节见
+          <a href="multi-turn-tool-use.html">多轮 Tool Use 专题</a>。本文聚焦它们都不覆盖的「数据与监督信号工程」。
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         1 · 质量 vs 数量
+         ============================================================ -->
+    <section id="sec-quality" class="section">
+      <div class="section-head">
+        <div class="section-num">SECTION 1</div>
+        <h2>质量 vs 数量：<span class="grad">LIMA 假说的边界</span>与数据混合方法论</h2>
+        <p class="section-lede">
+          「1000 条精选样本就够了」与「3300 万条 SFT 样本」同时是 2023–2025 年的最佳实践——矛盾吗？不矛盾。
+          关键在于先问清楚：你要的是<strong>风格对齐</strong>还是<strong>能力注入</strong>。本章给出量级对照、配比方法论与决策依据。
+        </p>
+      </div>
+
+      <h3 id="sec-lima">1.1 LIMA 与 Superficial Alignment Hypothesis：原始表述与适用边界</h3>
+      <p>
+        先交代谱系源头。「用数据教模型听懂指令」始于 <strong>FLAN</strong> (arXiv:2109.01652, Google, 2021)：
+        把 60+ 个 NLP 任务用自然语言指令模板改写后做多任务微调，137B 模型在 25 个评测任务中的 20 个上
+        <strong>零样本超过 GPT-3 175B</strong>——首次系统证明 instruction tuning 能解锁对未见任务的零样本泛化。
+        Flan Collection (arXiv:2301.13688, 2023) 进一步把方法论提炼成「<strong>任务混合 + 模板多样性</strong>」：
+        任务配比平衡、混用 zero-shot/few-shot/CoT 模板这些「被忽视的细节」贡献了 Flan-T5 相对前作 3–17% 的提升。
+        这是数据工程意识在 SFT 里的第一次系统体现——§1.3 的配比方法论是它的直系后代
+        （系统性的谱系梳理见 Instruction Tuning Survey, arXiv:2308.10792）。
+        而把 SFT 的对象从「NLP 任务」换成「对话行为」、并引发质量 vs 数量之争的，是接下来的 InstructGPT 与 LIMA。
+      </p>
+      <p>
+        LIMA (arXiv:2305.11206, Meta) 用<strong>仅 1,000 条精心策划的 prompt-response</strong> 对 LLaMA-65B 做标准监督微调（无 RLHF），
+        人评中其回答相对 GPT-4 有 43% 等同或更优、相对 DaVinci003 达 65%。论文据此提出
+        <strong>Superficial Alignment Hypothesis（表面对齐假说）</strong>：
+      </p>
+      <blockquote>
+        模型几乎全部的知识与能力都在预训练中习得；对齐（alignment）主要是教会模型在与用户交互时该用哪种「子分布」的格式与风格。
+        <cite>—— LIMA: Less Is More for Alignment（意译）, arXiv:2305.11206</cite>
+      </blockquote>
+      <p>
+        这个假说在 2023 年是颠覆性的，但 2024–2026 年的工业证据划清了它的<strong>适用边界</strong>：
+      </p>
+      <ul>
+        <li><strong>成立的范围</strong>：风格与格式对齐（对话礼仪、回答结构、拒答边界、语气）。这类「行为模式切换」确实只需要千条量级的高质量示范——Qwen3 的 Thinking Mode Fusion 用 SFT + 模板就把 think/no-think 两种行为模式融进同一模型，本质是同一原理。</li>
+        <li><strong>不成立的范围</strong>：能力注入（数学推理、代码、工具使用、多语言）。业界实际走的是「大规模合成 + 严格过滤」：Tülu 3 的 SFT 混合 <strong>939,344 条</strong>（arXiv:2411.15124），OpenThoughts3 <strong>120 万条</strong>推理样本（arXiv:2506.04178），NVIDIA Llama-Nemotron 后训练数据集 <strong>3,300 万+ SFT 样本</strong>。如果 1k 条就够，没人会花钱造 1.2M 条带消融依据的推理轨迹。</li>
+        <li><strong>更深一层</strong>：NVIDIA Front-Loading (arXiv:2510.03264) 显示能力注入甚至不该全留给 SFT——推理模式应前置到预训练/mid-training（§5.3），SFT 阶段对<strong>质量</strong>敏感（+15%）而预训练对<strong>多样性</strong>敏感（+11%）。</li>
+      </ul>
+
+      <div class="callout warn">
+        <div class="callout-title">照搬「LIMA 1000 条达 RLHF 水平」会误导你的两种方式</div>
+        <div class="callout-body">
+          ① 用 1k 条数据试图教会 base model 推理/编码，然后得出「SFT 没用」的错误结论；
+          ② 反过来无脑堆 SFT 数据量——Front-Loading 论文明确警告 <em>naively scaling SFT data can be detrimental</em>：
+          盲目扩大 SFT 量会「冲掉」早期注入的推理能力。这是很多团队「SFT 越加越差」的根因之一。
+          正确姿势是先回答决策树（§1.4）：要风格还是要能力。
+        </div>
+      </div>
+
+      <h3 id="sec-scale">1.2 能力注入的真实量级：一张对照表</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>数据集 / 配方</th><th>规模</th><th>目标</th><th>构造方式</th><th>关键事实（已核实）</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>FLAN</strong> (2021)</td>
+              <td>60+ NLP 任务（模板改写）</td>
+              <td>任务级零样本泛化</td>
+              <td>现有 NLP 数据集 × 指令模板</td>
+              <td>instruction tuning 起点；137B 零样本超 GPT-3 175B（20/25 任务）</td>
+            </tr>
+            <tr>
+              <td><strong>LIMA</strong> (2023)</td>
+              <td>1,000 条</td>
+              <td>风格/格式对齐</td>
+              <td>人工精筛（Stack Exchange/wikiHow/手写）</td>
+              <td>vs GPT-4 43% 等同或更优；提出表面对齐假说</td>
+            </tr>
+            <tr>
+              <td><strong>InstructGPT SFT</strong> (2022)</td>
+              <td>~13k 条</td>
+              <td>指令跟随冷启动</td>
+              <td>标注员示范</td>
+              <td>SFT→RM→PPO 三段式的第一段（arXiv:2203.02155）</td>
+            </tr>
+            <tr>
+              <td><strong>Alpaca</strong> (2023)</td>
+              <td>52k 条</td>
+              <td>开源指令模型自举</td>
+              <td>175 seed × Self-Instruct，text-davinci-003 蒸馏</td>
+              <td>开启「从强模型蒸馏 SFT 数据」生态</td>
+            </tr>
+            <tr>
+              <td><strong>Tülu 3 SFT mix</strong> (2024)</td>
+              <td>939,344 条</td>
+              <td>全技能均衡注入</td>
+              <td>per-skill 构建 + 合并迭代 + 去污染</td>
+              <td>8B 训 2 epochs、lr 5e-6；最完整开放配方</td>
+            </tr>
+            <tr>
+              <td><strong>OpenThoughts3</strong> (2025)</td>
+              <td>1.2M 条</td>
+              <td>推理（math/code/science）</td>
+              <td>QwQ-32B 教师 × 每题采 16 个答案</td>
+              <td>1000+ 受控消融；OpenThinker3-7B AIME25 53%</td>
+            </tr>
+            <tr>
+              <td><strong>Llama-Nemotron 后训练集</strong> (2025)</td>
+              <td>3,300 万+ SFT</td>
+              <td>推理 + 通用，公开可商用</td>
+              <td>R1 等教师大规模合成 + 过滤</td>
+              <td>另含 5.6 万条 RL 指令数据</td>
+            </tr>
+            <tr>
+              <td><strong>SmolTalk2</strong> (2025)</td>
+              <td>1.8B token</td>
+              <td>3B 小模型 SFT（混合推理）</td>
+              <td>开源混合 + completion-only loss</td>
+              <td>Smol Training Playbook 全程公开训练实录</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        注意表中自 LIMA 以下规模相差<strong>四个数量级</strong>，但没有一行是「错的」——它们分别处在「对齐风格」到「注入能力」光谱的不同位置。
+        OpenThoughts 的消融还揭示了规模的<em>正确打开方式</em>：与其找更多问题来源，不如<strong>对同一问题从教师采样多个答案</strong>
+        （16× 扩量仍持续涨分）；而且<strong>问题质量比来源多样性更重要</strong>——少数高质量问题源胜过大杂烩混合。
+      </p>
+
+      <h3 id="sec-mixing">1.3 数据混合方法论：从手艺到科学</h3>
+
+      <h4>Tülu 3 工作流：per-skill 混合的模板</h4>
+      <p>
+        Tülu 3 (arXiv:2411.15124, Ai2) 的最大贡献不是某个数据集，而是一套<strong>可复现的混合工作流</strong>，已成为社区模板：
+      </p>
+      <div class="mermaid-wrap">
+<div class="mermaid">
+flowchart TD
+  A["🎯 确定目标技能<br/>knowledge / reasoning / math<br/>coding / IF / safety / multilingual"] --> B["🔬 per-skill 构建数据池<br/>每个技能独立收集 + 合成"]
+  B --> C["📈 训出单技能模型<br/>逼近该技能的上限 (touchstone)"]
+  C --> D["🧪 合并成初版混合<br/>训全技能模型"]
+  D --> E{"评测套件<br/>dev + unseen 双轨"}
+  E -->|"某技能掉点"| F["♻️ 迭代增删：<br/>补该技能数据 / 给特大数据集降采样"]
+  F --> D
+  E -->|"达标"| G["🛡️ 对评测集做去污染<br/>8-gram overlap（见 §7.2）"]
+  G --> H["✅ 最终 SFT mix 939k"]
+  style A fill:#1d2638,stroke:#4fd1c5
+  style G fill:#1d2638,stroke:#ff9f6e
+  style H fill:#1d2638,stroke:#7be39a
+</div>
+      </div>
+      <ul>
+        <li><strong>单技能上限先行</strong>：先用单技能数据训练「touchstone 模型」确认该数据池能到的上限，再谈混合——否则你分不清「混合配比不对」与「数据本身不行」。</li>
+        <li><strong>dev/unseen 双轨评测</strong>：开发集用于迭代配比，保留一组 unseen 评测防止把配方过拟到榜单上。</li>
+        <li><strong>降采样优先于剔除</strong>：特大数据集（如数学合成集）整体有用但会挤占混合，先降采样观察边际效应。</li>
+        <li><strong>每轮去污染</strong>：Tülu 3 在去污染中发现多个流行开源数据集与评测集重叠（UltraFeedback 含 TruthfulQA、Evol-CodeAlpaca 含 HumanEval、NuminaMath 含 MATH 训练题——详见 §7.3）。不去污染的配比实验，分数是虚高的。</li>
+      </ul>
+
+      <h4>DoReMi 与 RegMix：配比变成可优化问题</h4>
+      <p>
+        预训练/mid-training 侧的配比工程，方法论由两篇工作奠定：
+      </p>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">DoReMi (arXiv:2305.10429, NeurIPS 2023)</div>
+          <div class="card-meta">小代理模型 + Group DRO 学 domain 权重</div>
+          <div class="card-body">
+            用 <strong>280M 代理模型</strong>以 Group DRO（分布鲁棒优化）学出各 domain 权重，再用该权重训 <strong>8B 主模型</strong>（30× 放大）。
+            在 The Pile 上达到基线性能只需 <strong>1/2.6 的训练步数</strong>，few-shot 下游平均 <strong>+6.5pp</strong>——且全程不看下游任务。
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">RegMix (arXiv:2407.01492, ICLR 2025)</div>
+          <div class="card-meta">把配比当回归问题</div>
+          <div class="card-body">
+            训 <strong>512 个 1M 参数小模型</strong>（各 1B token）扫不同混合 → 拟合回归 → 外推最优配比 → 用于 1000× 大、25× 长（1B 参数 / 25B token）的模型。
+            以 DoReMi 约 <strong>10% 的算力</strong>取得相当效果。反直觉结论：<strong>与下游性能相关性最强的是 web 语料</strong>，
+            而非「看起来高质量」的 Wikipedia；domain 间交互复杂、常违反直觉，不能靠拍脑袋。
+          </div>
+        </div>
+      </div>
+      <div class="callout insight">
+        <div class="callout-title">为什么 SFT 配比不能直接套 DoReMi</div>
+        <div class="callout-body">
+          DoReMi/RegMix 优化的是<strong>语言建模损失的代理</strong>，对预训练/mid-training 有效；SFT 阶段目标是下游技能分数，
+          技能之间存在迁移与挤占（math 数据涨 code、safety 数据压 helpfulness），代理小模型的损失排序与大模型技能排序经常不一致。
+          这就是 Tülu 3 选择「在目标尺寸上直接迭代混合」而非代理外推的原因——贵，但所见即所得。
+          2026 年的 AutoSelection（下节）正在尝试把两者的优点拼起来。
+        </div>
+      </div>
+
+      <h3 id="sec-selection">1.4 从逐样本打分到配方搜索：选数据范式的 2026 转移</h3>
+      <p>
+        2023–2024 年的 SFT 数据筛选以<strong>逐样本打分</strong>为主流：
+        IFD（Instruction-Following Difficulty, arXiv:2308.12032）用「有/无指令上下文的响应损失之比」挑「cherry 样本」，
+        只用 10% 原始数据即超过全量训练；DEITA (arXiv:2312.15685) 综合复杂度/质量打分器选 6K 样本，
+        在 MT-bench 上达 7.22（Mistral-7B 底座），与用 10× 数据的 SOTA 持平。
+      </p>
+      <p>
+        2026 年的 AutoSelection (arXiv:2605.12944) 指出这类方法的盲点：<strong>有效的 SFT 子集往往不是「最好的 N 条」，
+        而是一串有序的 curation 操作（过滤 → 混合 → 去重）共同塑造的分布</strong>。它把问题重构为
+        <strong>固定池数据配方搜索（fixed-pool data recipe search）</strong>：把配方的「物化」与昂贵的全量评估解耦（缓存信号），
+        用高斯过程辅助排序搜索配方空间，配合 warmup probe、局部配方编辑与停滞触发重播种。
+        在 90K 指令池上超过全量训练、随机搜索与所有单算子基线。
+      </p>
+      <div class="callout key">
+        <div class="callout-title">决策依据：先问要什么，再选量级与方法</div>
+        <div class="callout-body">
+          <strong>① 只要风格/格式</strong>（私有助手、品牌语气）→ 千条级人工精筛即可（LIMA 区间），把预算花在「写好每一条」上；<br/>
+          <strong>② 要注入能力</strong>（推理/代码/工具）→ 十万到百万级合成 + 严格过滤（Tülu 3 / OpenThoughts 区间），且优先考虑该能力是否应前置到 mid-training（§5）；<br/>
+          <strong>③ 数据池已定、想榨干</strong> → 配方搜索（AutoSelection）优于逐样本打分（IFD/DEITA）；<br/>
+          <strong>④ 任何区间</strong> → 每轮迭代都过 §7 的去污染流程，否则配比实验的反馈信号本身是脏的。
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         2 · SFT 训练工程
+         ============================================================ -->
+    <section id="sec-engineering" class="section">
+      <div class="section-head">
+        <div class="section-num">SECTION 2</div>
+        <h2>SFT 训练工程：<span class="grad">超参、LoRA、Masking 与 Packing</span></h2>
+        <p class="section-lede">
+          SFT 是后训练里「最简单」的阶段，也是 bug 最隐蔽的阶段——因为它的失败模式不是 loss 爆炸，
+          而是「benchmark 正常但模型实际很差」。本章给出经验超参表与四类头号工程坑。
+        </p>
+      </div>
+
+      <h3 id="sec-hparams">2.1 超参经验值：从 Tülu 3 的搜索结果出发</h3>
+      <p>
+        全参 SFT 的超参在 2024 年后已高度收敛。Tülu 3 经超参搜索给出的配置是目前最常被引用的起点（arXiv:2411.15124）：
+      </p>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>超参</th><th>8B 级</th><th>70B 级</th><th>备注</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>学习率（峰值）</td><td><code>5e-6</code></td><td><code>2e-6</code></td><td>Tülu 3 超参搜索结论；7–8B 社区常用区间 5e-6 ~ 2e-5</td></tr>
+            <tr><td>LR 调度</td><td colspan="2"><code>linear decay → 0</code> + 比例约 3% 的 warmup</td><td>SFT 不需要 cosine 的长尾</td></tr>
+            <tr><td>Epochs</td><td colspan="2"><code>2</code></td><td>常见起点；&gt;2–3 epoch 易过拟合格式、损失输出多样性</td></tr>
+            <tr><td>有效 batch size</td><td colspan="2"><code>128</code></td><td>Tülu 3 实际用 128（梯度累积凑）</td></tr>
+            <tr><td>最大序列长</td><td colspan="2"><code>4,096</code>（Tülu 3）</td><td>reasoning SFT 需 16k–64k，否则长 CoT 被截断</td></tr>
+            <tr><td>实际算力参考</td><td>32× H100 · 6 小时</td><td>64× H100 · 50 小时</td><td>939k 样本 2 epochs 的真实开销，便于估算</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout warn">
+        <div class="callout-title">多 epoch 在 reasoning SFT 上尚无定论</div>
+        <div class="callout-body">
+          「超过 2 epoch 过拟合」的经验来自通用指令 SFT。在长 CoT 推理蒸馏数据上，社区多次观察到多 epoch 仍有收益
+          （OpenThoughts 系消融探索过 epoch 维度）。判断方法不是看 train loss，而是：
+          ① 在<strong>未见过的</strong>推理评测上分数是否还在涨；② 采样多样性（同题多次采样的解法熵）是否塌缩。
+          二者背离时（分数微涨、多样性大跌）应停——多样性塌缩会直接伤害后续 RL 的探索（见 <a href="rl-pitfalls-survey.html">RL Pitfalls</a> 熵塌缩一章）。
+        </div>
+      </div>
+
+      <h3 id="sec-lora">2.2 LoRA 实战：「LoRA Without Regret」的四条定量结论</h3>
+      <p>
+        三年来 LoRA 在文档/教程里通常只有一句「省显存」。Thinking Machines 的系统实验
+        （<a href="https://thinkingmachines.ai/blog/lora/">LoRA Without Regret</a>, 2025-09）第一次给出了可操作的定量结论：
+      </p>
+      <ol>
+        <li><strong>最优 LR ≈ 全参微调的 10 倍</strong>，且该比值近似与模型规模无关；由于 LoRA 参数化中的 \(1/r\) 缩放因子，
+          训练早期学习曲线<strong>与 rank 无关</strong>——最优 LR 也因此基本不随 rank 变化。直接把全参 LR × 10 是合理起点（常落在 1e-4 ~ 5e-4）。</li>
+        <li><strong>必须挂所有层，尤其 MLP/MoE 层</strong>。只挂 attention 矩阵（早期默认做法）显著劣于只挂 MLP，
+          即便参数量对齐也一样；最佳实践是全部层都挂。</li>
+        <li><strong>LoRA 对大 batch 更敏感</strong>：与全参的性能差距随 batch size 增大而<strong>持续扩大</strong>（矩阵乘积参数化的优化动力学所致，非容量问题）。
+          预算允许时用小有效 batch（社区经验 &lt; 32）。</li>
+        <li><strong>「低悔恨区间」</strong>：在典型后训练数据量级、且满足前两条时，LoRA 与全参<strong>打平</strong>；
+          数据量超过 LoRA 容量则掉队。RL 场景更夸张：<strong>rank-1 LoRA 就能追平全参</strong>——因为策略梯度每 episode
+          只传递约 1 bit 信息，远低于监督学习的信息量（这个信息论视角在 §4.4 还会出现一次）。</li>
+      </ol>
+      <div class="callout tip">
+        <div class="callout-title">LoRA 调参检查单</div>
+        <div class="callout-body">
+          □ LR = 全参基线 × 10 起步，rank 先固定 32 不动 &nbsp;
+          □ target_modules 覆盖 MLP（gate/up/down）而不只是 q/k/v/o &nbsp;
+          □ 有效 batch ≤ 32，宁可多累积步数也不放大 batch &nbsp;
+          □ 数据量 &gt; 数百万样本或多 epoch 大语料时换全参 &nbsp;
+          □ RL + LoRA 时先试小 rank（1–8），别为 rank 烧显存
+        </div>
+      </div>
+
+      <h3 id="sec-masking">2.3 Loss Masking 与 Chat Template：头号「隐形劣化」来源</h3>
+      <p>
+        SFT 的损失只应落在 assistant token 上（completion-only loss）：
+      </p>
+      <div class="formula boxed">
+        <div class="formula-title">Completion-only SFT Loss</div>
+        $$
+        \mathcal{L}_{\text{SFT}}(\theta) = -\sum_{t=1}^{|y|} m_t \,\log \pi_\theta\!\left(y_t \mid x, y_{\lt t}\right),
+        \qquad m_t = \begin{cases}1 & y_t \in \text{assistant tokens}\\[2pt] 0 & y_t \in \text{system/user/工具返回}\end{cases}
+        $$
+      </div>
+      <p>
+        实现上即把非 assistant 位置的 label 置 <code>-100</code>。这已是主流默认（SmolLM3 等都明确采用 completion-only loss），
+        但两个相邻的坑极其高发：
+      </p>
+      <ul>
+        <li><strong>mask 偏移一个 token</strong>：chat template 的特殊 token（如 <code>&lt;|im_start|&gt;assistant\n</code>）边界算错一位，
+          导致模型在「回复的第一个 token」上行为微妙劣化（开头多空格、先吐一个模板碎片再说话）。症状轻微、benchmark 几乎看不出，
+          线上观感却明显。</li>
+        <li><strong>训练与推理模板不一致</strong>：空格、换行、system 默认值、工具调用包裹格式——任何一处不一致都会让模型在
+          分布外的模板上推理。这是「benchmark 正常但实际很差」的最常见原因；用同一份 tokenizer 的
+          <code>apply_chat_template</code> 同时渲染训练样本与推理请求，并 diff 检查。</li>
+      </ul>
+      <p>多轮对话样本还有一个决策点：中间轮的 assistant 消息要不要算 loss。通用做法是<strong>都算</strong>（每轮都是监督信号）；
+        但对带工具调用的轨迹，工具返回（observation）必须 mask 掉——这与 agentic RL 中的 token mask 完全同构，
+        细节见 <a href="multi-turn-tool-use.html">多轮 Tool Use 专题</a>。</p>
+
+      <h3 id="sec-packing">2.4 Sample Packing 的正确性：cross-contamination 坑</h3>
+      <p>
+        Packing（把多条短样本拼进一个长序列）是 SFT 吞吐优化的标配，但<strong>朴素拼接 + 不改 attention mask 是错的</strong>：
+        causal attention 下，后一条样本的每个 token 都能看到前一条样本的全部内容——前一段对话「污染」后一段的注意力
+        （cross-contamination）。几乎每个训练框架历史上都踩过这个坑。正确与替代方案：
+      </p>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>方案</th><th>机制</th><th>正确性</th><th>吞吐</th><th>采用方 / 出处</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>朴素 packing</strong></td>
+              <td>直接拼接，整段 causal mask</td>
+              <td>❌ 样本间注意力泄漏</td>
+              <td>最高</td>
+              <td>历史遗留默认，应弃用</td>
+            </tr>
+            <tr>
+              <td><strong>Block-diagonal mask packing</strong></td>
+              <td>拼接 + 按样本边界切 block-diagonal mask（FlashAttention varlen / <code>cu_seqlens</code>）</td>
+              <td>✅ 等价于独立样本</td>
+              <td>高</td>
+              <td>当前主流正确做法；注意 position_ids 也要按样本重置</td>
+            </tr>
+            <tr>
+              <td><strong>Threshold Filtering Packing</strong></td>
+              <td>把<strong>相关</strong>样本（相似度过阈值）打进同一 pack，保留跨样本注意力当作上下文信号</td>
+              <td>✅ 有意为之的「软污染」</td>
+              <td>高</td>
+              <td>TFP (arXiv:2408.09327, NAACL 2025)：GSM8K 最高 +7%、HumanEval +4%</td>
+            </tr>
+            <tr>
+              <td><strong>Best-fit packing / grouped batching</strong></td>
+              <td>只有当样本能<strong>完整</strong>放进同一序列才打包，绝不截断</td>
+              <td>✅ 且无截断伤害</td>
+              <td>高（K2-V2 实测 padding &lt; 0.004%）</td>
+              <td>K2-V2 (arXiv:2512.06201)：对比 naive batching 的 &gt;95% padding</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout danger">
+        <div class="callout-title">三个连环坑，按顺序排查</div>
+        <div class="callout-body">
+          ① attention mask 是否 block-diagonal（varlen kernel 是否真的启用，而不是只传了参数）；
+          ② <strong>position_ids 是否按样本重置</strong>——mask 对了但位置编码连续累加，RoPE 仍然把第二条样本当作「从位置 2048 开始」；
+          ③ <strong>截断策略</strong>——把一条对话从中间截成两段本身就是伤害（K2-V2 明确把 zero-truncation 当作设计目标），
+          长样本宁可单独成序列。验证方法：取两条样本分别前向 vs 打包前向，逐 token 比 logits，应在数值误差内一致。
+        </div>
+      </div>
+
+      <h3 id="sec-vibetest">2.5 Vibe-test：benchmark 看不见的故障模式</h3>
+      <p>
+        Hugging Face 的 <a href="https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook">Smol Training Playbook</a>
+        （SmolLM3 3B / 11T token 训练实录）贡献了两个教科书级案例，说明为什么<strong>每个检查点都要人工对话测试（vibe-test）</strong>：
+      </p>
+      <ul>
+        <li><strong>system prompt 被整体剥掉</strong>：数据处理管线的 bug 把训练样本里的自定义 system prompt 全部删除。
+          自动评测一切正常；人工一聊，发现模型完全无视 system prompt——这个故障在 benchmark 上不可见，在对话里几秒就暴露。</li>
+        <li><strong>TP 组同种子 bug</strong>：tensor parallel 组内每张 GPU 用了相同随机种子，权重相关性破坏学习，
+          最终只能修 bug 后<strong>重启整个 11T token 的训练</strong>。</li>
+      </ul>
+      <div class="callout tip">
+        <div class="callout-title">SFT 发布前检查清单（拿走即用）</div>
+        <div class="callout-body">
+          □ 人工对话 ≥ 20 轮：带/不带 system prompt、多轮、中英混合、拒答边界 &nbsp;
+          □ diff 训练渲染与推理渲染的 chat template 输出 &nbsp;
+          □ 抽 100 条训练样本肉眼检查（截断、空 assistant、模板碎片、思维链是否完整）&nbsp;
+          □ packing 等价性测试（§2.4）&nbsp;
+          □ 对照上一版检查点跑同一组「vibe 题」，记录主观回归 &nbsp;
+          □ 评测集去污染报告随版本归档（§7）
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         3 · Rejection Sampling FT 谱系
+         ============================================================ -->
+    <section id="sec-rft" class="section">
+      <div class="section-head">
+        <div class="section-num">SECTION 3</div>
+        <h2>Rejection Sampling FT 谱系：<span class="grad">从 STaR 到 agentic 冷启动</span></h2>
+        <p class="section-lede">
+          「自己采样 → 按某种信号过滤 → 在好样本上 SFT」是后训练里最朴素也最长寿的配方。
+          它是 Llama 系的主力、R1 冷启动的来源、agentic 轨迹合成的骨架，也是理解「SFT 与 RL 如何分工」的最佳切口。
+        </p>
+      </div>
+
+      <h3 id="sec-star">3.1 方法源头：STaR 与 RAFT</h3>
+      <p>
+        这条谱系有两个常被遗忘的源头，理解它们就理解了之后所有变体：
+      </p>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">STaR: Self-Taught Reasoner (arXiv:2203.14465, 2022)</div>
+          <div class="card-meta">自生成 → 按正确性过滤 → 再 SFT 的自提升循环</div>
+          <div class="card-body">
+            ① 用 few-shot 让模型为问题生成 rationale + 答案；② 只保留<strong>答案正确</strong>的 rationale；
+            ③ 在保留集上微调；④ 用新模型重复。点睛之笔是 <strong>rationalization</strong>：答错的题把正确答案喂给模型，
+            让它「倒推」出一条说得通的 rationale 再纳入训练——给困难样本兜底。
+            这就是后来一切 RFT / self-improvement / R1 冷启动数据的原型。
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">RAFT: Reward rAnked FineTuning (arXiv:2304.06767, 2023)</div>
+          <div class="card-meta">RM 打分版 best-of-n fine-tuning</div>
+          <div class="card-body">
+            把 STaR 的「正确性过滤」推广成「奖励排序过滤」：每个 prompt 采 n 个回答，用 reward model 选出高分样本，
+            丢弃低分样本，SFT，迭代。它给出了无 verifier 场景（对齐、写作）的通用形式，
+            也是「用 SFT 模拟 RL」路线（绕开 PPO 不稳定性）的代表。损失上等价于在 best-of-n 诱导的分布上做最大似然。
+          </div>
+        </div>
+      </div>
+      <div class="formula">
+        <div class="formula-title">Rejection Sampling FT 的统一形式</div>
+        $$
+        \mathcal{D}_{t+1}=\Big\{(x, y) \;\Big|\; y \sim \pi_{\theta_t}(\cdot\mid x)^{\times K},\;\; \Phi(x,y)=1 \Big\},
+        \qquad \theta_{t+1} = \arg\min_\theta \; \mathbb{E}_{\mathcal{D}_{t+1}}\big[-\log \pi_\theta(y\mid x)\big]
+        $$
+        <p style="font-size:.85rem;color:var(--fg-2);margin-top:8px">
+          其中过滤器 \(\Phi\) 可以是：答案正确性（STaR / RLVR 冷启动）、RM top-1/top-p（RAFT / Llama 3）、
+          单测通过（SWE 轨迹）、rubric judge（Kimi K2）。从 RL 视角看，这相当于对 reward 的<strong>硬阈值加权</strong>的 policy gradient
+          （只学正样本、权重为 1），所以它天然没有负梯度——这既是它稳定的原因，也是它上限低于 RL 的原因（无法压低坏行为的概率）。
+        </p>
+      </div>
+
+      <h3 id="sec-llama3-rs">3.2 Llama 3 的工业级流程与常见坑</h3>
+      <p>
+        The Llama 3 Herd of Models (arXiv:2407.21783) 把 rejection sampling 做成了多轮迭代后训练的主力数据来源，
+        其公开细节值得逐条记住：
+      </p>
+      <ul>
+        <li><strong>每个 prompt 采 K 个候选，K 典型取 10–30</strong>，从最新一版 chat model 采样，用 reward model 选最优；prompt 主要来自人工标注收集。</li>
+        <li><strong>后期轮次引入 system prompt 引导</strong>，让 RS 产出的回答贴合期望的语气/风格/格式（不同能力线用不同 system prompt）。</li>
+        <li><strong>工程上用 PagedAttention 提高采样吞吐</strong>——RS 的成本大头在推理，KV cache 管理直接决定可行的 K。</li>
+        <li>RS 产物与少量人工示范、合成数据一起进 SFT，再接 DPO，整个「RS → SFT → DPO」循环迭代多轮。</li>
+      </ul>
+      <div class="callout danger">
+        <div class="callout-title">RFT 四个高频坑（生产环境实录）</div>
+        <div class="callout-body">
+          <strong>① Verifier 假阳性</strong>：数学题 string-match 把「碰巧蒙对的烂推理」放进训练集；代码题弱单测放过硬编码答案。
+          假阳性会被 SFT 放大成系统性模式——对 verifier 的投入要按「它的错误会被蒸进模型」来定价（hack 形态详见
+          <a href="rl-pitfalls-survey.html">RL Pitfalls</a> reward hacking 章）。<br/>
+          <strong>② 采样温度过低</strong>：K 个候选高度同质，过滤后等于单样本 SFT，多样性塌缩还会传染给后续 RL 的探索能力。常见做法是 T≥0.7 起步并监控候选间的去重率。<br/>
+          <strong>③ 不去重</strong>：同一 prompt 的多个相似正样本重复进入训练集 → 模式坍塌；prompt 级和 response 级都要去重。<br/>
+          <strong>④ 只保留 top-1</strong>：OpenThoughts 消融显示同题多个正样本是有效扩量手段——「每题留多个对的」常优于「每题只留最好的一条」，但前提是做了 ②③。
+        </div>
+      </div>
+
+      <h3 id="sec-k2-agentic">3.3 Agentic 冷启动：Kimi K2 的轨迹合成管线</h3>
+      <p>
+        多轮工具使用场景没有现成的「答案正确性」可过滤，Kimi K2 (arXiv:2507.20534) 给出了目前公开最完整的
+        agentic 版 rejection sampling——本质是<strong>带执行环境 grounding 的超大规模 RS</strong>：
+      </p>
+      <div class="mermaid-wrap">
+<div class="mermaid">
+flowchart LR
+  A["🧰 工具库构建<br/>3,000+ 真实 MCP 工具 (GitHub)<br/>→ 演化出 20,000+ 合成工具"] --> B["🤖 Agent 群生成<br/>组合 system prompt × 工具子集<br/>得到数千个 agent 画像"]
+  B --> C["📋 任务 + Rubric 生成<br/>每个任务配显式 rubric：<br/>成功标准 / 期望工具调用模式 / 检查点"]
+  C --> D["🛰️ 轨迹生成<br/>模拟环境(工具模拟器) + 真实环境<br/>多轮交互产出轨迹"]
+  D --> E["⚖️ LLM Judge 过滤<br/>对照 rubric 评估轨迹<br/>只保留高质量样本"]
+  E --> F["📚 Agentic SFT 数据"]
+  style A fill:#1d2638,stroke:#4fd1c5
+  style C fill:#1d2638,stroke:#ffd166
+  style E fill:#1d2638,stroke:#ff9f6e
+  style F fill:#1d2638,stroke:#7be39a
+</div>
+      </div>
+      <p>
+        三个可迁移的设计点：① <strong>工具规模靠合成扩量</strong>（真实工具只有数千个，覆盖面靠 LLM 演化合成补到两万+）；
+        ② <strong>rubric 先于轨迹存在</strong>——先写清楚「什么算成功」，judge 才有锚点，这与 §6 的合成数据质检、
+        以及 GenRM/rubric reward 的思路同源；③ <strong>模拟 + 真实环境混合</strong>：模拟器跑量、真实环境保真。
+        轨迹质量过滤在 agentic 项目中占掉一半工作量不是夸张——这一段流程的更多训练侧细节（token mask、turn 级信用分配）见
+        <a href="multi-turn-tool-use.html">多轮 Tool Use 专题</a>。
+      </p>
+
+      <h3 id="sec-sft-rl-ratio">3.4 SFT : RL 的算力配比——不要全押任何一边</h3>
+      <p>
+        A Practitioner's Guide to Multi-turn Agentic Reinforcement Learning (arXiv:2510.01132) 用受控预算实验直接回答了配比问题。
+        设定：总预算 1000 个成本单位，1 条 SFT 示范的成本 = 10 个 RL episode；环境为 TextWorld（另有 ALFWorld / SWE-Gym 佐证），
+        模型 Qwen 系 1.5B–8B：
+      </p>
+      <ul>
+        <li><strong>纯 SFT</strong>（100 条示范）：域内 95%，但复杂变体任务只有 55%——记住了套路，没学会泛化；</li>
+        <li><strong>最优配比：60 条示范 + 400 个 RL episode</strong>——基础任务 85%、复杂变体 59%，显著优于任何「全押」策略；</li>
+        <li>结论：<strong>好的模仿先验大幅降低 RL 的样本需求，但 RL 不可省略</strong>——它负责把分布外泛化补上。</li>
+      </ul>
+      <p>
+        真实世界的同构案例：arXiv:2508.03501（长上下文多轮 SWE agent 训练）从 Qwen2.5-72B-Instruct 出发，
+        SWE-bench Verified 基线仅 <strong>~11%</strong>（主要败于指令跟随）；先做 RFT——每个任务跑 10 次 rollout、
+        只保留补丁通过测试套件的轨迹（共 6,548 条）、SFT 一个 epoch 并 mask 掉触发环境格式错误的 assistant 轮——提到
+        <strong>20%</strong>；再用改良 DAPO 做 RL，最终 <strong>39%</strong>。RFT 把模型「扶上正轨」，RL 把上限拉开，
+        两段各挣约一半，这个形状反复出现在 2025–2026 的技术报告里。
+      </p>
+
+      <h3 id="sec-sft-rl-interface">3.5 SFT 与 RL 的接口：分工的机理</h3>
+      <p>
+        SFT Memorizes, RL Generalizes (arXiv:2501.17161, ICML 2025) 用 GeneralPoints（算术卡牌）与 V-IRL（视觉导航）
+        的规则/视觉变体做了干净对照：<strong>SFT 倾向记忆训练分布、OOD 泛化差；结果奖励的 RL 能泛化到规则与视觉变体</strong>；
+        但同时——<strong>SFT 稳定输出格式是 RL 能跑起来的前提</strong>。这给了「冷启动 SFT + RL」流水线第一性的解释：
+        SFT 负责把模型放进正确的「格式流形」，RL 负责在流形上找泛化解。
+      </p>
+      <div class="callout insight">
+        <div class="callout-title">接口处的三条工程共识</div>
+        <div class="callout-body">
+          ① <strong>SFT 数据要贴近 base model 自身分布</strong>：直接灌别家强模型的输出（风格、用词、思维模式全是别人的）会推高初始
+          KL/困惑度，伤害后续 RL；缓解办法是让 base model 自己改写一遍、或干脆走 rejection sampling（数据天然 on-distribution）、
+          或把「SFT→RL」换成 on-policy 蒸馏这个中间档（§4）。<br/>
+          ② <strong>冷启动只求格式达标，不求分数</strong>：冷启动 SFT 练过头会把分布钉死，RL 阶段熵起不来。<br/>
+          ③ <strong>理论上 SFT 与 RL 是同一族梯度估计器的两端</strong>：标准交叉熵梯度可改写为带隐式逆概率权重
+          \(1/\pi_\theta\) 的 policy gradient——这个隐式 reward 病态地放大低概率示范 token，是 SFT 泛化差的一个解释；
+          DFT (arXiv:2508.05629) 用一行代码（按 token 概率重缩放目标）修正它并提升泛化。policy gradient 的完整推导链见
+          <a href="derivations.html">derivations</a>。
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         4 · 蒸馏与 On-Policy Distillation
+         ============================================================ -->
+    <section id="sec-distill" class="section">
+      <div class="section-head">
+        <div class="section-num">SECTION 4</div>
+        <h2>知识蒸馏与 <span class="grad">On-Policy Distillation</span>：第三种后训练原语</h2>
+        <p class="section-lede">
+          2026 年的事实标准：小模型不走完整 RL 流水线，走蒸馏。On-policy distillation（OPD）以约 1/10 的 RL 成本达到同级性能，
+          已是 Qwen3、GLM-5、DeepSeek-V4 的共同支柱。本章从 KL 方向讲到工业配方，并给出「何时蒸馏、何时 RL」的决策表。
+        </p>
+      </div>
+
+      <h3 id="sec-kd-basics">4.1 基础：序列级 KD、KL 方向与 exposure bias</h3>
+      <p>
+        LLM 语境下「蒸馏」一词混用了三件事，先拆开：
+      </p>
+      <ul>
+        <li><strong>数据蒸馏（序列级 KD / hard label）</strong>：教师生成文本，学生当普通 SFT 数据学。Alpaca、R1-Distill、OpenThoughts 都是这一类。只需要教师的文本 API。</li>
+        <li><strong>Logit 蒸馏（token 级 / soft label）</strong>：学生在每个位置对齐教师的<strong>整个 next-token 分布</strong>，监督信号从每 token 1 个 hard label 变成整个词表的软分布。需要教师 logits（白盒）。</li>
+        <li><strong>On-policy 蒸馏（OPD）</strong>：序列由<strong>学生</strong>采样，教师只负责逐 token 打分/给分布。这是 2025 起的关键升级。</li>
+      </ul>
+      <p>
+        为什么 off-policy（在教师轨迹上学）不够好？与模仿学习同样的病：<strong>exposure bias / 分布失配</strong>。
+        学生训练时永远走在教师铺好的「完美前缀」上，推理时却要面对自己犯错后的状态——小错累积进入它从未被纠正过的区域
+        （OPD Survey, arXiv:2604.00626 把这条线从模仿学习一直梳到 RLHF）。GKD 论文称之为
+        <em>train-inference distribution mismatch</em>。修法与 DAgger 同构：让学生自己走，教师在学生走过的状态上给监督。
+      </p>
+      <div class="formula boxed">
+        <div class="formula-title">KL 方向：mode-covering vs mode-seeking</div>
+        $$
+        \underbrace{D_{\mathrm{KL}}\!\big(p_T \,\|\, p_S\big)}_{\text{forward KL（教师为参照）}}
+        = \mathbb{E}_{y\sim p_T}\!\left[\log\frac{p_T}{p_S}\right]
+        \qquad\text{vs}\qquad
+        \underbrace{D_{\mathrm{KL}}\!\big(p_S \,\|\, p_T\big)}_{\text{reverse KL（学生为参照）}}
+        = \mathbb{E}_{y\sim p_S}\!\left[\log\frac{p_S}{p_T}\right]
+        $$
+        <p style="font-size:.85rem;color:var(--fg-2);margin-top:8px">
+          Forward KL 要求学生在教师所有高概率区域都给质量（<strong>mode-covering</strong>）——容量小的学生被迫「摊平」，
+          在教师多峰分布间插出谁都不像的混合行为。Reverse KL 只要求学生的质量都落在教师认可的区域（<strong>mode-seeking</strong>）——
+          学生收敛到教师的某个模式上，行为更干净。OPD 普遍选 reverse KL，还有一个额外好处：
+          它以学生采样为期望分布，天然 on-policy；且「KL 低 ⇔ 教师认可」，作为奖励信号<strong>难被 hack</strong>
+          （Thinking Machines 博客的表述：low KL always corresponds to behavior the teacher endorses）。
+          KL 估计器的数值细节见 <a href="derivations.html">derivations</a> 的 KL 章节。
+        </p>
+      </div>
+
+      <h3 id="sec-gkd">4.2 GKD：on-policy 蒸馏的奠基</h3>
+      <p>
+        Generalized Knowledge Distillation (GKD, arXiv:2306.13649, Agarwal et al., Google DeepMind) 把上面两个修正合成一个框架：
+      </p>
+      <div class="formula">
+        <div class="formula-title">GKD 目标（简化形式）</div>
+        $$
+        \mathcal{L}_{\text{GKD}}(\theta) =
+        (1-\lambda)\,\mathbb{E}_{y\sim \mathcal{D}_{\text{fixed}}}\Big[\mathcal{D}\big(p_T \,\|\, p_S^\theta\big)(y)\Big]
+        \;+\;
+        \lambda\,\mathbb{E}_{y\sim p_S^\theta}\Big[\mathcal{D}\big(p_T \,\|\, p_S^\theta\big)(y)\Big]
+        $$
+        <p style="font-size:.85rem;color:var(--fg-2);margin-top:8px">
+          \(\lambda\) 控制学生自采样（on-policy）的比例；散度 \(\mathcal{D}\) 可在 forward KL / reverse KL / 广义 JSD 之间选。
+          \(\lambda=1\) + reverse KL 就是今天通称的 on-policy distillation。GKD 还指出该框架能与 RL 微调无缝叠加。
+        </p>
+      </div>
+      <p>
+        GKD 的实验跨摘要、翻译、推理与指令微调，核心信息有二：① on-policy 数据（哪怕来自训练早期的「差学生」）
+        一致优于固定教师数据；② 散度选择是任务相关的超参，但 on-policy + reverse KL 在生成质量上最稳。
+      </p>
+
+      <h3 id="sec-qwen3-distill">4.3 Qwen3 范式：off-policy 打底 + on-policy 收尾</h3>
+      <p>
+        Qwen3 Technical Report (arXiv:2505.09388) 把蒸馏正式确立为<strong>小模型生产线</strong>。
+        旗舰（235B-A22B / 32B）走完整四阶段：Long-CoT 冷启动 → Reasoning RL（GRPO，3,995 个 query-verifier 对，AIME'24 70.1→85.1）
+        → Thinking Mode Fusion → 通用 RL。但 0.6B–14B dense 与 30B-A3B <strong>全部不走这条流水线</strong>，
+        而是 strong-to-weak 蒸馏两阶段：
+      </p>
+      <ol>
+        <li><strong>Off-policy 阶段</strong>：混合教师在 <code>/think</code> 与 <code>/no_think</code> 两种模式下的输出做响应蒸馏，
+          让学生同时获得基础推理能力和模式切换技能——注意这一步顺带完成了 Thinking Mode Fusion 的小模型版。</li>
+        <li><strong>On-policy 阶段</strong>：学生自己采样，对齐教师（Qwen3-32B 或 235B-A22B）的 <strong>logits</strong> 最小化 KL。</li>
+      </ol>
+      <div class="callout key">
+        <div class="callout-title">两个被反复引用的数字</div>
+        <div class="callout-body">
+          ① 蒸馏达到<strong>显著优于 RL 的效果，只用约 1/10 的 GPU 时数</strong>（相对完整四阶段流水线）；<br/>
+          ② logit 蒸馏不仅提 pass@1，还<strong>扩大探索空间</strong>——AIME'24/25 的 <strong>pass@64</strong> 也提升了。
+          这点出乎很多人意料：蒸馏没有把学生「钉死」在教师行为上，soft label 携带的「教师不确定性结构」反而比
+          hard label SFT 保留了更多可能性。对比之下，RLVR 常见的是 pass@1 升、pass@k 降（见主综述 §4.5 的争论）。
+        </div>
+      </div>
+
+      <h3 id="sec-tm-opd">4.4 Thinking Machines：OPD 的机制与信息论账本</h3>
+      <p>
+        Thinking Machines Lab 的 <a href="https://thinkingmachines.ai/blog/on-policy-distillation/">On-Policy Distillation</a>
+        （Kevin Lu 等, 2025-10）把 OPD 讲成了一个简洁的公式：<strong>RL 的 on-policy 相关性 + 蒸馏的稠密监督</strong>。
+        流程：学生采样轨迹 → 教师对每个 token 给 log-prob → 以 per-token reverse KL 为「稠密奖励」更新学生。
+      </p>
+      <div class="formula">
+        <div class="formula-title">Per-token Reverse KL 损失</div>
+        $$
+        \mathcal{L}_{\text{OPD}}(\theta) = \mathbb{E}_{y \sim \pi_\theta(\cdot\mid x)}
+        \left[\; \sum_{t} D_{\mathrm{KL}}\Big(\pi_\theta(\cdot \mid x, y_{\lt t}) \,\Big\|\, \pi_T(\cdot \mid x, y_{\lt t})\Big) \right]
+        $$
+      </div>
+      <ul>
+        <li><strong>成本对照（数字引自 Qwen3 报告）</strong>：博客立论的成本表明确标注引自 Qwen3 Technical Report Table 21：
+          数学推理上，OPD 用 <strong>1,800 GPU 时达到 AIME'24 74.4%</strong>，
+          对照 RL 用 <strong>17,920 GPU 时达到 67.6%</strong>——约 1/10 成本、更高分数。
+          注意这组数字的出处是 Qwen3 报告本身，不是 TM 的实验。</li>
+        <li><strong>学习效率（TM 自己的独立证据）</strong>：在 self-distillation 实验中（同一 base 先用 RL 训出教师，
+          再用 OPD 把该策略蒸回 base），复刻一个 RL 训出来的策略，OPD 需要的梯度步数少 <strong>7–10 倍</strong>，
+          叠加其他因素后总算力节省可达 <strong>50–100 倍</strong>——与 Qwen3 报告的 1/10 结论在<strong>不同实验设置下</strong>互证同一量级。</li>
+        <li><strong>信息论账本</strong>：RL 的结果奖励每 episode 只透出 <strong>O(1) bit</strong>（成/败），
+          而蒸馏每个 token 都有监督，每 episode 透出 <strong>O(N) bit</strong>。这就是「蒸馏比 RL 快得多」的第一性解释——
+          也呼应 §2.2 里「RL 信息量低到 rank-1 LoRA 就够」的观察：两者是同一枚硬币的两面。</li>
+        <li><strong>持续学习场景</strong>：在新领域上做 SFT 后，模型常灾难性遗忘对话/指令行为；用「老的自己」当教师做 OPD
+          能把行为恢复回来，且不抹掉新知识——「学新知识」与「恢复行为」可以交替推进。这为内部助手/个性化模型给出了
+          不依赖 RL 的更新循环。</li>
+      </ul>
+      <div class="callout warn">
+        <div class="callout-title">OPD 不是免费午餐</div>
+        <div class="callout-body">
+          ① 它的上限是教师——教师没有的能力蒸不出来，「探索发现新解法」仍是 RL 独有的；
+          ② 教师必须能对学生 token 给出有意义的 log-prob：师生 tokenizer 不同时需要黑盒方案（§4.5）；
+          ③ THUNLP 的机制分析（§4.6）警告 dense token 级监督的「免费午餐」在长序列上有代价，且师生思维模式不兼容时 OPD 白做。
+        </div>
+      </div>
+
+      <h3 id="sec-gad">4.5 黑盒蒸馏：GAD 把判别器当 on-policy 奖励</h3>
+      <p>
+        如果教师是闭源 API（只有文本输出、没有 logits）呢？Black-Box On-Policy Distillation (arXiv:2511.10643, Microsoft Research)
+        提出 <strong>GAD（Generative Adversarial Distillation）</strong>：学生当 generator，
+        另训一个 discriminator 区分「学生回答 vs 教师回答」。判别器实质上是一个<strong>与学生共同演化的 on-policy reward model</strong>，
+        提供稳定、自适应的反馈。结果：Qwen2.5-14B-Instruct 学生在 LMSYS-Chat 自动评测上<strong>达到教师 GPT-5-Chat 同级</strong>，
+        全面优于序列级 KD。
+      </p>
+      <p>
+        GAD 的意义在于补全了矩阵的最后一格：<strong>on-policy × 黑盒</strong>。四象限对照：
+      </p>
+      <div class="tbl-wrap">
+        <table class="tbl-narrow">
+          <thead>
+            <tr><th></th><th>Off-policy（教师轨迹）</th><th>On-policy（学生轨迹）</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>白盒（有 logits）</strong></td>
+              <td>经典 logit KD（soft label SFT）</td>
+              <td>GKD / Qwen3 第二阶段 / TM OPD（reverse KL）</td>
+            </tr>
+            <tr>
+              <td><strong>黑盒（仅文本）</strong></td>
+              <td>序列级 KD：Alpaca、R1-Distill、OpenThoughts</td>
+              <td><strong>GAD</strong>（判别器当 on-policy RM）</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="sec-opd-conditions">4.6 成败条件与教师选择：三个反直觉结论</h3>
+
+      <h4>① 教师不是越强越好（capacity gap 定律）</h4>
+      <p>
+        Distillation Scaling Laws (arXiv:2502.08606, Busbridge et al., Apple) 用大规模实验拟合出蒸馏的 scaling law：
+        学生性能由教师交叉熵、学生规模、蒸馏 token 数共同决定，并确认了 <strong>capacity gap</strong> 现象——
+        <strong>更强的教师可能教出更差的学生</strong>，且该差距源于师生「学习能力」（假设空间 + 优化能力）的差距，
+        不只是参数量之差。实操含义：最优教师只需比学生强一档；以及一个冷静的提醒——
+        若你只打算训<strong>一个</strong>学生且教师也要现训，监督学习通常优于蒸馏；
+        蒸馏的优势区在「教师已存在」或「一个教师喂多个学生」（恰好就是工业模型家族的形态）。
+      </p>
+      <h4>② 中档教师赢过旗舰教师的实证</h4>
+      <p>
+        OpenThoughts (arXiv:2506.04178) 的 1000+ 消融给出最常被引用的例子：<strong>QwQ-32B 当教师，
+        学生成绩一致优于用更强的 DeepSeek-R1 当教师</strong>——尽管 QwQ-32B 自己在目标 benchmark 上分数更低。
+        OpenThinker3-7B（QwQ 教师 + 1.2M 数据）对 R1-Distill-Qwen-7B 的提升：AIME 2025 +15.3pp、
+        LiveCodeBench +17.2pp、GPQA-D +20.5pp。另一个同方向结论：各种 answer 端的校验/过滤花活收益甚微，
+        不如把对的样本都留下（数量本身就是信号）。
+      </p>
+      <h4>③ OPD 的两个生效前提（THUNLP）</h4>
+      <p>
+        Rethinking On-Policy Distillation (arXiv:2604.13016, THUNLP) 给出 OPD 成败的判据：
+        <strong>(a) 师生思维模式（thinking pattern）兼容；(b) 教师确实拥有学生训练分布之外的「真正新能力」</strong>——
+        两者缺一，OPD 白做。机制上，有效的 OPD 表现为「学生访问状态上的高概率 token 向教师渐进对齐」，
+        且存在一个集中了 <strong>97%–99% 概率质量</strong>的小型师生共享 token 集。对失败场景论文给出两个补救：
+        off-policy 冷启动（先把思维模式拉兼容）与 teacher-aligned prompt 选择。
+        这解释了为什么 Qwen3 一定要先跑 off-policy 阶段再上 on-policy——顺序不是随意的。
+      </p>
+
+      <h3 id="sec-opd-industry">4.7 工业落地与「蒸馏 vs RL」决策</h3>
+      <p>
+        2026 年的旗舰报告里，OPD 已经出现在流水线的三个不同位置：
+      </p>
+      <ul>
+        <li><strong>量产小模型</strong>（Qwen3）：strong-to-weak 两阶段，替代整条四阶段流水线；</li>
+        <li><strong>跨阶段防遗忘</strong>（GLM-5, arXiv:2602.15763）：Reasoning RL → Agentic RL → General RL 顺序流水线中，
+          用 On-Policy Cross-Stage Distillation 在阶段间传递能力、防止后一阶段冲掉前一阶段；</li>
+        <li><strong>专家合并</strong>（<a href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro">DeepSeek-V4 报告</a>，
+          模型卡附 PDF）：先分别养成 10+ 个领域 specialist（数学/代码/agent/指令等，各自 SFT + GRPO RL），
+          再在学生 on-policy rollout 上对多教师分布做加权 reverse-KL 蒸馏，把多个专家的能力<strong>合并进单一模型</strong>
+          （V4-Pro 1.6T-A49B）——以蒸馏替代难调的多域混合 RL。</li>
+      </ul>
+      <p>
+        加上 R1 的经典结论——<strong>把大模型 RL 的成果蒸给小模型，远胜在小模型上直接 RL</strong>
+        （R1-Distill-Qwen-32B AIME'24 72.6%，而对 32B 直接做 R1-Zero 式 RL 只得约 47%）——可以收束成一张决策表：
+      </p>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>你的处境</th><th>推荐原语</th><th>依据</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>有强教师（自家旗舰/开源 R1 级），目标是小模型</td><td><strong>蒸馏</strong>（off-policy 打底 → OPD 收尾）</td><td>Qwen3 范式；~1/10 RL 成本；R1 蒸馏 &gt; 小模型 RL</td></tr>
+            <tr><td>要超越现有一切模型的能力边界</td><td><strong>RL</strong>（教师没有的东西蒸不出来）</td><td>OPD 上限 = 教师；探索性新解法只能 RL</td></tr>
+            <tr><td>教师是闭源 API</td><td>序列级 KD 起步；在乎上限再上 <strong>GAD</strong></td><td>arXiv:2511.10643（注意目标模型的服务条款）</td></tr>
+            <tr><td>多阶段 RL 流水线互相冲能力</td><td><strong>Cross-stage OPD</strong> 作阶段间黏合剂</td><td>GLM-5 范式</td></tr>
+            <tr><td>多个领域 specialist 要合一</td><td>specialist 各自训练 → <strong>OPD 合并</strong></td><td>DeepSeek-V4 范式</td></tr>
+            <tr><td>持续学习/个性化，怕灾难性遗忘</td><td>新知识 SFT ⇄ 老模型 OPD 交替</td><td>TM 博客 continual learning 实验</td></tr>
+            <tr><td>只训一个模型且无现成教师</td><td>老老实实 SFT/RL，<strong>别为蒸馏先训教师</strong></td><td>Distillation Scaling Laws 的预算分析</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout tip">
+        <div class="callout-title">蒸馏配方检查单</div>
+        <div class="callout-body">
+          □ 教师选择先看「师生思维模式兼容性 + 教师 CE」，不看排行榜名次 &nbsp;
+          □ 先 off-policy 后 on-policy，顺序不可颠倒 &nbsp;
+          □ reverse KL 为默认散度；监控学生 pass@k 确认探索空间没有塌 &nbsp;
+          □ 同题多采样扩量（16× 仍有效）优先于花式过滤 &nbsp;
+          □ 教师生成的数据必须过 §7 去污染——<strong>教师可能背过评测集，蒸馏会把污染洗进你的训练集</strong> &nbsp;
+          □ 师生不同 tokenizer 时确认 token 对齐方案，否则退回序列级 KD
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         5 · Mid-training 与退火数据工程
+         ============================================================ -->
+    <section id="sec-midtraining" class="section">
+      <div class="section-head">
+        <div class="section-num">SECTION 5</div>
+        <h2>Mid-training 与<span class="grad">退火数据工程</span>：后训练的上游决定下游</h2>
+        <p class="section-lede">
+          「推理能力应该在 LR 退火期注入」已从技巧升格为共识；mid-training 也从临时叫法变成有 survey、有分类法的正式阶段。
+          这一章解释机制、给出各家打法对照，并讲清 2025 年底出现的新争议：好数据放最后，会撞上最低的学习率。
+        </p>
+      </div>
+
+      <h3 id="sec-wsd">5.1 WSD 调度与 MiniCPM 的发现</h3>
+      <p>
+        故事从学习率调度开始。MiniCPM (arXiv:2404.06395) 推广的 <strong>WSD（Warmup-Stable-Decay）</strong>调度把训练分成三段：
+      </p>
+      <div class="formula boxed">
+        <div class="formula-title">WSD Learning Rate Schedule</div>
+        $$
+        \eta(t)=\begin{cases}
+        \dfrac{t}{T_w}\,\eta_{\max} & t \le T_w \quad\text{(warmup)}\\[6pt]
+        \eta_{\max} & T_w < t \le T_s \quad\text{(stable：恒定高 LR，可无限续训)}\\[6pt]
+        \eta_{\max}\cdot f\!\left(t-T_s\right) & t > T_s \quad\text{(decay：快速退火，}f\text{ 取指数/线性衰减)}
+        \end{cases}
+        $$
+        <p style="font-size:.85rem;color:var(--fg-2);margin-top:8px">
+          与 cosine 不同，WSD 的 stable 段不预设总步数——随时可以从 stable 段分叉出一次 decay 得到「收敛版」模型，
+          天然支持持续训练与数据消融（MiniCPM 用它低成本研究 data-model scaling law）。decay 段是损失骤降的窗口。
+        </p>
+      </div>
+      <p>
+        MiniCPM 的关键实验发现：在 <strong>decay 段混入高质量 SFT 级数据</strong>（与预训练数据混合），
+        收益<strong>远高于</strong>把同样数据放到 SFT 阶段再加——论文的结论是「模型的专门化与能力增强应当从 decay 阶段开始」。
+        机制直觉：decay 段 LR 仍然「够高」、模型可塑性还在，但分布已接近收敛、不会把高质量数据的信号冲散；
+        而到了 SFT 阶段 LR 低两个数量级、能写入的东西有限。
+      </p>
+
+      <h3 id="sec-olmo">5.2 工业打法：OLMo 系、Llama 3 与三阶段课程</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>团队 / 模型</th><th>Mid-training 做法</th><th>已核实细节</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>MiniCPM</strong> (2024)</td>
+              <td>WSD decay 段混 SFT 级数据（指数退火）</td>
+              <td>decay 段注入收益远大于 SFT 段注入</td>
+            </tr>
+            <tr>
+              <td><strong>OLMo 2</strong> (arXiv:2501.00656)</td>
+              <td>Dolmino Mix 1124：退火段换专门数据的 late-stage curriculum</td>
+              <td>显著提升下游 benchmark；流程完全开源可复现</td>
+            </tr>
+            <tr>
+              <td><strong>Llama 3</strong> (arXiv:2407.21783)</td>
+              <td>退火段上调高质量 code/math 占比；<strong>annealing 作为数据评估工具</strong></td>
+              <td>8B 上 GSM8k +24.0%、MATH +6.4%；405B 收益可忽略（大模型已自带）</td>
+            </tr>
+            <tr>
+              <td><strong>Olmo 3</strong> (2025-11, Ai2)</td>
+              <td>三阶段课程：Dolma 3 Mix（~5.9T 主训）→ <strong>Dolmino</strong>（100B，自 2.2T 池精选 math/science/code/指令/思维数据）→ <strong>Longmino</strong>（~50B 长文档，扩到 ~65K 上下文）</td>
+              <td>配套 Dolci 后训练套件（SFT/DPO/RLVR 各阶段数据），当前最完整的开放参照系</td>
+            </tr>
+            <tr>
+              <td><strong>K2-V2</strong> (arXiv:2512.06201)</td>
+              <td>重推理 mid-training + 全程 360° 开放（数据/代码/中间检查点）</td>
+              <td>把领域知识、推理、长上下文、工具使用「灌注」进整条训练管线</td>
+            </tr>
+            <tr>
+              <td><strong>Qwen3-Coder-Next</strong> (arXiv:2603.00729, 2026-02)</td>
+              <td>不重新预训练，复用 Qwen3-Next 80B 预训练底座起点，大规模合成<strong>可验证编码任务 + 可执行环境</strong>，靠 mid-training（continued pretraining）+ RL 直接从环境反馈学习</td>
+              <td>80B-A3B 在编码任务上超过激活参数高一个数量级的 DeepSeek V3.2（37B 激活）/ Kimi K2.5 / GLM-4.7（均 32B 激活），SWE-Bench Pro 42.7%（同 scaffold 下 Claude Sonnet 4.5 为 50.5%）</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        表中最新一行值得单独点破：Qwen3-Coder-Next 与同期的 Qwen3.5（397B-A17B，把混合线性注意力转正并加入多模态）
+        相隔两周发布，但真正改写认知的是前者——没有重新预训练新底座，直接复用 Qwen3-Next 的预训练起点，
+        <strong>几乎全靠 mid-training + post-training 的数据工程</strong>就在编码任务上反超激活参数高一个数量级的旗舰
+        （DeepSeek V3.2 / Kimi K2.5 / GLM-4.7）。这是「<strong>数据工程红利大于参数红利</strong>」的最新例证，
+        也把本章「上游决定下游」的论点推到了极致：当底座与算力都不再是差异来源时，剩下的差异几乎全部来自数据与环境工程。
+      </p>
+      <div class="callout key">
+        <div class="callout-title">Llama 3 首创公开的「annealing 评估法」——小数据集质量的标准量具</div>
+        <div class="callout-body">
+          想知道一个候选数据集有没有价值？Llama 3 的做法：取一个<strong>训练到 50% 的 8B 检查点</strong>，
+          把 LR <strong>线性退火到 0、跑 40B token</strong>，期间给候选数据集设定上采样权重，看 benchmark 变化。
+          这比为每个小数据集跑 scaling law 实验便宜得多，已成为业界评估退火数据的标准方法。
+          注意它评估的是「在退火窗口的边际价值」——与 RegMix 评估「全程配比」回答的是不同问题。
+        </div>
+      </div>
+      <div class="callout warn">
+        <div class="callout-title">术语警告：各家的「mid-training」不是同一个东西</div>
+        <div class="callout-body">
+          有的报告指「退火段换数据」（OLMo 2 Dolmino），有的指独立的第二阶段（Olmo 3 的 100B Dolmino 阶段），
+          有的把长上下文扩展也算进来（Longmino / Mid-Training Survey 的第三轴），还有的把 agentic 持续预训练（CPT）也叫 mid-training。
+          读技术报告时<strong>不要假设同名同义</strong>，先查它的 LR 调度与数据切换点。
+        </div>
+      </div>
+
+      <h3 id="sec-frontload">5.3 推理数据前置：Front-Loading 与 RL 的相互作用</h3>
+      <p>
+        NVIDIA 的 Front-Loading Reasoning (arXiv:2510.03264) 用受控实验回答「推理数据放哪一阶段」：
+      </p>
+      <ul>
+        <li>推理数据<strong>前置到预训练</strong>带来平均 <strong>+19%</strong> 的持久收益，且这部分能力「奠基」之后，
+          <strong>后期 SFT 用再多数据也补不回来</strong>；</li>
+        <li>最优分配是<strong>非对称</strong>的：预训练吃<strong>多样性</strong>（推理模式的广度，+11%），SFT 吃<strong>质量</strong>（+15%）；</li>
+        <li>高质量预训练数据有<strong>潜伏效应</strong>——收益要等 SFT 之后才显现（只评 base model 会低估它）；</li>
+        <li><strong>盲目扩大 SFT 数据量有害</strong>，会冲掉早期注入的推理能力。</li>
+      </ul>
+      <p>
+        把视角再拉到 RL：On the Interplay of Pre-Training, Mid-Training, and RL (arXiv:2512.07783) 的受控结论是
+        <strong>RL 只有在预训练留下足够 headroom、且 RL 数据打在能力边缘（edge of competence）时才产生 pass@128 级的真实增益</strong>；
+        固定算力预算下「加 mid-training」显著优于「全给 RL」。这两篇合起来，给了 pass@k 争论（主综述 §4.5）一个务实的落点：
+        与其争论 RL 能否扩展能力边界，不如先检查你的 mid-training 有没有把先验铺够。
+      </p>
+      <p>
+        闭环的最后一块：ReMiT (arXiv:2602.03075) 把方向反过来——用 RL 调优后的模型给 mid-training 的 token 动态重加权
+        （识别对推理重要的 token），让「RL 强化的能力」回流到 base model，10 个预训练 benchmark 平均 +3%，
+        且收益在后训练各阶段保持 +2% 以上。<strong>pre→mid→post 的单行道正在变成循环</strong>。
+      </p>
+
+      <h3 id="sec-lr-curriculum">5.4 新争议：LR × 课程的交互陷阱</h3>
+      <p>
+        「好数据放退火段」的朴素推论是「数据按质量升序排课程」。
+        How Learning Rate Decay Wastes Your Best Data (arXiv:2511.18903) 指出这撞上了一个结构性矛盾：
+        <strong>质量升序课程把最好的数据排在训练末尾，而那正是 LR 最低、有效学习量最小的时刻</strong>。
+        论文的对策：用<strong>更温和的 LR 衰减 + 模型检查点平均（checkpoint averaging）</strong>恢复课程收益，
+        无需任何额外数据处理即获得平均 +1.64% 的 benchmark 提升。
+      </p>
+      <div class="callout insight">
+        <div class="callout-title">怎么调和「MiniCPM 说放 decay 段好」与「2511.18903 说 decay 浪费好数据」？</div>
+        <div class="callout-body">
+          两者对照的基线不同。MiniCPM 比较的是「decay 段注入 vs <strong>SFT 段</strong>注入」——decay 赢；
+          2511.18903 比较的是「decay 末端注入 vs <strong>课程与 LR 联合设计</strong>」——联合设计赢。
+          合并后的工程结论：高质量数据进 decay 段没错，但 ① decay 不要太陡（温和衰减），
+          ② 最好的数据不要堆在最后一刻，可提前到 decay 前中段或多次复访，③ 用 checkpoint averaging 把 decay 段的多个状态合起来。
+          <strong>课程顺序必须与 LR 调度联合设计，单独优化任何一个都会留钱在桌上。</strong>
+        </div>
+      </div>
+
+      <h3>5.5 实操总结</h3>
+      <ul>
+        <li><strong>预算分配口诀</strong>：能力先验（推理/代码/领域知识）尽量前置——预训练求多样、mid-training 求质、SFT 求格式与精、RL 求边缘突破。每往后挪一个阶段，同一份数据的「写入深度」下降一档。</li>
+        <li><strong>候选数据先过 annealing run</strong>（Llama 3 方法）再决定是否买/造全量。</li>
+        <li><strong>解释 RL 实验差异时</strong>，先对齐底座的 mid-training 配方；跨底座结论（尤其只在 Qwen 系上验证的）要打折——Qwen 预训练里已含大量可被 RL「激发」的推理行为，这正是 mid-training 先验的体现。</li>
+        <li><strong>退火数据本身要去污染</strong>：decay 段的数据「写入深度」最大，一旦混入评测集变体，污染也最深（§7）。</li>
+      </ul>
+    </section>
+
+    <!-- ============================================================
+         6 · 现代合成数据管线
+         ============================================================ -->
+    <section id="sec-synthetic" class="section">
+      <div class="section-head">
+        <div class="section-num">SECTION 6</div>
+        <h2>现代合成数据管线：<span class="grad">从 Self-Instruct 到闭环造数</span></h2>
+        <p class="section-lede">
+          主综述对合成数据的覆盖止于 2023 年的 Self-Instruct / Evol-Instruct。此后三年，合成数据从「便宜替代品」
+          变成了 Phi 系的主菜、Nemotron 的开放资产、以及 2026 年可被 RL 直接优化的「策略」。
+        </p>
+      </div>
+
+      <h3 id="sec-syn-history">6.1 谱系：四代方法一张图</h3>
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-date">2022-12 · 第一代：自举</div>
+          <div class="timeline-title">Self-Instruct (arXiv:2212.10560)</div>
+          <div class="timeline-desc">用模型自己生成指令-输入-输出三元组，过滤无效/重复后微调自身；vanilla GPT-3 在 Super-NaturalInstructions 上 +33%，逼近 InstructGPT-001。Alpaca（175 seed → 52K, davinci-003 蒸馏）把它变成开源运动。</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-date">2023-04 · 第二代：演化</div>
+          <div class="timeline-title">Evol-Instruct / WizardLM (arXiv:2304.12244)</div>
+          <div class="timeline-desc">对种子指令做 in-depth 演化（加约束、深化、增加推理步数）与 in-breadth 演化（扩话题/技能面），解决 Self-Instruct 产物复杂度不足的问题。UltraChat、Vicuna 等同期沿对话线扩量。</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-date">2023-06 → 2024-12 · 第三代：体系化（质量工程）</div>
+          <div class="timeline-title">Phi 系「教科书路线」与 Magpie、Nemotron</div>
+          <div class="timeline-desc">合成数据从「佐料」变「主菜」：管线类型化（rewrite / self-revision / instruction reversal…）、以可控质量大规模量产，并出现零种子提取（Magpie）与开放数据集资产化（Nemotron）。详见 §6.2–6.4。</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-date">2026 · 第四代：闭环优化</div>
+          <div class="timeline-title">DPG：数据生成器本身成为 RL 策略 (arXiv:2604.08423)</div>
+          <div class="timeline-desc">不再人工设计管线，而是以「下游模型在目标指标上的表现」为奖励直接优化数据生成器——合成数据从静态管线走向闭环（§6.5）。</div>
+        </div>
+      </div>
+
+      <h3 id="sec-phi">6.2 Phi 系：textbook 质量路线的两个里程碑</h3>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">phi-1 · Textbooks Are All You Need (arXiv:2306.11644)</div>
+          <div class="card-meta">1.3B 参数 · 4 天 × 8×A100</div>
+          <div class="card-body">
+            只用 7B token——6B 经过「教科书质量」过滤的 web 代码 + 1B GPT-3.5 合成的教科书与习题——
+            就在 HumanEval 拿到 <strong>50.6%</strong> pass@1、MBPP <strong>55.5%</strong>，
+            350M 的 phi-1-small 也有 45%。证明了「质量过滤 + 定向合成」能让小模型越级。
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Phi-4 Technical Report (arXiv:2412.08905)</div>
+          <div class="card-meta">14B 参数 · 合成数据为主菜</div>
+          <div class="card-body">
+            <strong>50 大类合成数据集</strong>，各自依赖不同种子与多阶段 prompting，总计约 <strong>400B unweighted token</strong>。
+            管线类型包括：multi-agent prompting（多模型出解互滤）、<strong>self-revision</strong>（模型按 rubric 自我批改迭代）、
+            <strong>instruction reversal</strong>（从代码反推指令，保证指令-代码对的紧致性）。
+            结果：在 STEM 问答上<strong>超过教师 GPT-4</strong>——蒸馏数据若组织得好，学生可以越过教师（呼应 §4.6 的教师选择结论）。
+          </div>
+        </div>
+      </div>
+      <div class="callout insight">
+        <div class="callout-title">Phi 路线的方法论本质</div>
+        <div class="callout-body">
+          不是「用大模型生成数据」这件事新，而是把<strong>每条管线当产品管理</strong>：种子来源、生成程序、过滤器、混合权重全部显式化、可消融。
+          50 类管线意味着 50 个可独立调优的质量旋钮——这与 §1.3 的「配比是科学」一脉相承。
+          风险同样明确：合成分布会复制教师的盲区与污染（教师背过的评测题会变成「合成原创题」），这是 §7.1 蒸馏污染传导的入口。
+        </div>
+      </div>
+
+      <h3 id="sec-magpie">6.3 Magpie：对齐数据可以被「反向提取」</h3>
+      <p>
+        Magpie (arXiv:2406.08464, ICLR 2025) 的发现简洁得近乎魔术：对齐过的模型（如 Llama-3-Instruct）拿到
+        <strong>只有 chat template 左半边</strong>（到 user 消息位置为止）的输入时，会自己「吐出」一条像模像样的用户指令——
+        因为这就是它对齐训练分布的自回归延续。流程：
+      </p>
+      <div class="algo-box">
+        <div class="algo-header">
+          <div class="algo-title">Magpie：零种子合成对齐数据</div>
+          <div class="algo-tag">self-synthesis</div>
+        </div>
+        <div class="algo-body">
+<span class="kw">for</span> i <span class="kw">in</span> range(<span class="var">N</span>):<br/>
+&nbsp;&nbsp;<span class="var">query</span>&nbsp;&nbsp;&nbsp;&nbsp;= LLM_aligned(<span class="num">"&lt;|begin|&gt;&lt;|user|&gt;"</span>)&nbsp;&nbsp;&nbsp;<span class="cmt"># 只喂模板前缀 → 模型自吐指令</span><br/>
+&nbsp;&nbsp;<span class="var">response</span> = LLM_aligned(template(<span class="var">query</span>))&nbsp;&nbsp;<span class="cmt"># 正常生成回答</span><br/>
+<span class="cmt"># 4M 对 → 质量/难度/多样性打分 → 精选 300K → SFT base model</span>
+        </div>
+      </div>
+      <p>
+        用这 300K 数据微调 Llama-3-8B-base，效果<strong>与官方 Llama-3-8B-Instruct 相当</strong>——而官方版用了
+        1000 万量级的 SFT 数据 + 后续偏好优化。两个推论：① 对齐模型的指令分布是可以被零成本「抽取」的资产
+        （也是安全/合规上的提示）；② 指令分布的<strong>覆盖面</strong>可能比人工设计的种子更接近真实用户分布——
+        这是它打平官方配方的原因之一。
+      </p>
+
+      <h3 id="sec-nemotron">6.4 Nemotron：合成数据的开放资产化</h3>
+      <p>
+        NVIDIA 把合成数据当成<strong>可发布的基础设施</strong>在运营：
+        Llama-Nemotron Post-Training Dataset 公开了 <strong>3,300 万+ SFT 样本</strong>（code/math/science/chat/safety）
+        与 5.6 万条 RL 指令数据；Nemotron-Post-Training-Dataset-v2 在此之上把 SFT/RL 数据扩展到五种语言
+        （西/法/德/意/日），合成教师包括 DeepSeek-R1-0528 与 Qwen3-235B-A22B 等。
+        配合 §5.3 的 Nemotron-Pretraining-SFT 数据（前置推理路线），NVIDIA 路线的特征是：
+        <strong>教师明示、管线明示、可商用</strong>——把「数据壁垒」翻译成「数据资产」。
+        对从业者的直接价值：这是少数能直接拿来复现「能力注入量级」（§1.2）的全开放语料。
+      </p>
+
+      <h3 id="sec-dpg">6.5 DPG：把数据生成器当 RL 策略</h3>
+      <p>
+        Synthetic Data for any Differentiable Target (arXiv:2604.08423) 提出 <strong>Dataset Policy Gradient</strong>：
+        把「生成一批训练样本」视为动作，把「目标模型在这批样本上 SFT 后、在任意可微目标上的表现」视为奖励，
+        用高阶梯度做数据归因（attribution），归因分数作为 policy reward 更新生成器。
+      </p>
+      <div class="formula">
+        <div class="formula-title">DPG 的目标结构（示意）</div>
+        $$
+        \max_{\phi}\;\; \mathbb{E}_{\mathcal{D}\sim G_\phi}\Big[\, J\big(\,\theta^\ast(\mathcal{D})\,\big)\Big],
+        \qquad \theta^\ast(\mathcal{D}) = \mathrm{SFT}(\theta_0;\, \mathcal{D})
+        $$
+        <p style="font-size:.85rem;color:var(--fg-2);margin-top:8px">
+          生成器 \(G_\phi\) 的梯度穿过「学生被这批数据训练之后的表现」\(J\)。论文用「只靠 SFT 合成样本就把 QR 码图案写进模型权重」
+          这类演示证明了控制的精度。意义：§1 的「配方搜索」还在离散空间里挑选，DPG 直接对生成分布做连续优化——
+          「为目标能力定向造数」第一次成为端到端可优化的问题。
+        </p>
+      </div>
+      <div class="callout danger">
+        <div class="callout-title">合成数据的三个系统性风险</div>
+        <div class="callout-body">
+          ① <strong>分布塌缩/模式单一</strong>：合成数据反复喂回训练会收窄分布尾部——管线里必须有多样性度量与去重（§3.2 的坑在更大尺度重演）；
+          ② <strong>蒸馏污染传导</strong>：教师背过的评测集会以「原创面目」混进合成数据（§7.1），对 AIME/GPQA 这类小评测集是致命的；
+          ③ <strong>偏好与事实偏差放大</strong>：教师的系统性偏好（格式、立场、语言习惯）会在学生身上被放大——
+          多教师混合（如 Nemotron v2 同时用 R1 与 Qwen 系）是廉价的对冲。
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         7 · 数据去污染与基准污染审计
+         ============================================================ -->
+    <section id="sec-decontam" class="section">
+      <div class="section-head">
+        <div class="section-num">SECTION 7</div>
+        <h2>数据去污染与<span class="grad">基准污染审计</span>：先问污染，再谈结论</h2>
+        <p class="section-lede">
+          没有去污染流程的数据工程是在给自己下毒：你以为在优化能力，其实在优化背题。
+          本章覆盖训练侧防线、评测侧审计、蒸馏时代的隐蔽传导，以及 2025 年出现的新形态——agent 当场搜到答案。
+        </p>
+      </div>
+
+      <h3 id="sec-contam-types">7.1 污染类型学：四条进入路径</h3>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">① 直接污染（训练集含原题）</div>
+          <div class="card-body">评测题原文或近似变体进入预训练/SFT 语料。最经典的形态；n-gram 防线主要防它。</div>
+        </div>
+        <div class="card">
+          <div class="card-title">② 改写污染（paraphrase / 翻译 / 格式变换）</div>
+          <div class="card-body">同一道题换说法、换语言、换数字模板。n-gram 完全失效，需要 embedding / LLM 模糊匹配；
+          2026 年的立场文进一步指出连「混淆格式」模型都见过，主张 benchmark 本身要设计成抗污染（动态/再生成式）。</div>
+        </div>
+        <div class="card">
+          <div class="card-title">③ 蒸馏传导污染（合成数据时代的主形态）</div>
+          <div class="card-body"><strong>教师背过评测集 → 教师生成的「原创」训练数据携带评测题的解法/原题变体 → 学生隐蔽污染</strong>。
+          你对自己的语料做了完美去污染也防不住它，因为污染在上游教师的权重里。对 AIME（每年 30 题）、GPQA 这类小评测集致命。
+          对策：对合成数据本身再过一遍去污染；优先用日期切割评测（§7.3）验证。</div>
+        </div>
+        <div class="card">
+          <div class="card-title">④ Search-time 污染（agent 时代新形态）</div>
+          <div class="card-body">带搜索的 agent 在<strong>评测当下</strong>直接检索到基准数据集与标准答案（详见 §7.4）。
+          训练侧零污染也挡不住——污染发生在推理时。</div>
+        </div>
+      </div>
+
+      <h3 id="sec-decontam-train">7.2 训练侧三层防线与各家口径</h3>
+      <p>
+        训练侧去污染的标准结构是三层叠加，逐层换精度换召回：
+      </p>
+      <ol>
+        <li><strong>第一层：exact / hash 匹配</strong>——全串或规范化（去空白/符号/小写）后哈希查重。零误杀，但只能抓完全复制。</li>
+        <li><strong>第二层：n-gram overlap</strong>——业界主力，n 取 8–13。各家口径（均已核实出处）：
+          GPT-2 用 8-gram 做事后分析，GPT-3 按 <strong>13-gram</strong> 碰撞扫描，GPT-4 改为<strong>每条评测样本抽 3 个随机
+          50 字符子串</strong>做碰撞（去空格符号后），Tülu 3 用 <strong>8-gram</strong>（细则见下）。n 越小越严格、误杀越多——
+          <strong>报告分数时必须同时报告去污染口径</strong>，不同口径的分数不可比。</li>
+        <li><strong>第三层：embedding 相似度 + LLM 模糊匹配</strong>——抓改写/翻译变体。注意 Tülu 3 的实测教训：
+          embedding 法难以区分「真改写」与「只是分布相似」，他们最终以 n-gram 为主力；LLM judge 逐对判定精度最高但只适合小规模复核。</li>
+      </ol>
+      <div class="callout key">
+        <div class="callout-title">Tülu 3 协议：可以直接抄的去污染规范 (arXiv:2411.15124)</div>
+        <div class="callout-body">
+          <strong>token 级 8-gram 匹配</strong>：测试样本中某 token 若与某训练样本共享一个含它的 8-gram 即记为命中；
+          一条测试样本若 <strong>&gt;50% 的 token</strong> 命中同一条训练样本 → 判定该对实例重叠；
+          一个训练集若与任一评测集的 <strong>&gt;2% 实例</strong>重叠 → 判定该训练集污染、整体处理。
+          用此协议他们发现多个流行开源数据集中招：<strong>UltraFeedback ↔ TruthfulQA、Evol-CodeAlpaca ↔ HumanEval、
+          NuminaMath ↔ MATH、WildChat ↔ 安全评测</strong>。教训：开源数据集 ≠ 干净数据集，
+          去污染后部分榜单分数回落是<strong>正常且正确</strong>的——那部分分数本来就是虚高的。
+        </div>
+      </div>
+
+      <h3 id="sec-decontam-eval">7.3 评测侧审计：你的高分是不是背出来的</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>方法</th><th>机制</th><th>已核实关键数字</th><th>适用场景</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>私有 holdout 复测</strong><br/>GSM1k (arXiv:2405.00332, Scale AI)</td>
+              <td>按原基准的风格/难度/人类解题率<strong>新造</strong>一套私有镜像题，对照公开分数</td>
+              <td>GSM8k→GSM1k 最大掉 <strong>~8%</strong>；若干模型族几乎全尺寸系统性过拟合；模型生成 GSM8k 原题的概率与掉分幅度相关（Spearman r²=0.36）；前沿模型过拟合迹象最小</td>
+              <td>怀疑「榜单分 ≫ 体感」时的金标准；成本高</td>
+            </tr>
+            <tr>
+              <td><strong>成员推断探针</strong><br/>Min-K% Prob (arXiv:2310.16789)</td>
+              <td>未见过的文本会含若干「低概率离群 token」；取概率最低的 K% token 的均值作分数，无需训练、无需语料访问</td>
+              <td>WikiMIA 上较此前方法 <strong>+7.4%</strong>；可用于检测背题、版权文本、隐私审计</td>
+              <td>黑盒快筛单条样本是否被训过</td>
+            </tr>
+            <tr>
+              <td><strong>日期切割 / 动态基准</strong><br/>LiveBench (arXiv:2406.19314)</td>
+              <td>题目来自近期材料（新 arXiv 论文/新闻/影评），<strong>按月上新</strong>、定期整体换血，答案客观可自动判</td>
+              <td>题源晚于训练截止 ⇒ 结构性免疫直接污染（论文自我定位为 contamination-<em>limited</em>，不担保改写传导）</td>
+              <td>持续跟踪模型真实能力的默认选择</td>
+            </tr>
+            <tr>
+              <td><strong>多模型联合去污染</strong><br/>JECS (arXiv:2605.21543)</td>
+              <td>Joint Envelope Conformal Selection：聚合各模型置信信号，conformal 化地<strong>选出可用的评测子集</strong>，对全局污染率（GCR）给出可证明控制</td>
+              <td>把「评测哪些题可信」从启发式变成带统计保证的选择问题</td>
+              <td>横向对比多家模型时的公平性保障</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="sec-stc">7.4 Search-time contamination：评测时的现行犯</h3>
+      <p>
+        Scale AI 的 Search-Time Data Contamination (arXiv:2508.13180) 审计了带搜索能力的 agent（Perplexity 的
+        Sonar Pro / Sonar Reasoning Pro / Sonar Deep Research）：在 HLE、SimpleQA、GPQA 三个基准上，
+        <strong>约 3% 的题目</strong>中 agent 直接在 HuggingFace 上检索到了带 ground-truth 标签的数据集——
+        有的还在推理链里坦然写明「我在 HF 上找到了这组问答对」。把 HuggingFace 从可访问源里禁掉后，
+        这部分题目的准确率<strong>下降约 15%</strong>。
+      </p>
+      <ul>
+        <li><strong>对评测方</strong>：agentic 评测必须<strong>封网</strong>或对检索结果做基准过滤（域名黑名单 + 答案串匹配），
+          并把「检索到题库」记为无效样本；评测报告应披露网络策略。</li>
+        <li><strong>对训练方</strong>：RL 训练环里若有真实搜索工具，reward 可能被「搜到答案」捷径骗过——
+          这是 reward hacking 的数据侧变体（hack 形态总表见 <a href="rl-pitfalls-survey.html">RL Pitfalls</a>）；
+          SWE 任务同理：模型可能背过 GitHub 上的修复 commit，SWE-bench 横向比分要警惕记忆污染。</li>
+      </ul>
+
+      <h3>7.5 去污染检查清单（训练 + 评测两侧）</h3>
+      <div class="callout tip">
+        <div class="callout-title">发布前过一遍</div>
+        <div class="callout-body">
+          <strong>训练侧</strong>：□ 全部 SFT/偏好/RL prompt 过三层防线（exact → 8–13 gram → embedding/LLM 复核）&nbsp;
+          □ 合成/蒸馏数据视同外部数据再过一遍（教师可能背题）&nbsp;
+          □ 去污染口径写进模型卡（n、阈值、覆盖哪些评测集）&nbsp;
+          □ mid-training/退火数据同样适用（写入深度最大）<br/>
+          <strong>评测侧</strong>：□ 关键结论在日期切割基准上复核 &nbsp;
+          □ 对可疑高分跑 Min-K% 探针 &nbsp;
+          □ agentic 评测封网或过滤检索结果 &nbsp;
+          □ 横向对比时确认各家去污染口径一致，否则只报相对自家基线的提升
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         8 · 各家路线与决策框架
+         ============================================================ -->
+    <section id="sec-playbook" class="section">
+      <div class="section-head">
+        <div class="section-num">SECTION 8</div>
+        <h2>各家路线对比与<span class="grad">决策框架</span></h2>
+        <p class="section-lede">
+          把前七章的结论压缩成两件随手可用的工具：一张六家路线对照表，一棵「下一个 token 的预算花在哪」决策树。
+        </p>
+      </div>
+
+      <h3>8.1 六家数据工程路线速览</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>团队</th><th>SFT 数据主路线</th><th>蒸馏的角色</th><th>Mid-training</th><th>辨识度最高的实践</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Meta</strong><br/>(Llama 3)</td>
+              <td>人工 prompt + rejection sampling（K=10–30, RM 选优）+ DPO，多轮迭代</td>
+              <td>辅助（合成数据生成）</td>
+              <td>退火段上调 code/math；annealing 评估法</td>
+              <td>把 RS 做成数据主产线；annealing run 当量具</td>
+            </tr>
+            <tr>
+              <td><strong>Qwen</strong><br/>(Qwen3)</td>
+              <td>分阶段：长 CoT 冷启动 → 推理 RL → Thinking Mode Fusion → 通用 RL</td>
+              <td><strong>核心</strong>：strong-to-weak 两阶段蒸馏量产 0.6B–14B 全家桶（~1/10 GPU 时数）</td>
+              <td>Qwen3 报告未展开；Qwen3-Coder-Next (arXiv:2603.00729) 补上这一格：不重训新底座，靠 mid-training+RL 数据工程登顶编码（§5.2）</td>
+              <td>off-policy → on-policy 蒸馏顺序；pass@64 同步提升</td>
+            </tr>
+            <tr>
+              <td><strong>Moonshot</strong><br/>(K2 / K2.5)</td>
+              <td>超大规模合成 agentic 轨迹（2 万+ 合成工具）+ rubric judge 过滤 + 联合 RL</td>
+              <td>辅助</td>
+              <td>K2.5 延续混合视觉-文本联合预训练、zero-vision SFT</td>
+              <td>rubric 先于轨迹；模拟+真实环境混采</td>
+            </tr>
+            <tr>
+              <td><strong>Ai2</strong><br/>(Tülu / Olmo 3)</td>
+              <td>per-skill 混合 939k → SFT→DPO→RLVR，全开放</td>
+              <td>数据蒸馏（部分技能合成）</td>
+              <td>Dolmino 100B + Longmino 50B 三阶段课程；Dolci 套件</td>
+              <td>8-gram 去污染协议；dev/unseen 双轨评测</td>
+            </tr>
+            <tr>
+              <td><strong>NVIDIA</strong><br/>(Nemotron)</td>
+              <td>开放超大合成集（Llama-Nemotron 3,300 万+ SFT）</td>
+              <td>多教师合成（R1 + Qwen 系）</td>
+              <td><strong>推理数据前置</strong>（Front-Loading +19%）</td>
+              <td>合成数据资产化：教师/管线明示、可商用</td>
+            </tr>
+            <tr>
+              <td><strong>HuggingFace</strong><br/>(SmolLM3)</td>
+              <td>SmolTalk2 1.8B token，completion-only loss，混合推理/非推理模板</td>
+              <td>开源数据再混合</td>
+              <td>11T token 全程公开（含失败）</td>
+              <td>vibe-test 文化；把训练事故写进 playbook</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>8.2 决策树：下一份预算花在哪</h3>
+      <div class="mermaid-wrap">
+<div class="mermaid">
+flowchart TD
+  Q0{"目标是什么？"} -->|"风格/格式/语气"| A1["千条级人工精筛 SFT<br/>(LIMA 区间, §1.1)"]
+  Q0 -->|"注入新能力"| Q1{"底座还没定型？<br/>(还有预训练/退火预算)"}
+  Q0 -->|"小模型复刻大模型"| A4["蒸馏：off-policy 打底<br/>→ on-policy 收尾 (§4.3)"]
+  Q1 -->|"是"| A2["前置！mid-training 退火段<br/>注入推理/领域数据 (§5)"]
+  Q1 -->|"否，只能后训练"| Q2{"有可靠的过滤信号？<br/>(verifier / RM / rubric)"}
+  Q2 -->|"有"| A3["RFT：采样→过滤→SFT<br/>再接 RL 拉开上限 (§3)"]
+  Q2 -->|"没有"| Q3{"有强教师？"}
+  Q3 -->|"白盒"| A4
+  Q3 -->|"黑盒 API"| A5["序列级 KD / GAD (§4.5)"]
+  Q3 -->|"没有"| A6["合成数据管线 + 人工质检<br/>(§6) 或回头攒 verifier"]
+  A1 --> Z["全路径强制项：<br/>🛡️ 三层去污染 (§7)<br/>🔍 vibe-test (§2.5)<br/>📏 packing/masking 正确性 (§2.3-2.4)"]
+  A2 --> Z
+  A3 --> Z
+  A4 --> Z
+  A5 --> Z
+  A6 --> Z
+  style Q0 fill:#1d2638,stroke:#ffd166
+  style Z fill:#1d2638,stroke:#ff6b8a
+  style A4 fill:#1d2638,stroke:#a78bfa
+</div>
+      </div>
+
+      <h3>8.3 十条带出处的「硬」结论</h3>
+      <ol>
+        <li>风格对齐千条够，能力注入按十万–百万级规划——且先考虑能否前置（LIMA；Tülu 3；Front-Loading）。</li>
+        <li>盲目堆 SFT 数据会冲掉早期推理能力——SFT 不是越多越好（arXiv:2510.03264）。</li>
+        <li>SFT 全参起点：lr 5e-6（8B）/2e-6（70B）、linear decay、batch 128、2 epochs（Tülu 3 搜索结论）。</li>
+        <li>LoRA：LR×10、挂 MLP、全层、小 batch；后训练量级内与全参打平，RL 下 rank-1 即可（LoRA Without Regret）。</li>
+        <li>packing 必须 block-diagonal mask + 重置 position_ids，或用 best-fit 零截断方案（TFP；K2-V2）。</li>
+        <li>RFT 全押或 RL 全押都次优——60 示范 + 400 episodes 型的混合配比最优（arXiv:2510.01132；2508.03501 的 11→20→39）。</li>
+        <li>小模型走蒸馏不走 RL：~1/10 成本、pass@k 不塌（Qwen3；TM OPD；R1 蒸馏 72.6% vs 直接 RL ~47%）。</li>
+        <li>教师不是越强越好：capacity gap 是定律级现象（Distillation Scaling Laws；OpenThoughts 的 QwQ&gt;R1）。</li>
+        <li>高质量数据进退火段，但课程要与 LR 联合设计（MiniCPM；arXiv:2511.18903）。</li>
+        <li>分数先过污染审计：私有 holdout 上部分模型族掉分（GSM1k）；agent 会当场搜到答案（STC ~3% 题目）。</li>
+      </ol>
+    </section>
+
+    <!-- ============================================================
+         附录 · 参考文献
+         ============================================================ -->
+    <section id="sec-references" class="section">
+      <div class="section-head">
+        <div class="section-num">APPENDIX</div>
+        <h2>参考<span class="grad">文献</span></h2>
+        <p class="section-lede">按主题组织。所有条目均于 2026-06-12 联网核实标题与编号；点击 arXiv 号直达原文。</p>
+      </div>
+
+      <h3>SFT 基础与质量 vs 数量</h3>
+      <div class="refs-grid">
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2109.01652">arXiv:2109.01652</a></div><div class="ref-title">FLAN: Finetuned Language Models Are Zero-Shot Learners</div><div class="ref-meta">Wei et al., 2021 · Google</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2301.13688">arXiv:2301.13688</a></div><div class="ref-title">The Flan Collection: Designing Data and Methods for Effective Instruction Tuning</div><div class="ref-meta">Longpre et al., 2023 · Google</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2308.10792">arXiv:2308.10792</a></div><div class="ref-title">Instruction Tuning for Large Language Models: A Survey</div><div class="ref-meta">Zhang et al., 2023 · ACM Computing Surveys 2026 · 索引型文献</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2203.02155">arXiv:2203.02155</a></div><div class="ref-title">InstructGPT: Training LMs to Follow Instructions</div><div class="ref-meta">Ouyang et al., 2022 · OpenAI</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2305.11206">arXiv:2305.11206</a></div><div class="ref-title">LIMA: Less Is More for Alignment</div><div class="ref-meta">Zhou et al., 2023 · Meta</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2411.15124">arXiv:2411.15124</a></div><div class="ref-title">Tülu 3: Pushing Frontiers in Open LM Post-Training</div><div class="ref-meta">Lambert et al., 2024 · Ai2</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2506.04178">arXiv:2506.04178</a></div><div class="ref-title">OpenThoughts: Data Recipes for Reasoning Models</div><div class="ref-meta">2025 · ICLR 2026</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2305.10429">arXiv:2305.10429</a></div><div class="ref-title">DoReMi: Optimizing Data Mixtures Speeds Up LM Pretraining</div><div class="ref-meta">Xie et al., 2023 · NeurIPS</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2407.01492">arXiv:2407.01492</a></div><div class="ref-title">RegMix: Data Mixture as Regression for LM Pre-training</div><div class="ref-meta">2024 · ICLR 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2308.12032">arXiv:2308.12032</a></div><div class="ref-title">From Quantity to Quality: Self-Guided Data Selection (IFD)</div><div class="ref-meta">Li et al., 2023</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2312.15685">arXiv:2312.15685</a></div><div class="ref-title">DEITA: What Makes Good Data for Alignment?</div><div class="ref-meta">Liu et al., 2023</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2605.12944">arXiv:2605.12944</a></div><div class="ref-title">AutoSelection: Fixed-Pool Data Recipe Search for SFT</div><div class="ref-meta">2026</div></div>
+      </div>
+
+      <h3>SFT 训练工程</h3>
+      <div class="refs-grid">
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://thinkingmachines.ai/blog/lora/">thinkingmachines.ai/blog/lora</a></div><div class="ref-title">LoRA Without Regret</div><div class="ref-meta">Thinking Machines Lab, 2025-09</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2408.09327">arXiv:2408.09327</a></div><div class="ref-title">Threshold Filtering Packing for SFT</div><div class="ref-meta">2024 · NAACL 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2512.06201">arXiv:2512.06201</a></div><div class="ref-title">K2-V2: A 360-Open, Reasoning-Enhanced LLM</div><div class="ref-meta">LLM360, 2025-12</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook">hf.co/spaces/HuggingFaceTB</a></div><div class="ref-title">The Smol Training Playbook (SmolLM3)</div><div class="ref-meta">Hugging Face, 2025-10</div></div>
+      </div>
+
+      <h3>Rejection Sampling FT 与 SFT/RL 接口</h3>
+      <div class="refs-grid">
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2203.14465">arXiv:2203.14465</a></div><div class="ref-title">STaR: Bootstrapping Reasoning With Reasoning</div><div class="ref-meta">Zelikman et al., 2022</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2304.06767">arXiv:2304.06767</a></div><div class="ref-title">RAFT: Reward rAnked FineTuning</div><div class="ref-meta">Dong et al., 2023</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2407.21783">arXiv:2407.21783</a></div><div class="ref-title">The Llama 3 Herd of Models</div><div class="ref-meta">Meta, 2024</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2507.20534">arXiv:2507.20534</a></div><div class="ref-title">Kimi K2: Open Agentic Intelligence</div><div class="ref-meta">Moonshot, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2510.01132">arXiv:2510.01132</a></div><div class="ref-title">A Practitioner's Guide to Multi-turn Agentic RL</div><div class="ref-meta">Wang &amp; Ammanabrolu, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2508.03501">arXiv:2508.03501</a></div><div class="ref-title">Training Long-Context, Multi-Turn SWE Agents with RL</div><div class="ref-meta">2025 · 11%→20%→39% 案例</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2501.17161">arXiv:2501.17161</a></div><div class="ref-title">SFT Memorizes, RL Generalizes</div><div class="ref-meta">2025 · ICML</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2508.05629">arXiv:2508.05629</a></div><div class="ref-title">On the Generalization of SFT: Reward Rectification (DFT)</div><div class="ref-meta">2025</div></div>
+      </div>
+
+      <h3>蒸馏与 On-Policy Distillation</h3>
+      <div class="refs-grid">
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2306.13649">arXiv:2306.13649</a></div><div class="ref-title">GKD: On-Policy Distillation of Language Models</div><div class="ref-meta">Agarwal et al., 2023 · Google DeepMind</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2505.09388">arXiv:2505.09388</a></div><div class="ref-title">Qwen3 Technical Report</div><div class="ref-meta">Qwen Team, 2025 · strong-to-weak 两阶段</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://thinkingmachines.ai/blog/on-policy-distillation/">thinkingmachines.ai</a></div><div class="ref-title">On-Policy Distillation</div><div class="ref-meta">Kevin Lu et al., 2025-10</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2511.10643">arXiv:2511.10643</a></div><div class="ref-title">Black-Box On-Policy Distillation (GAD)</div><div class="ref-meta">Ye et al., 2025 · Microsoft Research</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2502.08606">arXiv:2502.08606</a></div><div class="ref-title">Distillation Scaling Laws</div><div class="ref-meta">Busbridge et al., 2025 · Apple · ICML</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2604.00626">arXiv:2604.00626</a></div><div class="ref-title">A Survey of On-Policy Distillation for LLMs</div><div class="ref-meta">2026</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2604.13016">arXiv:2604.13016</a></div><div class="ref-title">Rethinking On-Policy Distillation: Phenomenology, Mechanism, and Recipe</div><div class="ref-meta">THUNLP, 2026</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2501.12948">arXiv:2501.12948</a></div><div class="ref-title">DeepSeek-R1（含蒸馏 vs 小模型 RL 对照）</div><div class="ref-meta">DeepSeek, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2602.15763">arXiv:2602.15763</a></div><div class="ref-title">GLM-5: from Vibe Coding to Agentic Engineering</div><div class="ref-meta">Zhipu, 2026 · Cross-Stage OPD</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro">hf.co/deepseek-ai</a></div><div class="ref-title">DeepSeek-V4: Towards Highly Efficient Million-Token Context Intelligence</div><div class="ref-meta">DeepSeek, 2026 · specialist→OPD 合并 · 模型卡附 PDF</div></div>
+      </div>
+
+      <h3>Mid-training 与退火数据工程</h3>
+      <div class="refs-grid">
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2510.06826">arXiv:2510.06826</a></div><div class="ref-title">Mid-Training of Large Language Models: A Survey</div><div class="ref-meta">2025 · 三轴分类法</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2404.06395">arXiv:2404.06395</a></div><div class="ref-title">MiniCPM: Scalable Training Strategies (WSD)</div><div class="ref-meta">2024 · 面壁/THU</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2501.00656">arXiv:2501.00656</a></div><div class="ref-title">2 OLMo 2 Furious (Dolmino Mix)</div><div class="ref-meta">Ai2, 2024 · COLM 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://allenai.org/blog/olmo3">allenai.org/blog/olmo3</a></div><div class="ref-title">Olmo 3: Dolma 3 三阶段课程 + Dolci 套件</div><div class="ref-meta">Ai2, 2025-11</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2510.03264">arXiv:2510.03264</a></div><div class="ref-title">Front-Loading Reasoning: Pretraining ↔ Post-Training Synergy</div><div class="ref-meta">Akter et al., 2025 · NVIDIA</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2512.07783">arXiv:2512.07783</a></div><div class="ref-title">On the Interplay of Pre-Training, Mid-Training, and RL</div><div class="ref-meta">Zhang, Neubig, Yue, 2025 · CMU</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2602.03075">arXiv:2602.03075</a></div><div class="ref-title">ReMiT: RL-Guided Mid-Training</div><div class="ref-meta">2026</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2511.18903">arXiv:2511.18903</a></div><div class="ref-title">How LR Decay Wastes Your Best Data in Curriculum Pretraining</div><div class="ref-meta">2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2603.00729">arXiv:2603.00729</a></div><div class="ref-title">Qwen3-Coder-Next Technical Report</div><div class="ref-meta">Qwen Team, 2026 · 数据工程红利大于参数红利</div></div>
+      </div>
+
+      <h3>合成数据管线</h3>
+      <div class="refs-grid">
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2212.10560">arXiv:2212.10560</a></div><div class="ref-title">Self-Instruct: Aligning LMs with Self-Generated Instructions</div><div class="ref-meta">Wang et al., 2022</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2304.12244">arXiv:2304.12244</a></div><div class="ref-title">WizardLM: Evol-Instruct</div><div class="ref-meta">Xu et al., 2023 · ICLR 2024</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2306.11644">arXiv:2306.11644</a></div><div class="ref-title">Textbooks Are All You Need (phi-1)</div><div class="ref-meta">Microsoft, 2023</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2412.08905">arXiv:2412.08905</a></div><div class="ref-title">Phi-4 Technical Report（50 类合成管线）</div><div class="ref-meta">Microsoft, 2024</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2406.08464">arXiv:2406.08464</a></div><div class="ref-title">Magpie: Alignment Data Synthesis from Scratch</div><div class="ref-meta">Xu et al., 2024 · ICLR 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://huggingface.co/datasets/nvidia/Nemotron-Post-Training-Dataset-v2">hf.co/datasets/nvidia</a></div><div class="ref-title">Nemotron-Post-Training-Dataset v1/v2 · Llama-Nemotron (33M+)</div><div class="ref-meta">NVIDIA, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2604.08423">arXiv:2604.08423</a></div><div class="ref-title">Synthetic Data for any Differentiable Target (DPG)</div><div class="ref-meta">2026</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2602.02276">arXiv:2602.02276</a></div><div class="ref-title">Kimi K2.5: Visual Agentic Intelligence（zero-vision SFT）</div><div class="ref-meta">Moonshot, 2026</div></div>
+      </div>
+
+      <h3>去污染与污染审计</h3>
+      <div class="refs-grid">
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2405.00332">arXiv:2405.00332</a></div><div class="ref-title">GSM1k: A Careful Examination of LLM Performance on Grade School Arithmetic</div><div class="ref-meta">Scale AI, 2024</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2310.16789">arXiv:2310.16789</a></div><div class="ref-title">Detecting Pretraining Data from LLMs (Min-K% Prob)</div><div class="ref-meta">Shi et al., 2023</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2406.19314">arXiv:2406.19314</a></div><div class="ref-title">LiveBench: A Contamination-Limited LLM Benchmark</div><div class="ref-meta">2024 · 按月上新</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2508.13180">arXiv:2508.13180</a></div><div class="ref-title">Search-Time Data Contamination</div><div class="ref-meta">Scale AI, 2025</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2605.21543">arXiv:2605.21543</a></div><div class="ref-title">JECS: Joint Envelope Conformal Selection</div><div class="ref-meta">2026 · 可证明的全局污染率控制</div></div>
+        <div class="ref-item"><div class="ref-arxiv"><a href="https://arxiv.org/abs/2303.08774">arXiv:2303.08774</a></div><div class="ref-title">GPT-4 Technical Report（50 字符子串口径）</div><div class="ref-meta">OpenAI, 2023</div></div>
+      </div>
+
+      <h3>姊妹文档</h3>
+      <ul>
+        <li><a href="llm-post-training-master.html"><strong>🗺️ LLM Post-Training 全景综述</strong></a> — 算法主线（RLHF→DPO→GRPO→Agentic RL）；本文 §4/§5 的蒸馏与 mid-training 视角与其 §2/§4 互补</li>
+        <li><a href="derivations.html"><strong>📐 核心方法原理推导</strong></a> — policy gradient / KL 估计 / DPO / GRPO 推导链；本文 §3.5、§4.1 的公式细节</li>
+        <li><a href="rl-pitfalls-survey.html"><strong>⚠️ RL 实战 Pitfalls</strong></a> — reward hacking、熵塌缩、超参表（RL 侧）；与本文 §2 的 SFT 工程坑互为表里</li>
+        <li><a href="multi-turn-tool-use.html"><strong>🚀 多轮 Tool Use 专题</strong></a> — agentic 轨迹的训练侧（token mask、credit assignment）；本文 §3.3 的下游</li>
+      </ul>
+    </section>
+
+  </main>
+</div>
+
+<!-- Floating TOC for mobile -->
+<button class="fab" onclick="document.querySelector('.sidebar').style.display = document.querySelector('.sidebar').style.display==='block'?'none':'block'">☰</button>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-text">
+      © 2026 · SFT 与数据工程深度专题 · 后训练知识库子报告<br/>
+      内容截止 2026-06-12。所有 arXiv 编号与数字结论均经当日联网核实；学术资源以 arXiv 与原始作者博客为准。
+    </div>
+    <div class="footer-links">
+      <a href="#sec-overview">回到顶部</a>
+      <a href="llm-post-training-master.html">主综述</a>
+      <a href="derivations.html">原理推导</a>
+      <a href="rl-pitfalls-survey.html">RL Pitfalls</a>
+      <a href="#sec-references">参考文献</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+mermaid.initialize({
+  startOnLoad:true,
+  theme:'base',
+  themeVariables:{
+    background:'transparent',
+    primaryColor:'#1d2638',
+    primaryTextColor:'#e6edf7',
+    primaryBorderColor:'#4fd1c5',
+    lineColor:'#5b8def',
+    secondaryColor:'#a78bfa',
+    tertiaryColor:'#151c2e',
+    fontFamily:'Inter, Noto Sans SC, sans-serif'
+  },
+  flowchart:{curve:'basis',htmlLabels:true}
+});
+hljs.highlightAll();
+const tocLinks = document.querySelectorAll('#toc a');
+const observer = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      const id = e.target.id;
+      tocLinks.forEach(a=>{
+        a.classList.toggle('active', a.getAttribute('href')==='#'+id);
+      });
+    }
+  });
+},{rootMargin:'-30% 0px -60% 0px',threshold:0});
+document.querySelectorAll('section.section').forEach(s=>observer.observe(s));
+</script>
+</body>
+</html>
