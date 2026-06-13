@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LLM Post-Training Field Guide · 后训练知识库</title>
+<meta name="description" content="LLM 后训练（Post-Training）研究型知识库：RLHF、RLVR、偏好优化、奖励模型、SFT 数据工程、Agentic RL、评估与安全、训练框架与 2026 前沿配方。" />
+<meta property="og:title" content="LLM Post-Training Field Guide" />
+<meta property="og:description" content="面向研究、工程与复盘的 LLM 后训练资料库：从 RLHF 到 Agentic RL 的一张地图。" />
+<meta property="og:type" content="website" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Serif+SC:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg-0:#0a0e1a; --bg-1:#0f1525; --bg-2:#151c2e; --bg-3:#1d2638;
+  --fg-0:#e6edf7; --fg-1:#b9c4d4; --fg-2:#8492a8; --fg-3:#5b6a82;
+  --acc-cyan:#4fd1c5; --acc-blue:#5b8def; --acc-purple:#a78bfa;
+  --acc-pink:#f48fb1; --acc-yellow:#ffd166; --acc-green:#7be39a;
+  --acc-orange:#ff9f6e; --acc-red:#ff6b8a;
+  --grad-1:linear-gradient(135deg,#5b8def 0%,#a78bfa 50%,#f48fb1 100%);
+  --grad-2:linear-gradient(135deg,#4fd1c5 0%,#5b8def 100%);
+  --grad-3:linear-gradient(135deg,#ffd166 0%,#ff9f6e 100%);
+  --grad-bg:radial-gradient(ellipse at top, rgba(91,141,239,.08), transparent 50%),
+            radial-gradient(ellipse at bottom right, rgba(167,139,250,.06), transparent 50%),
+            radial-gradient(ellipse at bottom left, rgba(79,209,197,.05), transparent 50%);
+  --border-soft:1px solid rgba(255,255,255,.07);
+  --border-mid:1px solid rgba(255,255,255,.12);
+  --shadow-soft:0 8px 32px rgba(0,0,0,.25);
+  --shadow-strong:0 20px 60px rgba(0,0,0,.4);
+  --r-sm:6px; --r-md:10px; --r-lg:16px; --r-xl:24px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Inter','Noto Sans SC',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  background:var(--grad-bg),var(--bg-0);
+  background-attachment:fixed;
+  color:var(--fg-1);
+  line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+
+/* hero */
+header{padding:96px 0 56px;text-align:center;position:relative}
+.eyebrow{
+  display:inline-block;font-size:13px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--acc-cyan);font-weight:600;margin-bottom:20px;
+  font-family:'JetBrains Mono',monospace;
+}
+h1{
+  font-size:clamp(34px,6vw,60px);line-height:1.1;font-weight:800;letter-spacing:-.02em;
+  background:var(--grad-1);-webkit-background-clip:text;background-clip:text;color:transparent;
+  margin-bottom:20px;
+}
+.tagline{
+  font-size:clamp(15px,2.2vw,19px);color:var(--fg-1);max-width:760px;margin:0 auto 28px;
+  font-weight:400;
+}
+.badges{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:8px}
+.badge{
+  font-size:12.5px;font-family:'JetBrains Mono',monospace;color:var(--fg-2);
+  border:var(--border-soft);background:rgba(255,255,255,.03);
+  padding:6px 14px;border-radius:999px;
+}
+.cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:32px}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:15px;
+  padding:13px 26px;border-radius:var(--r-md);transition:transform .18s ease,box-shadow .18s ease;
+}
+.btn-primary{background:var(--grad-2);color:#06121f;box-shadow:var(--shadow-soft)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:var(--shadow-strong)}
+.btn-ghost{border:var(--border-mid);color:var(--fg-0);background:rgba(255,255,255,.02)}
+.btn-ghost:hover{border-color:var(--acc-blue);transform:translateY(-2px)}
+
+/* section */
+section{padding:40px 0}
+.section-head{margin-bottom:28px}
+.section-head h2{
+  font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg-2);
+  font-weight:600;font-family:'JetBrains Mono',monospace;
+}
+.section-head .rule{height:1px;background:linear-gradient(90deg,rgba(255,255,255,.14),transparent);margin-top:14px}
+
+/* cards */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px}
+.card{
+  position:relative;display:flex;flex-direction:column;gap:10px;
+  background:linear-gradient(180deg,var(--bg-2),var(--bg-1));
+  border:var(--border-soft);border-radius:var(--r-lg);padding:24px 24px 22px;
+  transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;
+  overflow:hidden;
+}
+.card::before{
+  content:"";position:absolute;inset:0 0 auto 0;height:3px;background:var(--accent,var(--grad-1));
+  opacity:.85;
+}
+.card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,.18);box-shadow:var(--shadow-strong)}
+.card .num{
+  font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--fg-3);font-weight:600;
+}
+.card h3{
+  font-size:18px;font-weight:700;color:var(--fg-0);line-height:1.35;letter-spacing:-.01em;
+}
+.card p{font-size:14px;color:var(--fg-2);line-height:1.6;flex:1}
+.card .tag{
+  display:inline-flex;align-items:center;font-size:11.5px;font-family:'JetBrains Mono',monospace;
+  color:var(--chip,var(--acc-blue));border:1px solid currentColor;opacity:.9;
+  padding:3px 10px;border-radius:999px;align-self:flex-start;
+}
+.card .file{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--fg-3)}
+
+/* reading paths */
+.paths{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.path{
+  background:rgba(255,255,255,.02);border:var(--border-soft);border-radius:var(--r-md);
+  padding:18px 20px;
+}
+.path .goal{font-size:14px;color:var(--fg-1);font-weight:600;margin-bottom:8px}
+.path .start{font-size:13px;color:var(--acc-cyan);font-family:'JetBrains Mono',monospace}
+
+footer{
+  padding:48px 0 64px;margin-top:32px;border-top:var(--border-soft);text-align:center;
+  color:var(--fg-3);font-size:13.5px;
+}
+footer a{color:var(--fg-1)}
+footer a:hover{color:var(--acc-cyan)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="eyebrow">RLHF · RLVR · Agentic RL · 2020–2026</div>
+    <h1>LLM Post-Training Field Guide</h1>
+    <p class="tagline">面向研究、工程与复盘的大模型后训练资料库。不是论文列表，而是一组可直接阅读的长文专题：把算法公式、训练配方、基础设施、评估安全与 2026 前沿动态串成一张地图。</p>
+    <div class="badges">
+      <span class="badge">中文优先 · 术语保留英文</span>
+      <span class="badge">10 篇长文 + 审计报告</span>
+      <span class="badge">MathJax · Mermaid · 图表</span>
+    </div>
+    <div class="cta">
+      <a class="btn btn-primary" href="llm-post-training-master.html">从全景主线开始 →</a>
+      <a class="btn btn-ghost" href="https://github.com/Young-1231/llm-post-training-field-guide" target="_blank" rel="noopener">GitHub 仓库</a>
+    </div>
+  </div>
+</header>
+
+<section class="wrap">
+  <div class="section-head">
+    <h2>专题文章 · Documents</h2>
+    <div class="rule"></div>
+  </div>
+  <div class="grid">
+
+    <a class="card" href="llm-post-training-master.html" style="--accent:var(--grad-1);--chip:var(--acc-blue)">
+      <span class="num">01 · 总览</span>
+      <h3>LLM Post-Training 全景综述</h3>
+      <p>从 RLHF 到 Agentic RL 的后训练演化主线，2020–2026 的整体地图与脉络。</p>
+      <span class="tag">overview</span>
+    </a>
+
+    <a class="card" href="derivations.html" style="--accent:var(--grad-2);--chip:var(--acc-cyan)">
+      <span class="num">02 · 数学</span>
+      <h3>核心方法原理推导</h3>
+      <p>Policy Gradient、PPO、GRPO、DPO 家族与 KL 估计器的逐步推导。</p>
+      <span class="tag">derivations</span>
+    </a>
+
+    <a class="card" href="sft-data-engineering.html" style="--accent:linear-gradient(135deg,#7be39a,#4fd1c5);--chip:var(--acc-green)">
+      <span class="num">03 · 数据</span>
+      <h3>SFT 与数据工程</h3>
+      <p>SFT、蒸馏、mid-training、合成数据与去污染的配方与取舍。</p>
+      <span class="tag">data</span>
+    </a>
+
+    <a class="card" href="reward-models.html" style="--accent:var(--grad-3);--chip:var(--acc-yellow)">
+      <span class="num">04 · 奖励</span>
+      <h3>奖励模型</h3>
+      <p>Bradley-Terry、PRM/ORM、GenRM、rubric reward 与 judge 偏置。</p>
+      <span class="tag">reward-model</span>
+    </a>
+
+    <a class="card" href="multi-turn-tool-use.html" style="--accent:var(--grad-4,linear-gradient(135deg,#a78bfa,#f48fb1));--chip:var(--acc-purple)">
+      <span class="num">05 · Agent</span>
+      <h3>多轮 Tool Use · Agentic RL</h3>
+      <p>多轮工具使用、Agentic RL 与 turn-level credit assignment 深度专题。</p>
+      <span class="tag">agentic-rl</span>
+    </a>
+
+    <a class="card" href="rl-frameworks-survey.html" style="--accent:linear-gradient(135deg,#5b8def,#4fd1c5);--chip:var(--acc-blue)">
+      <span class="num">06 · 系统</span>
+      <h3>RLHF / RL 训练框架综述</h3>
+      <p>主流训练框架、rollout 与训练解耦、MoE routing mismatch。</p>
+      <span class="tag">frameworks</span>
+    </a>
+
+    <a class="card" href="rl-pitfalls-survey.html" style="--accent:linear-gradient(135deg,#ff9f6e,#ff6b8a);--chip:var(--acc-orange)">
+      <span class="num">07 · 坑点</span>
+      <h3>RL 实战 Pitfalls 综述</h3>
+      <p>熵塌缩、reward hacking、KL、长度偏置、训推失配等典型问题与解法。</p>
+      <span class="tag">pitfalls</span>
+    </a>
+
+    <a class="card" href="eval-safety.html" style="--accent:linear-gradient(135deg,#f48fb1,#ff6b8a);--chip:var(--acc-pink)">
+      <span class="num">08 · 安全</span>
+      <h3>评估与安全后训练</h3>
+      <p>基准污染、安全后训练、emergent misalignment 与 CoT monitorability。</p>
+      <span class="tag">eval-safety</span>
+    </a>
+
+    <a class="card" href="frontier-recipes-2026.html" style="--accent:var(--grad-1);--chip:var(--acc-purple)">
+      <span class="num">09 · 前沿</span>
+      <h3>2026 旗舰后训练配方对照</h3>
+      <p>GLM-5 / DeepSeek-V4 / Qwen3.5 / Kimi K2.5 / Gemini 3 / Opus 4.6 横向对照。</p>
+      <span class="tag">frontier-2026</span>
+    </a>
+
+    <a class="card" href="zh-llm-post-training-resources.html" style="--accent:var(--grad-2);--chip:var(--acc-cyan)">
+      <span class="num">10 · 资源</span>
+      <h3>中文社区精华资源综述</h3>
+      <p>2024–2026 中文社区 LLM post-training / RL 精华资源汇总与导读。</p>
+      <span class="tag">resources</span>
+    </a>
+
+    <a class="card" href="https://github.com/Young-1231/llm-post-training-field-guide/blob/main/audit-report-2026-06.md" target="_blank" rel="noopener" style="--accent:linear-gradient(135deg,#5b6a82,#8492a8);--chip:var(--fg-2)">
+      <span class="num">+ · 审计</span>
+      <h3>2026-06 知识库审计报告</h3>
+      <p>知识库覆盖度审计与缺口清单（Markdown，于 GitHub 渲染查看）。</p>
+      <span class="tag">audit · md</span>
+    </a>
+
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="section-head">
+    <h2>阅读路径 · Reading Paths</h2>
+    <div class="rule"></div>
+  </div>
+  <div class="paths">
+    <div class="path"><div class="goal">快速建立全局框架</div><a class="start" href="llm-post-training-master.html">→ master</a></div>
+    <div class="path"><div class="goal">补齐 RL / 偏好优化数学</div><a class="start" href="derivations.html">→ derivations</a></div>
+    <div class="path"><div class="goal">做 SFT、蒸馏或数据配方</div><a class="start" href="sft-data-engineering.html">→ sft-data</a></div>
+    <div class="path"><div class="goal">选 reward model / judge 方案</div><a class="start" href="reward-models.html">→ reward-models</a></div>
+    <div class="path"><div class="goal">训练 tool-use / agentic 模型</div><a class="start" href="multi-turn-tool-use.html">→ multi-turn</a></div>
+    <div class="path"><div class="goal">搭 RL 系统 / 排查训推失配</div><a class="start" href="rl-frameworks-survey.html">→ frameworks + pitfalls</a></div>
+    <div class="path"><div class="goal">做 benchmark / 安全 / 污染审计</div><a class="start" href="eval-safety.html">→ eval-safety + audit</a></div>
+    <div class="path"><div class="goal">看 2026 旗舰模型怎么练</div><a class="start" href="frontier-recipes-2026.html">→ frontier-2026</a></div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Focus: post-training after base-model pretraining · Snapshot: 2024–2026 文献与工程生态</p>
+    <p style="margin-top:8px"><a href="https://github.com/Young-1231/llm-post-training-field-guide" target="_blank" rel="noopener">github.com/Young-1231/llm-post-training-field-guide</a></p>
+  </div>
+</footer>
+
+</body>
+</html>
