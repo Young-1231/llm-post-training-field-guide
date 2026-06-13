@@ -548,6 +548,27 @@ blockquote cite{display:block;margin-top:10px;font-size:.84rem;color:var(--fg-3)
   body{background:#fff;color:#000}
   .content{padding:0}
 }
+
+/* ===== mobile hardening (≤640px) — phone rendering ===== */
+@media (max-width:640px){
+  .layout{grid-template-columns:minmax(0,1fr);}
+  .content,main.content{padding-left:16px;padding-right:16px;max-width:100%;}
+  .hero{padding-left:18px;padding-right:18px;}
+  .hero h1{font-size:clamp(25px,7vw,34px);line-height:1.18;}
+  .grid-2,.grid-3,.formula-grid{grid-template-columns:minmax(0,1fr);}
+  .card,.formula-card{min-width:0;overflow-wrap:anywhere;}
+  .mermaid-wrap,.svg-diagram,.formula,.formula-card,.tbl-wrap,.compare-wrap,.matrix-2x2{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .content svg,.content canvas,.content img{max-width:100%;height:auto;}
+  .content table{font-size:.84rem;}
+  .content th,.content td{padding:6px 9px;}
+}
+mjx-container[display="true"]{overflow-x:auto;overflow-y:hidden;max-width:100%;}
+@media (max-width:640px){
+  .content,main.content{min-width:0;}
+  .refs-grid{grid-template-columns:minmax(0,1fr);}
+  mjx-container:not([display="true"]){display:inline-block;max-width:100%;overflow-x:auto;overflow-y:hidden;vertical-align:middle;}
+  a,code{overflow-wrap:anywhere;}
+}
 </style>
 </head>
 <body>

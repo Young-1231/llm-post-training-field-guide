@@ -199,6 +199,20 @@
     margin: 14px 0;
     background: var(--box-bg);
   }
+  /* ===== mobile hardening (≤640px) — phone rendering ===== */
+  @media (max-width: 640px) {
+    .container { padding-left: 16px; padding-right: 16px; }
+    header.hero h1, header h1 { font-size: 26px; line-height: 1.2; }
+    table { display: block; width: max-content; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    th, td { padding: 6px 9px; }
+    pre, .formula-box { max-width: 100%; overflow-x: auto; }
+    img, svg, canvas { max-width: 100%; height: auto; }
+  }
+  mjx-container[display="true"] { overflow-x: auto; overflow-y: hidden; max-width: 100%; }
+  @media (max-width: 640px) {
+    mjx-container:not([display="true"]) { display: inline-block; max-width: 100%; overflow-x: auto; overflow-y: hidden; vertical-align: middle; }
+    a, code { overflow-wrap: anywhere; }
+  }
 </style>
 </head>
 <body>

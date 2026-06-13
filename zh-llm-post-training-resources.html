@@ -126,6 +126,14 @@
   }
   ul.summary { margin: 10px 0; padding-left: 22px; }
   ul.summary li { margin-bottom: 6px; }
+  /* ===== mobile hardening (≤640px) — phone rendering ===== */
+  @media (max-width: 640px) {
+    .container { padding: 18px 16px; }
+    header h1 { font-size: 1.7em; line-height: 1.25; }
+    table { display: block; width: max-content; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    pre { max-width: 100%; overflow-x: auto; }
+    img, svg { max-width: 100%; height: auto; }
+  }
 </style>
 </head>
 <body>
