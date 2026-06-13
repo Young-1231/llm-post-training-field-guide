@@ -1194,6 +1194,12 @@ flowchart TD
       </div>
       <p>典型设置：\(H \sim 50\)，只有 \(r_H \neq 0\)。问题是：第 5 turn 的某个搜索决策对最终成功有多大贡献？经典 RL 的答案是 <strong>value function / TD bootstrap</strong>，但在 LLM 多轮场景下不够。</p>
 
+      <div class="callout tip">
+        <div class="callout-title">前提：credit assignment 之前，先得有冷启动轨迹</div>
+        本节默认 rollout 已经能产生<em>合理的</em>多轮工具调用序列——但 base 模型乃至纯指令 SFT 模型往往做不到（不会按格式发起 tool call、拿到返回也不接着推理），稀疏终局奖励此时几乎学不动。因此多轮 agentic RL 几乎都要先用<strong>合成轨迹做 SFT 冷启动</strong>，把策略抬到"能跑通环境"的水平再上 RL。多轮轨迹的合成与筛选管线（Kimi K2 从 ~3000 真实 MCP 工具扩到 2 万+合成工具、judge agent 按 rubric 过滤的 agentic rejection sampling）见配套文档
+        <a href="sft-data-engineering.html#sec-k2-agentic">《SFT 与数据工程》§3.3 Agentic 冷启动：Kimi K2 的轨迹合成管线</a>。
+      </div>
+
       <h3>5.2 谱系坐标系：粒度 × 方法论</h3>
       <p>
         credit assignment 的文献在 2025-2026 爆发式增长，单看论文名很难建立坐标。综述
