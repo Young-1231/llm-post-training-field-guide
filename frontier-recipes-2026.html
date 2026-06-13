@@ -215,6 +215,31 @@
     mjx-container:not([display="true"]) { display: inline-block; max-width: 100%; overflow-x: auto; overflow-y: hidden; vertical-align: middle; }
     a, code { overflow-wrap: anywhere; }
   }
+  /* ============================================================
+     DARK SKIN — 统一为深色设计语言 (matches master / landing)
+     ============================================================ */
+  :root{
+    --bg:#0a0e1a; --fg:#e6edf7; --muted:#8492a8;
+    --accent:#6ea8ff; --accent2:#ff7a93; --warn:#ffd166; --ok:#7be39a;
+    --code-bg:#141b2d; --border:rgba(255,255,255,.10); --box-bg:#141b2d;
+  }
+  body{background:radial-gradient(ellipse at top,rgba(91,141,239,.08),transparent 55%),radial-gradient(ellipse at bottom left,rgba(79,209,197,.05),transparent 55%),var(--bg);background-attachment:fixed;}
+  a{color:var(--accent);}
+  header.hero{border-bottom-color:rgba(255,255,255,.14);}
+  h2.section{border-bottom-color:rgba(255,255,255,.10);}
+  h4{color:#cdd7e6;}
+  nav.toc{box-shadow:0 8px 32px rgba(0,0,0,.25);}
+  .callout-warn{background:rgba(255,209,102,.10);}
+  .callout-tip {background:rgba(123,227,154,.10);}
+  .callout-bug {background:rgba(255,122,147,.10);}
+  .callout-info{background:rgba(110,168,255,.10);}
+  th{background:rgba(255,255,255,.05);}
+  .tag{background:rgba(255,255,255,.08);color:#c4cedd;}
+  .tag.bug{background:rgba(255,122,147,.16);color:#ffb3c0;}
+  .tag.fix{background:rgba(123,227,154,.16);color:#a6ecbd;}
+  .tag.alg{background:rgba(110,168,255,.16);color:#b3cdff;}
+  .tag.axis{background:rgba(167,139,250,.16);color:#cfc0ff;}
+  ::selection{background:rgba(110,168,255,.30);}
 </style>
 </head>
 <body>

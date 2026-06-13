@@ -251,6 +251,29 @@
     mjx-container:not([display="true"]) { display: inline-block; max-width: 100%; overflow-x: auto; overflow-y: hidden; vertical-align: middle; }
     a, code { overflow-wrap: anywhere; }
   }
+  /* ============================================================
+     DARK SKIN — 统一为深色设计语言 (matches master / landing)
+     ============================================================ */
+  :root{
+    --primary:#6ea8ff; --primary-dark:#9bb8f0; --accent:#a78bfa;
+    --bg:#0a0e1a; --bg-card:#141b2d; --text:#e6edf7; --text-muted:#8492a8;
+    --border:rgba(255,255,255,.10); --code-bg:#0f1525; --code-text:#e6edf7;
+    --highlight:rgba(255,209,102,.16); --table-header:rgba(255,255,255,.05);
+  }
+  body{background:radial-gradient(ellipse at top,rgba(91,141,239,.08),transparent 55%),radial-gradient(ellipse at bottom left,rgba(79,209,197,.05),transparent 55%),var(--bg);background-attachment:fixed;}
+  .card,.framework-card,.feature-item{background:var(--bg-card);}
+  .badge{background:rgba(110,168,255,.14);color:#b3cdff;border-color:rgba(110,168,255,.25);}
+  .badge.stars{background:rgba(255,209,102,.16);color:#ffd98a;border-color:rgba(255,209,102,.30);}
+  .badge.version{background:rgba(123,227,154,.16);color:#a6ecbd;border-color:rgba(123,227,154,.30);}
+  .badge.org{background:rgba(167,139,250,.16);color:#cfc0ff;border-color:rgba(167,139,250,.30);}
+  .badge.algo{background:rgba(244,143,177,.16);color:#ffb3cf;border-color:rgba(244,143,177,.30);}
+  tr:hover{background:rgba(255,255,255,.04);}
+  code{background:rgba(255,255,255,.07);color:#ffa6c9;}
+  pre code{background:transparent;}
+  .highlight-box{background:rgba(255,209,102,.10);border-left-color:#ffd166;}
+  .info-box{background:rgba(110,168,255,.10);border-left-color:#6ea8ff;}
+  .warn-box{background:rgba(255,122,147,.10);border-left-color:#ff7a93;}
+  ::selection{background:rgba(110,168,255,.30);}
 </style>
 </head>
 <body>
@@ -318,7 +341,7 @@
 <section id="trl">
 <h2>二、TRL（HuggingFace）—— RLHF 的事实教学标准</h2>
 
-<p style="font-size:0.9em;color:#a04000;background:#fff8e1;border-left:3px solid #f0ad4e;padding:8px 12px;margin:8px 0;">⚠️ 注意：下文及对比表中的 GitHub Star 数（如 18.4k★、21.2k★、9.5k★ 等）均为 <strong>2026.05 时点近似值</strong>，会随时间持续变化，请勿视为精确数字。</p>
+<p style="font-size:0.9em;color:#ffd98a;background:rgba(255,209,102,.10);border-left:3px solid #ffd166;padding:8px 12px;margin:8px 0;">⚠️ 注意：下文及对比表中的 GitHub Star 数（如 18.4k★、21.2k★、9.5k★ 等）均为 <strong>2026.05 时点近似值</strong>，会随时间持续变化，请勿视为精确数字。</p>
 
 <div class="framework-card tier-a">
 <h3 style="margin-top:0;border:none;">TRL: Transformer Reinforcement Learning</h3>
