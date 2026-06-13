@@ -1072,5 +1072,27 @@ L1 防「学坏」：verifier 红队三问、hack classifier、CoT 只读、inoc
 <p class="small">本文档为 post-training 系列之七 · 生成日期 2026-06-12 · 全部引用经当日联网核实；与审计报告（audit-report-2026-06.md G30-G33）中个别二手数字不一致处（红队人数/金额、13-gram 归属、emergent misalignment 原始论文编号），以本文一手核实为准。</p>
 
 </div>
+<script>
+/* 全站跨文档导航：上一篇 / 首页 / 下一篇（10 篇统一脚本） */
+(function(){
+  var O=[['llm-post-training-master.html','全景综述'],['derivations.html','核心推导'],['sft-data-engineering.html','SFT 与数据工程'],['reward-models.html','奖励模型'],['multi-turn-tool-use.html','多轮 Tool Use'],['rl-frameworks-survey.html','RL 训练框架'],['rl-pitfalls-survey.html','RL 实战坑点'],['eval-safety.html','评估与安全'],['frontier-recipes-2026.html','2026 前沿配方'],['zh-llm-post-training-resources.html','中文资源综述']];
+  var cur=(location.pathname.split('/').pop()||'');
+  var i=O.findIndex(function(x){return x[0]===cur;}); if(i<0) return;
+  var css='.doc-nav{max-width:980px;margin:24px auto 72px;padding:0 24px;display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between;font-family:Inter,"Noto Sans SC",-apple-system,BlinkMacSystemFont,sans-serif;}'
+    +'.doc-nav a{flex:1 1 220px;min-width:0;display:flex;flex-direction:column;gap:3px;padding:14px 18px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:#b9c4d4;text-decoration:none;transition:transform .18s,border-color .18s,color .18s,background .18s;}'
+    +'.doc-nav a:hover{border-color:#5b8def;color:#e6edf7;transform:translateY(-2px);background:rgba(91,141,239,.06);}'
+    +'.doc-nav .l{font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:#5b6a82;}'
+    +'.doc-nav .t{font-size:.92rem;font-weight:600;}'
+    +'.doc-nav .home{flex:0 0 auto;align-items:center;justify-content:center;text-align:center;}'
+    +'.doc-nav .nx{text-align:right;align-items:flex-end;}'
+    +'@media(max-width:1100px){.doc-nav{padding:0 16px;}}';
+  var s=document.createElement('style');s.textContent=css;document.head.appendChild(s);
+  var prev=O[i-1],next=O[i+1],h='';
+  if(prev) h+='<a href="'+prev[0]+'"><span class="l">← 上一篇</span><span class="t">'+prev[1]+'</span></a>';
+  h+='<a class="home" href="index.html"><span class="t">🏠 知识库首页</span></a>';
+  if(next) h+='<a class="nx" href="'+next[0]+'"><span class="l">下一篇 →</span><span class="t">'+next[1]+'</span></a>';
+  var n=document.createElement('nav');n.className='doc-nav';n.innerHTML=h;document.body.appendChild(n);
+})();
+</script>
 </body>
 </html>
